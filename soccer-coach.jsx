@@ -38,6 +38,14 @@ const FORMATIONS = {
 };
 const DEFAULT_FORMATION = "1-3-2-3";
 const POSITIONS   = FORMATIONS[DEFAULT_FORMATION];
+// All positions across all formations — used in squad position dropdowns
+const ALL_POSITIONS = [
+  {id:"gk", label:"Goalkeeper"},
+  {id:"dl", label:"Left Def"},  {id:"dc", label:"Centre Def"}, {id:"dr", label:"Right Def"},
+  {id:"ml", label:"Left Mid"},  {id:"mc", label:"Centre Mid"}, {id:"mr", label:"Right Mid"},
+  {id:"al", label:"Left Wing"}, {id:"ar", label:"Right Wing"},
+  {id:"lf", label:"Left Fwd"},  {id:"rf", label:"Right Fwd"},  {id:"st", label:"Striker"},
+];
 const PAIR_COLORS = ["#f59e0b", "#a855f7", "#06b6d4"];
 
 function getPositions(formation) { return FORMATIONS[formation] || FORMATIONS[DEFAULT_FORMATION]; }
@@ -157,6 +165,55 @@ function computePlayerStats(games) {
     potmArr.forEach(name=>{ ensure(name); map[name].potm++; });
   });
   return Object.entries(map).map(([name,s])=>({name,goals:s.goals,apps:s.gameIds.size,mins:Math.round(s.mins),gkPeriods:s.gkPeriods,potm:s.potm})).sort((a,b)=>b.apps-a.apps||b.goals-a.goals);
+}
+
+// ── Single source of truth for all results involving my team ─────────────────
+// Priority: fixtureScores (entered via Fixtures screen) > game object scores
+// Returns array of { id, type, round, dateStr, opponent, isHome, us, them, game }
+function getAllResults() {
+  const myTeam   = localStorage.getItem('soccerCoach_fixtureTeam') || '';
+  const fxScores = loadFxScores();
+  const games    = loadGames();
+  const results  = [];
+  const usedGameIds = new Set();
+
+  // 1. Fixture-based results — fixtureScores is the truth
+  FIXTURES.forEach(f => {
+    if (!myTeam || (f.home !== myTeam && f.away !== myTeam)) return;
+    const sc = fxScores[fixtureKey(f)];
+    if (!sc || sc.postponed) return;           // no score recorded yet
+    const isHome = f.home === myTeam;
+    const us     = isHome ? sc.home : sc.away;
+    const them   = isHome ? sc.away : sc.home;
+    // Attach full game object if one exists (for lineup/events detail)
+    const game   = games.find(g => g.linkedFixtureKey === fixtureKey(f)) || null;
+    if (game) usedGameIds.add(game.id);
+    results.push({ id: fixtureKey(f), type:'fixture', round:f.round, dateStr:f.date,
+                   opponent: isHome ? f.away : f.home, isHome, us, them, game });
+  });
+
+  // 2. Standalone games — played through the app but not linked to any fixture
+  games.forEach(g => {
+    if (g.linkedFixtureKey || usedGameIds.has(g.id)) return;
+    const sc = getScore(g, fxScores);
+    results.push({ id: g.id, type:'standalone', round:null,
+                   dateStr: new Date(g.date).toLocaleDateString('en-AU'),
+                   opponent: g.opponent||'Opposition', isHome:null, us:sc.us, them:sc.them, game:g });
+  });
+
+  return results;
+}
+
+// ── Season stats — now driven by getAllResults so fixtures & game log agree ──
+function computeSeasonStats() {
+  const results = getAllResults();
+  const played  = results.length;
+  const wins    = results.filter(r => r.us > r.them).length;
+  const draws   = results.filter(r => r.us === r.them).length;
+  const losses  = results.filter(r => r.us < r.them).length;
+  const gf      = results.reduce((s,r) => s + r.us, 0);
+  const ga      = results.reduce((s,r) => s + r.them, 0);
+  return { played, wins, draws, losses, gf, ga, gd: gf-ga };
 }
 
 // ── Alarm ─────────────────────────────────────────────────────────────────────
@@ -1016,15 +1073,7 @@ function LadderScreen({ onBack, embedded }) {
 //  SCREEN: MAIN MENU
 // ════════════════════════════════════════════════════════════════════════════════
 function MenuScreen({ games, settings, onNewGame, onViewSeason, onViewTeam, onViewSettings }) {
-  const played = games.length;
-  const _fx    = loadFxScores();
-  const _sc    = games.map(g=>getScore(g,_fx));
-  const wins   = _sc.filter(s=>s.us>s.them).length;
-  const draws  = _sc.filter(s=>s.us===s.them).length;
-  const losses = _sc.filter(s=>s.us<s.them).length;
-  const gf     = _sc.reduce((sum,s)=>sum+s.us,0);
-  const ga     = _sc.reduce((sum,s)=>sum+s.them,0);
-  const gd     = gf - ga;
+  const { played, wins, draws, losses, gf, ga, gd } = computeSeasonStats();
   const teamName = settings.teamName || "Coach";
 
   return (
@@ -1062,9 +1111,10 @@ function MenuScreen({ games, settings, onNewGame, onViewSeason, onViewTeam, onVi
           <button style={{...S.tile,background:"#1e293b",border:"1px solid #334155"}} onClick={onViewTeam}>
             <span style={S.tileIcon}>👥</span><span style={S.tileLbl}>Team</span>
           </button>
-          <button style={{...S.tile,background:"#1e293b",border:"1px solid #334155",gridColumn:"1/-1",aspectRatio:"auto",padding:"14px 0"}} onClick={onViewSettings}>
+          <button style={{...S.tile,background:"#1e293b",border:"1px solid #334155"}} onClick={onViewSettings}>
             <span style={S.tileIcon}>⚙️</span><span style={S.tileLbl}>Settings</span>
           </button>
+
         </div>
       </div>
     </div>
@@ -1074,9 +1124,9 @@ function MenuScreen({ games, settings, onNewGame, onViewSeason, onViewTeam, onVi
 // ════════════════════════════════════════════════════════════════════════════════
 //  SCREEN: SETTINGS
 // ════════════════════════════════════════════════════════════════════════════════
-function SettingsScreen({ settings, onSave, onBack }) {
+function SettingsScreen({ settings, onSave, onBack, onViewImportExport }) {
   const [form, setForm] = useState({ ...settings });
-  const [importMsg, setImportMsg] = useState('');
+
   const allTeams = [...new Set(FIXTURES.flatMap(f => [f.home, f.away]))].sort();
 
   function upd(key, val) { setForm(f=>({...f,[key]:val})); }
@@ -1088,38 +1138,9 @@ function SettingsScreen({ settings, onSave, onBack }) {
     onBack();
   }
 
-  function exportData() {
-    const data = {
-      version: 1,
-      exportDate: new Date().toISOString(),
-      fixtureScores: loadFxScores(),
-      teamNotes: loadTeamNotes(),
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url;
-    a.download = `soccer-coach-${new Date().toISOString().slice(0,10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
 
-  function importData(file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target.result);
-        if (data.fixtureScores) saveFxScores(data.fixtureScores);
-        if (data.teamNotes)    saveTeamNotes(data.teamNotes);
-        setImportMsg('✓ Data imported successfully');
-        setTimeout(() => setImportMsg(''), 3000);
-      } catch {
-        setImportMsg('✗ Invalid file — please use a Soccer Coach export.');
-        setTimeout(() => setImportMsg(''), 4000);
-      }
-    };
-    reader.readAsText(file);
-  }
+
+
 
   return (
     <div style={S.page}>
@@ -1147,19 +1168,9 @@ function SettingsScreen({ settings, onSave, onBack }) {
 
         {/* Import / Export */}
         <div style={{borderTop:'1px solid #1e3a5f', paddingTop:12, marginTop:4}}>
-          <div style={{fontSize:12, fontWeight:700, color:'#64748b', marginBottom:10}}>Season Data</div>
-          <div style={{display:'flex', gap:8}}>
-            <button style={{...S.btnDark, flex:1, fontSize:13}} onClick={exportData}>📤 Export</button>
-            <label style={{...S.btnDark, flex:1, fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:10}}>
-              📥 Import
-              <input type="file" accept=".json" style={{display:'none'}}
-                onChange={e=>{ if(e.target.files[0]){ importData(e.target.files[0]); e.target.value=''; } }} />
-            </label>
-          </div>
-          {importMsg && <div style={{fontSize:12, color: importMsg.startsWith('✓')?'#4ade80':'#f87171', textAlign:'center', marginTop:8}}>{importMsg}</div>}
-          <div style={{fontSize:11, color:'#475569', marginTop:8, lineHeight:1.5}}>
-            Export saves all fixture scores and team notes. Import merges data from a previous export.
-          </div>
+          <button style={{...S.btnDark, width:'100%', fontSize:13, display:'flex', alignItems:'center', justifyContent:'center', gap:8}} onClick={onViewImportExport}>
+            📦 Import / Export Data
+          </button>
         </div>
       </div>
     </div>
@@ -1170,37 +1181,39 @@ function SettingsScreen({ settings, onSave, onBack }) {
 //  SCREEN: PLAYER STATS
 // ════════════════════════════════════════════════════════════════════════════════
 function StatsScreen({ games, onBack }) {
-  const [sortBy, setSortBy] = useState("apps");
-  const rows = computePlayerStats(games).sort((a,b)=>{
-    if(sortBy==="goals")return b.goals-a.goals;
-    if(sortBy==="gkPeriods")return b.gkPeriods-a.gkPeriods;
-    if(sortBy==="potm")return b.potm-a.potm;
-    return b.apps-a.apps||b.goals-a.goals;
-  });
+  const rows = computePlayerStats(games).sort((a,b)=>b.apps-a.apps||b.goals-a.goals);
+  const COL = {width:38,textAlign:"center",fontSize:13,fontWeight:700,flexShrink:0};
   return (
     <div style={S.page}>
-      <div style={{...S.card,maxWidth:440}}>
-        <button style={S.btnGhost} onClick={onBack}>← Back</button>
-        <h1 style={S.h1}>Player Stats</h1>
-        {rows.length===0&&<p style={S.sub}>Save some games to see player stats here.</p>}
-        {rows.length>0&&(<>
-          <div style={{display:"flex",gap:6}}>
-            {[["apps","Games"],["goals","Goals"],["gkPeriods","GK"],["potm","MVP"]].map(([key,lbl])=>(
-              <button key={key} style={{...S.tab,...(sortBy===key?S.tabOn:{}),flex:1,padding:"7px 0",fontSize:11}} onClick={()=>setSortBy(key)}>{lbl}</button>
-            ))}
-          </div>
-          <div style={S.statsHeader}><span style={{flex:1}}>Player</span><span style={S.statCol}>Apps</span><span style={S.statCol}>⚽</span><span style={S.statCol}>🧤</span><span style={{...S.statCol,fontSize:10}}>⭐</span></div>
-          {rows.map((r,i)=>(
-            <div key={r.name} style={{...S.statsRow,background:i%2===0?"#0f172a":"#111827"}}>
-              <span style={{flex:1,fontSize:13,color:"#f1f5f9",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.name}</span>
-              <span style={{...S.statCol,color:sortBy==="apps"?"#06b6d4":"#94a3b8"}}>{r.apps||"–"}</span>
-              <span style={{...S.statCol,color:r.goals>0?"#22c55e":"#64748b",fontWeight:r.goals>0?800:400}}>{r.goals||"–"}</span>
-              <span style={{...S.statCol,color:r.gkPeriods>0?"#38bdf8":"#334155",fontWeight:r.gkPeriods>0?700:400}}>{r.gkPeriods>0?r.gkPeriods:"–"}</span>
-              <span style={{...S.statCol,color:r.potm>0?"#fcd34d":"#334155",fontWeight:r.potm>0?700:400}}>{r.potm>0?r.potm:"–"}</span>
-            </div>
-          ))}
-          <p style={{...S.sub,fontSize:11,textAlign:"center"}}>Stats from {games.length} saved game{games.length!==1?"s":""}.</p>
-        </>)}
+      <div style={{...S.card,maxWidth:440,padding:0}}>
+        <div style={{padding:"14px 16px 10px",borderBottom:"1px solid #1e3a5f"}}>
+          <button style={S.btnGhost} onClick={onBack}>← Back</button>
+          <h1 style={{...S.h1,marginBottom:0}}>Player Stats</h1>
+          <p style={{...S.sub,marginTop:4,marginBottom:0,fontSize:11}}>{games.length} game{games.length!==1?"s":""} recorded</p>
+        </div>
+        {rows.length===0
+          ? <p style={{...S.sub,padding:"20px 16px"}}>Save some games to see player stats.</p>
+          : <>
+              {/* Header */}
+              <div style={{display:"flex",alignItems:"center",padding:"8px 16px",background:"#0f172a",borderBottom:"1px solid #1e3a5f"}}>
+                <span style={{flex:1,fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:1}}>Player</span>
+                <span style={{...COL,fontSize:11,color:"#64748b"}}>Apps</span>
+                <span style={{...COL,fontSize:14}}>⚽</span>
+                <span style={{...COL,fontSize:14}}>🧤</span>
+                <span style={{...COL,fontSize:14}}>⭐</span>
+              </div>
+              {/* Rows */}
+              {rows.map((r,i)=>(
+                <div key={r.name} style={{display:"flex",alignItems:"center",padding:"10px 16px",borderBottom:"1px solid #0f172a",background:i%2===0?"#111827":"#0f172a"}}>
+                  <span style={{flex:1,fontSize:13,color:"#f1f5f9",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.name}</span>
+                  <span style={{...COL,color:"#94a3b8"}}>{r.apps||"–"}</span>
+                  <span style={{...COL,color:r.goals>0?"#22c55e":"#334155",fontWeight:r.goals>0?800:400}}>{r.goals||"–"}</span>
+                  <span style={{...COL,color:r.gkPeriods>0?"#38bdf8":"#334155",fontWeight:r.gkPeriods>0?700:400}}>{r.gkPeriods||"–"}</span>
+                  <span style={{...COL,color:r.potm>0?"#fcd34d":"#334155",fontWeight:r.potm>0?700:400}}>{r.potm||"–"}</span>
+                </div>
+              ))}
+            </>
+        }
       </div>
     </div>
   );
@@ -1263,47 +1276,54 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame }) {
     setTeamNotes(updated); saveTeamNotes(updated);
   }
 
+  const { played, wins, draws, losses, gf, ga, gd } = computeSeasonStats();
   const fxScores = loadFxScores();
-  const wins  = games.filter(g=>{ const s=getScore(g,fxScores); return s.us>s.them; }).length;
-  const draws = games.filter(g=>{ const s=getScore(g,fxScores); return s.us===s.them; }).length;
-  const losses= games.filter(g=>{ const s=getScore(g,fxScores); return s.us<s.them; }).length;
 
   // Sub-screen: Game Log
-  if (subScreen === 'log') return (
+  if (subScreen === 'log') {
+    const allRes = getAllResults();
+    return (
     <div style={S.page}>
       <div style={{ ...S.card, padding:0, display:'flex', flexDirection:'column', maxHeight:'100vh' }}>
         <div style={{ padding:'14px 16px 10px', borderBottom:'1px solid #1e3a5f', flexShrink:0 }}>
           <button onClick={() => setSubScreen(null)} style={S.backBtn}>← Season</button>
           <h2 style={{ margin:'8px 0 0', fontSize:18, fontWeight:800, color:'#f1f5f9' }}>📋 Game Log</h2>
+          <p style={{ margin:'4px 0 0', fontSize:11, color:'#64748b' }}>{allRes.length} result{allRes.length!==1?'s':''} — fixture results + standalone games</p>
         </div>
         <div style={{ overflowY:'auto', flex:1, padding:'4px 16px 40px' }}>
-          {games.length === 0 && <p style={{ ...S.sub, padding:'20px 0' }}>No games saved yet.</p>}
-          {games.slice().reverse().map(g => {
-            const sc  = getScore(g, fxScores);
-            const res = sc.us > sc.them ? 'W' : sc.us < sc.them ? 'L' : 'D';
+          {allRes.length === 0 && <p style={{ ...S.sub, padding:'20px 0' }}>No results yet. Enter scores in Fixtures or play a game.</p>}
+          {allRes.map(r => {
+            const res = r.us > r.them ? 'W' : r.us < r.them ? 'L' : 'D';
             const resColor = res==='W'?'#22c55e':res==='L'?'#ef4444':'#f59e0b';
-            const scorers = [...new Set((g.goals||[]).filter(x=>x.team==='us').map(x=>x.scorer))];
-            const potmArr = Array.isArray(g.potm)?g.potm:(g.potm?[g.potm]:[]);
+            const g = r.game;
+            const scorers = g ? [...new Set((g.goals||[]).filter(x=>x.team==='us').map(x=>x.scorer))] : [];
+            const potmArr = g ? (Array.isArray(g.potm)?g.potm:(g.potm?[g.potm]:[])) : [];
+            const hasDetail = !!g;
             return (
-              <div key={g.id} style={{ ...S.gameRow, marginBottom:6 }} onClick={() => onOpenGame(g.id)}>
+              <div key={r.id} style={{ ...S.gameRow, marginBottom:6, opacity:1 }}
+                onClick={() => hasDetail && onOpenGame(g.id)}>
                 <div style={{ ...S.resultBadge, background:resColor+'22', color:resColor, border:`1px solid ${resColor}55` }}>{res}</div>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={S.gameOpp}>vs {g.opponent||'Opposition'}</div>
-                  <div style={S.gameDate}>{new Date(g.date).toLocaleDateString()}</div>
+                  <div style={S.gameOpp}>vs {r.opponent}</div>
+                  <div style={S.gameDate}>
+                    {r.round ? r.round+' · ' : ''}{r.dateStr}
+                    {r.type==='fixture' && <span style={{ fontSize:9, color:'#475569', marginLeft:4 }}>{r.isHome?'H':'A'}</span>}
+                  </div>
                   <div style={{ display:'flex', gap:6, marginTop:3, flexWrap:'wrap' }}>
                     {scorers.length>0 && <span style={{ fontSize:9, color:'#86efac', fontWeight:600 }}>⚽ {scorers.join(', ')}</span>}
                     {potmArr.length>0  && <span style={{ fontSize:9, color:'#fcd34d', fontWeight:600 }}>⭐ {potmArr.join(', ')}</span>}
+                    {!hasDetail && <span style={{ fontSize:9, color:'#475569', fontWeight:600 }}>fixture only</span>}
                   </div>
                 </div>
-                <div style={S.gameScore}>{sc.us}–{sc.them}</div>
-                <button style={S.btnTinyX} onClick={e=>{ e.stopPropagation(); onDeleteGame(g.id); }}>✕</button>
+                <div style={S.gameScore}>{r.us}–{r.them}</div>
+                {hasDetail && <button style={S.btnTinyX} onClick={e=>{ e.stopPropagation(); onDeleteGame(g.id); }}>✕</button>}
               </div>
             );
           })}
         </div>
       </div>
     </div>
-  );
+  );}
 
   // Sub-screen: Fixtures
   if (subScreen === 'fixtures') return (
@@ -1371,10 +1391,10 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame }) {
       <div style={S.card}>
         <button style={S.btnGhost} onClick={onBack}>← Menu</button>
         <h1 style={S.h1}>📅 Season</h1>
-        {games.length > 0 && (
+        {played > 0 && (
           <div style={S.scoreTile}>
             <div style={{ display:'flex' }}>
-              <div style={S.scoreTileStat}><div style={S.scoreTileNum}>{games.length}</div><div style={S.scoreTileLbl}>Played</div></div>
+              <div style={S.scoreTileStat}><div style={S.scoreTileNum}>{played}</div><div style={S.scoreTileLbl}>Played</div></div>
               <div style={S.scoreTileStat}><div style={{ ...S.scoreTileNum, color:'#4ade80' }}>{wins}</div><div style={S.scoreTileLbl}>Won</div></div>
               <div style={S.scoreTileStat}><div style={{ ...S.scoreTileNum, color:'#fcd34d' }}>{draws}</div><div style={S.scoreTileLbl}>Drawn</div></div>
               <div style={S.scoreTileStat}><div style={{ ...S.scoreTileNum, color:'#f87171' }}>{losses}</div><div style={S.scoreTileLbl}>Lost</div></div>
@@ -1541,6 +1561,12 @@ function GameDetailScreen({ game, onBack, onUpdateGame }) {
               {allPlayers.map(n=><option key={n} value={n}>{n}</option>)}
             </select>
           </div>
+          {game.voiceNotes && (
+            <div style={{background:"#0c1a0c",border:"1px solid #22c55e33",borderRadius:10,padding:"10px 14px",marginBottom:10}}>
+              <div style={{fontSize:11,fontWeight:700,color:"#4ade80",letterSpacing:1,marginBottom:6}}>🎙️ VOICE NOTES</div>
+              <div style={{fontSize:13,color:"#d1fae5",whiteSpace:"pre-wrap",lineHeight:1.6}}>{game.voiceNotes}</div>
+            </div>
+          )}
           <div style={S.reportBox}>{loading?"✨ Generating…":report}</div>
           {!loading&&(
             <div style={{display:"flex",gap:8}}>
@@ -1654,17 +1680,24 @@ function SquadScreen({ mode, onNext, onBack, onViewOpponent }) {
   const [squad, setSquad]   = useState(()=>loadSquad());
   const [config, setConfig] = useState(()=>loadConfig());
   const [input, setInput]   = useState("");
-  const [opponent, setOpponent] = useState("");
+
+  // Pre-fill opponent from next fixture
+  const myTeam = localStorage.getItem('soccerCoach_fixtureTeam') || '';
+  const nextFix = FIXTURES.find(f=>(f.home===myTeam||f.away===myTeam)&&f.s==='u');
+  const suggestedOpponent = nextFix ? (nextFix.home===myTeam?nextFix.away:nextFix.home) : '';
+  const [opponent, setOpponent] = useState(suggestedOpponent);
 
   function persist(next){ setSquad(next); saveSquad(next); }
-  function addPlayer(){ const name=input.trim(); if(!name||squad.some(p=>p.name===name))return; persist([...squad,{name,pos:""}]); setInput(""); }
+  function addPlayer(){ const name=input.trim(); if(!name||squad.some(p=>p.name===name))return; persist([...squad,{name,pos:"",pos2:"",pos3:""}]); setInput(""); }
   function remove(name){ persist(squad.filter(p=>p.name!==name)); }
-  function setPos(name,pos){ persist(squad.map(p=>p.name===name?{...p,pos}:p)); }
+  function setPos(name,field,val){ persist(squad.map(p=>p.name===name?{...p,[field]:val}:p)); }
   function updCfg(key,val){ const next={...config,[key]:val}; setConfig(next); saveConfig(next); }
 
   const isNewGame = mode==="newGame";
   const pm = getPeriodMins(config);
   const pmDisplay = Number.isInteger(pm) ? `${pm}` : pm.toFixed(1);
+
+  const posOpts = <><option value="">—</option>{ALL_POSITIONS.map(p=><option key={p.id} value={p.id}>{p.label}</option>)}</>;
 
   return (
     <div style={S.page}>
@@ -1673,8 +1706,42 @@ function SquadScreen({ mode, onNext, onBack, onViewOpponent }) {
         <div style={S.pill}>{config.formation||DEFAULT_FORMATION}</div>
         <h1 style={S.h1}>{isNewGame?"New Game":"Manage Squad"}</h1>
 
+        {/* Players — always at top */}
+        <div style={S.fieldLbl}>Players {squad.length>0&&`(${squad.length})`}</div>
+        <div style={{display:"flex",gap:8,marginBottom:8}}>
+          <input style={S.inp} placeholder="Player name…" value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addPlayer()} />
+          <button style={S.btnAdd} onClick={addPlayer}>Add</button>
+        </div>
+        <div style={S.squadList}>
+          {squad.length===0&&<div style={S.empty}>No players yet.</div>}
+          {squad.map((p,i)=>(
+            <div key={p.name} style={{...S.squadRow,flexDirection:"column",alignItems:"stretch",gap:6,padding:"10px 10px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={S.squadNum}>{i+1}</span>
+                <span style={{...S.squadName,flex:1}}>{p.name}</span>
+                <button style={S.btnX} onClick={()=>remove(p.name)}>✕</button>
+              </div>
+              <div style={{display:"flex",gap:6,paddingLeft:28}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:9,color:"#64748b",fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:2}}>Primary</div>
+                  <select style={{...S.posSel,width:"100%"}} value={p.pos||""} onChange={e=>setPos(p.name,"pos",e.target.value)}>{posOpts}</select>
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:9,color:"#64748b",fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:2}}>Alt 1</div>
+                  <select style={{...S.posSel,width:"100%"}} value={p.pos2||""} onChange={e=>setPos(p.name,"pos2",e.target.value)}>{posOpts}</select>
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:9,color:"#64748b",fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:2}}>Alt 2</div>
+                  <select style={{...S.posSel,width:"100%"}} value={p.pos3||""} onChange={e=>setPos(p.name,"pos3",e.target.value)}>{posOpts}</select>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* New Game bottom section */}
         {isNewGame && (<>
-          <div>
+          <div style={{marginTop:8}}>
             <div style={S.fieldLbl}>Opponent</div>
             <div style={{display:"flex",gap:6}}>
               <input style={{...S.inp,flex:1}} placeholder="e.g. Riverside Rovers" value={opponent} onChange={e=>setOpponent(e.target.value)} />
@@ -1682,6 +1749,9 @@ function SquadScreen({ mode, onNext, onBack, onViewOpponent }) {
                 <button style={{...S.btnAdd,background:"#1e3a5f",border:"1px solid #3b82f633",fontSize:11,padding:"9px 10px",whiteSpace:"nowrap"}} onClick={()=>onViewOpponent(opponent.trim())}>🔍 Scout</button>
               )}
             </div>
+            {suggestedOpponent && opponent===suggestedOpponent && (
+              <div style={{fontSize:11,color:"#60a5fa",marginTop:4}}>📅 From next fixture — tap to change</div>
+            )}
           </div>
           <div style={S.configBox}>
             <div style={S.configHd}>⚙️ Match Settings</div>
@@ -1709,37 +1779,13 @@ function SquadScreen({ mode, onNext, onBack, onViewOpponent }) {
             </div>
             <div style={{fontSize:11,color:"#22c55e",textAlign:"center"}}>= {pmDisplay} min per period</div>
           </div>
+          <button style={{...S.btnGreen,opacity:squad.length<9?0.4:1}} disabled={squad.length<9} onClick={()=>onNext(squad,config,opponent)}>
+            Pick Starting XI →
+          </button>
+          {squad.length<9&&<p style={S.warn}>Need at least 9 players.</p>}
         </>)}
 
-        <div style={S.fieldLbl}>Players {squad.length>0&&`(${squad.length})`}</div>
-        <div style={{display:"flex",gap:8}}>
-          <input style={S.inp} placeholder="Player name…" value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addPlayer()} />
-          <button style={S.btnAdd} onClick={addPlayer}>Add</button>
-        </div>
-        <div style={S.squadList}>
-          {squad.length===0&&<div style={S.empty}>No players yet.</div>}
-          {squad.map((p,i)=>(
-            <div key={p.name} style={S.squadRow}>
-              <span style={S.squadNum}>{i+1}</span>
-              <span style={S.squadName}>{p.name}</span>
-              <select style={S.posSel} value={p.pos} onChange={e=>setPos(p.name,e.target.value)}>
-                <option value="">No pos</option>
-                {POSITIONS.map(pos=><option key={pos.id} value={pos.id}>{pos.label}</option>)}
-              </select>
-              <button style={S.btnX} onClick={()=>remove(p.name)}>✕</button>
-            </div>
-          ))}
-        </div>
-
-        {isNewGame
-          ? <>
-              <button style={{...S.btnGreen,opacity:squad.length<9?0.4:1}} disabled={squad.length<9} onClick={()=>onNext(squad,config,opponent)}>
-                Pick Starting XI →
-              </button>
-              {squad.length<9&&<p style={S.warn}>Need at least 9 players.</p>}
-            </>
-          : <button style={S.btnGreen} onClick={onBack}>Done</button>
-        }
+        {!isNewGame && <button style={S.btnGreen} onClick={onBack}>Done</button>}
       </div>
     </div>
   );
@@ -1754,7 +1800,12 @@ function PickerScreen({ squad, config, opponent, onNext, onBack }) {
   const names     = squad.map(p=>p.name);
   const [slots, setSlots] = useState(()=>{
     const s={}; posIds.forEach(id=>s[id]="");
-    squad.forEach(p=>{ if(p.pos&&posIds.includes(p.pos)&&!s[p.pos]) s[p.pos]=p.name; });
+    // First pass: fill by position match (primary, then alts)
+    squad.forEach(p=>{ [p.pos,p.pos2,p.pos3].filter(Boolean).forEach(pos=>{ if(posIds.includes(pos)&&!s[pos]) s[pos]=p.name; }); });
+    // Second pass: greedy fill any remaining slots with unassigned players
+    const used=new Set(Object.values(s).filter(Boolean));
+    const remaining=[...squad.map(p=>p.name).filter(n=>!used.has(n))];
+    posIds.forEach(id=>{ if(!s[id]&&remaining.length) s[id]=remaining.shift(); });
     return s;
   });
   const assigned = Object.values(slots).filter(Boolean);
@@ -2129,7 +2180,8 @@ function MatchScreen({ half1, config, squad, opponent, onSaveGame, onExit }) {
 
   const [halves, setHalves] = useState(()=>[half1, Array.from({length:config.numPeriods},()=>({slots:null,seeded:false}))]);
   const [halfIdx, setHalfIdx] = useState(0);
-  const [pidx, setPidx]       = useState(0);
+  const [pidx, setPidx]         = useState(0);
+  const [manualPeriod, setManualPeriod] = useState(false);
   const [selected, setSelected] = useState(null);
   const [dragging, setDragging] = useState(null);
   const [periodLeft, setPeriodLeft] = useState(Math.round(periodMins*60));
@@ -2142,7 +2194,13 @@ function MatchScreen({ half1, config, squad, opponent, onSaveGame, onExit }) {
   const [eventsView, setEventsView] = useState(false);
   const [report, setReport] = useState("");
   const [reportLoading, setReportLoading] = useState(false);
+  const [voiceNotes, setVoiceNotes]   = useState("");      // accumulated transcript
+  const [voiceReview, setVoiceReview] = useState("");      // editable copy in review modal
+  const [isVoiceRec, setIsVoiceRec]   = useState(false);
+  const [voicePulse, setVoicePulse]   = useState(false);
   const timerRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const pulseRef = useRef(null);
 
   const periods = halves[halfIdx];
   const cur     = periods[pidx];
@@ -2171,16 +2229,62 @@ function MatchScreen({ half1, config, squad, opponent, onSaveGame, onExit }) {
     },1000);}else clearInterval(timerRef.current);
     return()=>clearInterval(timerRef.current);
   },[running]);
+  // Auto-advance period tab when timer crosses period boundaries
+  useEffect(()=>{
+    if(manualPeriod) return;
+    const pSecs = Math.round(periodMins * 60);
+    const next = Math.min(Math.floor(halfElapsed / pSecs), periods.length - 1);
+    if(next >= 0) setPidx(next);
+  },[halfElapsed, manualPeriod, periodMins, periods.length]);
 
   function toggleRun(){ unlockAudio(); setRunning(r=>!r); setAlarmed(false); }
+
+  // ── Voice notes (Web Speech API) ────────────────────────────────────────
+  function startVoice() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert('Speech recognition is not supported on this browser. Try Chrome or Safari on iOS 14.5+.'); return; }
+    const rec = new SR();
+    rec.lang = 'en-AU';
+    rec.continuous = true;
+    rec.interimResults = false;
+    let buf = '';
+    rec.onresult = e => {
+      buf = Array.from(e.results).map(r=>r[0].transcript).join(' ');
+    };
+    rec.onerror = () => stopVoice(buf);
+    rec.onend   = () => { if(isVoiceRecRef.current) { stopVoice(buf); } };
+    rec.start();
+    recognitionRef.current = rec;
+    isVoiceRecRef.current = true;
+    setIsVoiceRec(true);
+    // Pulse animation
+    pulseRef.current = setInterval(()=>setVoicePulse(p=>!p), 600);
+  }
+  const isVoiceRecRef = useRef(false);
+  function stopVoice(extraText) {
+    isVoiceRecRef.current = false;
+    setIsVoiceRec(false);
+    clearInterval(pulseRef.current);
+    setVoicePulse(false);
+    try { recognitionRef.current?.stop(); } catch {}
+    if (extraText && extraText.trim()) {
+      const ts = String(Math.floor(halfElapsed/60)).padStart(2,'0') + ':' + String(halfElapsed%60).padStart(2,'0');
+      setVoiceNotes(prev => prev ? prev + '\n[' + ts + '] ' + extraText.trim() : '[' + ts + '] ' + extraText.trim());
+    }
+  }
+  function toggleVoice() {
+    if (isVoiceRec) { stopVoice(''); }
+    else { startVoice(); }
+  }
   function resetPeriodTimer(){ setRunning(false); setPeriodLeft(Math.round(periodMins*60)); setAlarmed(false); }
   function goNextPeriod(){
     setRunning(false); setPeriodLeft(Math.round(periodMins*60)); setAlarmed(false);
-    if(pidx<periods.length-1){setPidx(pidx+1);setSelected(null);}
+    setManualPeriod(false); // return to timer-driven period
+    if(pidx<periods.length-1){setSelected(null);}
     else if(halfIdx<halves.length-1){setHalfIdx(halfIdx+1);setPidx(0);setSelected(null);setHalfElapsed(0);}
   }
-  function switchPeriod(i){ setPidx(i); setSelected(null); }
-  function switchHalf(h){ if(h<0||h>halves.length-1)return; setHalfIdx(h);setPidx(0);setSelected(null);setHalfElapsed(0); }
+  function switchPeriod(i){ setManualPeriod(true); setPidx(i); setSelected(null); }
+  function switchHalf(h){ if(h<0||h>halves.length-1)return; setHalfIdx(h);setPidx(0);setManualPeriod(false);setSelected(null);setHalfElapsed(0); }
 
   const touchStart=useRef(null);
   function onTouchStart(e){touchStart.current={x:e.touches[0].clientX,y:e.touches[0].clientY};}
@@ -2247,7 +2351,7 @@ function MatchScreen({ half1, config, squad, opponent, onSaveGame, onExit }) {
   const themGoals=goals.filter(g=>g.team==="them");
 
   function currentGameObj(){
-    return{opponent,date:Date.now(),goals,matchEvents,scoreUs:usGoals.length,scoreThem:themGoals.length,halves,config};
+    return{opponent,date:Date.now(),goals,matchEvents,scoreUs:usGoals.length,scoreThem:themGoals.length,halves,config,voiceNotes:voiceNotes||""};
   }
   async function generateReport(){
     setModal("report");setReportLoading(true);
@@ -2301,6 +2405,40 @@ function MatchScreen({ half1, config, squad, opponent, onSaveGame, onExit }) {
             <div style={{display:"flex",gap:8}}>
               <button style={{...S.btnGreen,flex:1}} onClick={saveAndExit}>Save</button>
               <button style={S.btnCancel} onClick={()=>setModal(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modal==="voiceReview"&&(
+        <div style={S.modalBack} onClick={()=>{}}>
+          <div style={{...S.modalBox,maxWidth:460,maxHeight:"85vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
+            <div style={S.modalHeader}>
+              <span style={S.modalTitle}>🎙️ Review Voice Notes</span>
+              <button style={S.btnX} onClick={()=>setModal("save")}>✕</button>
+            </div>
+            <p style={{...S.sub,margin:"0 0 10px",fontSize:12}}>Edit your notes before saving. These will be stored with the game.</p>
+            <textarea
+              value={voiceReview}
+              onChange={e=>setVoiceReview(e.target.value)}
+              rows={10}
+              style={{...S.sel,fontFamily:"inherit",lineHeight:1.6,resize:"vertical",flex:1,whiteSpace:"pre-wrap"}}
+              placeholder="Your voice notes will appear here…"
+            />
+            <div style={{display:"flex",gap:8,marginTop:12}}>
+              <button style={{...S.btnGreen,flex:2}} onClick={()=>{
+                const game=currentGameObj();
+                game.voiceNotes=voiceReview.trim();
+                game.report=voiceReview.trim()||report||buildLocalReport(game);
+                game.id="g_"+Date.now();
+                onSaveGame(game);
+              }}>✓ Approve &amp; Save</button>
+              <button style={{...S.btnDark,flex:1}} onClick={()=>{
+                const game=currentGameObj();
+                game.id="g_"+Date.now();
+                game.report=report||buildLocalReport(game);
+                onSaveGame(game);
+              }}>Save without Notes</button>
             </div>
           </div>
         </div>
@@ -2407,9 +2545,21 @@ function MatchScreen({ half1, config, squad, opponent, onSaveGame, onExit }) {
 
       <div style={{display:"flex",gap:8,width:"100%",maxWidth:500,marginTop:8}}>
         <button style={S.btnNotes} onClick={()=>setEventsView(true)}>📊 Events {matchEvents.length>0&&<span style={S.noteBadge}>{matchEvents.length}</span>}</button>
+        <button style={S.btnNotes} onClick={toggleVoice}
+          title={isVoiceRec?"Stop recording":"Start voice note"}
+          style={{...S.btnNotes,flex:0,width:52,paddingLeft:0,paddingRight:0,flexDirection:"column",gap:2,
+            background:isVoiceRec?(voicePulse?"#7f1d1d":"#450a0a"):"#1e293b",
+            border:isVoiceRec?"1px solid #ef4444":"1px solid #334155",
+            color:isVoiceRec?"#fca5a5":"#94a3b8",transition:"background 0.3s"}}>
+          <span style={{fontSize:18}}>{isVoiceRec?"🔴":"🎙️"}</span>
+          <span style={{fontSize:8,fontWeight:700,marginTop:1}}>{voiceNotes?"●":""}</span>
+        </button>
         <button style={S.btnReport} onClick={generateReport}>📋 Report</button>
       </div>
-      <button style={{...S.btnGreen,width:"100%",maxWidth:500,marginTop:8}} onClick={()=>setModal("save")}>End &amp; Save Game</button>
+      <button style={{...S.btnGreen,width:"100%",maxWidth:500,marginTop:8}} onClick={()=>{
+        if(voiceNotes.trim()){setVoiceReview(voiceNotes);setModal("voiceReview");}
+        else setModal("save");
+      }}>End &amp; Save Game</button>
 
       <div style={S.halfBar}>
         <button style={{...S.halfArrow,opacity:halfIdx>0?1:0.3}} onClick={()=>switchHalf(halfIdx-1)} disabled={halfIdx===0}>←</button>
@@ -2427,6 +2577,292 @@ function MatchScreen({ half1, config, squad, opponent, onSaveGame, onExit }) {
 // ════════════════════════════════════════════════════════════════════════════════
 //  ROOT
 // ════════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════
+//  SCREEN: IMPORT / EXPORT
+// ════════════════════════════════════════════════════════════════════════════════
+function ImportExportScreen({ onBack }) {
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [status, setStatus]   = useState('');
+  const [statusOk, setStatusOk] = useState(true);
+  // Filename modal: { type, defaultName } | null
+  const [exportPending, setExportPending] = useState(null);
+  const [filename, setFilename] = useState('');
+
+  function msg(text, ok=true){ setStatus(text); setStatusOk(ok); setTimeout(()=>setStatus(''),3500); }
+
+  // ── CSV helpers ────────────────────────────────────────────────────────
+  function esc(v){ const s=String(v??''); return (s.includes(',')||s.includes('"')||s.includes('\n'))?'"'+s.replace(/"/g,'""')+'"':s; }
+  function row(arr){ return arr.map(esc).join(','); }
+
+  function buildCsv(type) {
+    if(type==='team'){
+      const squad = JSON.parse(localStorage.getItem('soccerCoach_squad')||'[]');
+      const lines = [row(['Name','Primary Position','Alt Position 1','Alt Position 2'])];
+      squad.forEach(p=>lines.push(row([p.name, p.pos||'', p.pos2||'', p.pos3||''])));
+      return lines.join('\n');
+    }
+    if(type==='scores'){
+      const games   = JSON.parse(localStorage.getItem('soccerCoach_games')||'[]');
+      const fxSc    = JSON.parse(localStorage.getItem('soccerCoach_fixtureScores')||'{}');
+      const lines   = [row(['Date','Opponent','Our Score','Their Score','Result','Goal Scorers','MVP','Events'])];
+      games.forEach(g=>{
+        let us=g.scoreUs||0,them=g.scoreThem||0;
+        if(g.linkedFixtureKey&&fxSc[g.linkedFixtureKey]){const sc=fxSc[g.linkedFixtureKey];us=g.fixtureIsHome?sc.home:sc.away;them=g.fixtureIsHome?sc.away:sc.home;}
+        const res=us>them?'W':us<them?'L':'D';
+        const scorers=[...new Set((g.goals||[]).filter(x=>x.team==='us').map(x=>x.scorer))].join('; ');
+        const potm=Array.isArray(g.potm)?g.potm.join('; '):(g.potm||'');
+        const evts=(g.matchEvents||[]).map(e=>e.minute+"' "+e.type+(e.team?' ('+e.team+')':'')).join('; ');
+        lines.push(row([new Date(g.date).toLocaleDateString('en-AU'),g.opponent||'',us,them,res,scorers,potm,evts]));
+      });
+      return lines.join('\n');
+    }
+    if(type==='fixtures'){
+      // Comma-separated CSV
+      const SEP = ',';
+      const tRow = arr => arr.map(v=>String(v).includes(',')?'"'+ v +'"':v).join(SEP);
+      const fxSc = JSON.parse(localStorage.getItem('soccerCoach_fixtureScores')||'{}');
+      const headers = ['Round','Date & Time (AEST)','Home Team','Away Team','Venue & Field','Match Status / Result'];
+      const lines = [tRow(headers)];
+      let lastRound = null;
+      FIXTURES.forEach(f=>{
+        const k = f.round+'|||'+f.home+'|||'+f.away;
+        const sc = fxSc[k];
+        let result;
+        if(!sc)               result = '0:00';
+        else if(sc.postponed) result = 'Postponed';
+        else                  result = sc.home+':'+sc.away;
+        const roundCell = f.round !== lastRound ? f.round : '';
+        lastRound = f.round;
+        // Format date: "2 May" + "9:30am" → "Sat, May 2, 2026, 09:30 AM"
+        const year = new Date().getFullYear();
+        const d = new Date((f.date||'')+ ' '+year);
+        const dn = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
+        const mn = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+        const tm = (f.time||'').replace(/^(\d+):(\d+)(am|pm)$/i,(_,h,m,p)=>String(h).padStart(2,'0')+':'+m+' '+p.toUpperCase());
+        const dateTime = dn+', '+mn+' '+d.getDate()+', '+year+', '+tm;
+        lines.push(tRow([roundCell, dateTime, f.home, f.away, f.venue||'', result]));
+      });
+      return lines.join('\n');
+    }
+    if(type==='all'){
+      // JSON for full backup (CSV can't handle nested data)
+      const ALL_KEYS=['soccerCoach_squad','soccerCoach_config','soccerCoach_games',
+        'soccerCoach_settings','soccerCoach_fixtureScores','soccerCoach_teamNotes',
+        'soccerCoach_teamNicknames','soccerCoach_fixtureTeam'];
+      const data={_exported:new Date().toISOString()};
+      ALL_KEYS.forEach(k=>{const v=localStorage.getItem(k);if(v)data[k]=JSON.parse(v);});
+      return JSON.stringify(data,null,2);
+    }
+    return '';
+  }
+
+  // ── Export ────────────────────────────────────────────────────────────
+  async function doExport() {
+    const { type, fname } = exportPending || {};
+    const isJson = type==='all';
+    const ext    = isJson?'.json':'.csv';
+    const mime   = isJson?'application/json':'text/csv';
+    const finalName = (filename||fname)+ext;
+    const data   = buildCsv(type);
+    const blob   = new Blob([data], {type:mime});
+
+    setExportPending(null); setFilename('');
+
+    if(navigator.share && navigator.canShare){
+      const file=new File([blob],finalName,{type:mime});
+      if(navigator.canShare({files:[file]})){
+        try{ await navigator.share({files:[file],title:finalName}); msg('Exported '+finalName); return; }
+        catch(e){ if(e.name==='AbortError')return; }
+      }
+    }
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download=finalName;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    msg('Exported '+finalName);
+  }
+
+  // ── Import ────────────────────────────────────────────────────────────
+  // Parse CSV or TSV — auto-detects separator from header row
+  function parseSV(text){
+    const lines = text.trim().split(/\r?\n/);
+    if(lines.length<2) return [];
+    const sep = lines[0].includes('\t') ? '\t' : ',';
+    function splitLine(line){
+      if(sep==='\t') return line.split('\t').map(s=>s.replace(/^"|"$/g,'').trim());
+      const cols=[]; let cur='',inQ=false;
+      for(let i=0;i<line.length;i++){
+        const c=line[i];
+        if(c==='"'&&!inQ){ inQ=true; }
+        else if(c==='"'&&inQ&&line[i+1]==='"'){ cur+='"'; i++; }
+        else if(c==='"'&&inQ){ inQ=false; }
+        else if(c===sep&&!inQ){ cols.push(cur); cur=''; }
+        else cur+=c;
+      }
+      cols.push(cur); return cols;
+    }
+    const headers = splitLine(lines[0]).map(h=>h.replace(/^"|"$/g,'').trim());
+    return lines.slice(1).map(line=>{
+      const cols=splitLine(line); const obj={};
+      headers.forEach((h,i)=>obj[h]=(cols[i]||'').replace(/^"|"$/g,'').trim());
+      return obj;
+    });
+  }
+
+  function doImport(type){
+    const input=document.createElement('input');
+    input.type='file'; input.accept='.csv,.tsv,.txt,.json';
+    input.onchange=e=>{
+      const file=e.target.files[0]; if(!file)return;
+      const reader=new FileReader();
+      reader.onload=ev=>{
+        try{
+          const text=ev.target.result;
+          const isJson=file.name.endsWith('.json');
+          if(isJson){
+            // Full JSON backup restore
+            const data=JSON.parse(text);
+            let count=0;
+            Object.entries(data).forEach(([k,v])=>{if(k!=='_exported'){localStorage.setItem(k,JSON.stringify(v));count++;}});
+            msg('Imported '+count+' data sets — reloading',true);
+            setTimeout(()=>window.location.reload(),1500);
+            return;
+          }
+          // CSV / TSV import
+          const rows = parseSV(text);
+          if(type==='team'){
+            const squad=rows.map(r=>({name:r['Name'],pos:r['Primary Position']||'',pos2:r['Alt Position 1']||'',pos3:r['Alt Position 2']||''})).filter(p=>p.name);
+            localStorage.setItem('soccerCoach_squad',JSON.stringify(squad));
+            msg('Imported '+squad.length+' players — reloading',true);
+            setTimeout(()=>window.location.reload(),1500);
+          } else if(type==='scores'){
+            msg('Score import coming soon — use JSON backup for full restore',false);
+          } else if(type==='fixtures'){
+            // Overwrite all fixture scores from new TSV format
+            const fxSc = {}; let count = 0; let lastRound = '';
+            rows.forEach(r=>{
+              // Carry forward round (blank in rows 2+ of each group)
+              const round = (r['Round']||'').trim() || lastRound;
+              if(round) lastRound = round;
+              // Support new format (Home Team/Away Team) and old format (Home/Away)
+              const home = (r['Home Team']||r['Home']||'').trim();
+              const away = (r['Away Team']||r['Away']||'').trim();
+              if(!round||!home||!away) return;
+              const k = round+'|||'+home+'|||'+away;
+              const result = (r['Match Status / Result']||r['Status']||'').trim();
+              if(!result||result==='0:00') return; // unplayed
+              if(result.toLowerCase()==='postponed'){ fxSc[k]={postponed:true}; count++; return; }
+              // Parse score: "2:1" or "2-1"
+              const parts = result.split(/[:\-]/);
+              if(parts.length===2){
+                const h=parseInt(parts[0]), a=parseInt(parts[1]);
+                if(!isNaN(h)&&!isNaN(a)){ fxSc[k]={home:h,away:a}; count++; }
+              }
+            });
+            localStorage.setItem('soccerCoach_fixtureScores',JSON.stringify(fxSc));
+            msg('Imported '+count+' fixture results — reloading',true);
+            setTimeout(()=>window.location.reload(),1500);
+          }
+        }catch(err){msg('Could not import: '+err.message,false);}
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }
+
+  // ── Reset ─────────────────────────────────────────────────────────────
+  function doReset(){
+    ['soccerCoach_squad','soccerCoach_config','soccerCoach_games','soccerCoach_settings',
+     'soccerCoach_fixtureScores','soccerCoach_teamNotes','soccerCoach_teamNicknames','soccerCoach_fixtureTeam']
+      .forEach(k=>localStorage.removeItem(k));
+    msg('All data cleared — reloading',true);
+    setTimeout(()=>window.location.reload(),1200);
+  }
+
+  const CARD='#1e293b';
+  const today=new Date().toISOString().split('T')[0];
+
+  function Section({icon,title,subtitle,type,defaultName}){
+    return(
+      <div style={{background:CARD,borderRadius:12,padding:'14px 16px',marginBottom:10}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+          <span style={{fontSize:20}}>{icon}</span>
+          <div><div style={{fontSize:14,fontWeight:700,color:'#f1f5f9'}}>{title}</div>
+          <div style={{fontSize:11,color:'#64748b'}}>{subtitle}</div></div>
+        </div>
+        <div style={{display:'flex',gap:8}}>
+          <button onClick={()=>{setExportPending({type,fname:defaultName});setFilename(defaultName);}}
+            style={{flex:1,padding:'11px',borderRadius:9,border:'none',background:'#1d4ed8',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer'}}>
+            ↑ Export {type==='all'?'JSON':type==='fixtures'?'TSV':'CSV'}
+          </button>
+          <button onClick={()=>doImport(type)}
+            style={{flex:1,padding:'11px',borderRadius:9,border:'none',background:'#164e63',color:'#7dd3fc',fontWeight:700,fontSize:13,cursor:'pointer'}}>
+            ↓ Import
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return(
+    <div style={{...S.wrap,background:'#0f172a'}}>
+      {/* Filename modal */}
+      {exportPending&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,padding:24}}>
+          <div style={{background:'#1e293b',borderRadius:16,padding:24,width:'100%',maxWidth:380}}>
+            <div style={{fontSize:16,fontWeight:800,color:'#f1f5f9',marginBottom:4}}>Save as</div>
+            <div style={{fontSize:12,color:'#64748b',marginBottom:16}}>Enter a filename for your export</div>
+            <div style={{display:'flex',alignItems:'center',background:'#0f172a',border:'1px solid #334155',borderRadius:9,padding:'10px 12px',marginBottom:16,gap:4}}>
+              <input autoFocus value={filename} onChange={e=>setFilename(e.target.value)}
+                onKeyDown={e=>{if(e.key==='Enter')doExport();if(e.key==='Escape'){setExportPending(null);setFilename('');}}}
+                style={{flex:1,background:'none',border:'none',color:'#f1f5f9',fontSize:14,outline:'none',fontFamily:'inherit'}}
+                placeholder="filename" />
+              <span style={{fontSize:12,color:'#64748b',flexShrink:0}}>{exportPending.type==='all'?'.json':'.csv'}</span>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <button onClick={doExport} style={{flex:2,padding:'12px',borderRadius:9,border:'none',background:'#1d4ed8',color:'#fff',fontWeight:700,fontSize:14,cursor:'pointer'}}>
+                Export
+              </button>
+              <button onClick={()=>{setExportPending(null);setFilename('');}} style={{flex:1,padding:'12px',borderRadius:9,border:'1px solid #334155',background:'transparent',color:'#94a3b8',fontWeight:700,fontSize:14,cursor:'pointer'}}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20,flexShrink:0}}>
+        <button style={S.btnGhost} onClick={onBack}>← Back</button>
+        <h2 style={{margin:0,fontSize:18,fontWeight:800,color:'#f1f5f9'}}>Import / Export</h2>
+      </div>
+
+      {status&&<div style={{background:statusOk?'#0b2818':'#3a0b0b',border:'1px solid '+(statusOk?'#22c55e44':'#ef444444'),borderRadius:9,padding:'10px 14px',marginBottom:14,fontSize:13,color:statusOk?'#4ade80':'#fca5a5',fontWeight:600,flexShrink:0}}>{status}</div>}
+
+      <div style={{flex:1,overflowY:'auto'}}>
+        <Section icon="👥" title="Team" subtitle="Squad, positions and settings" type="team" defaultName={'team-'+today} />
+        <Section icon="📊" title="Scores" subtitle="Game results and match events" type="scores" defaultName={'scores-'+today} />
+        <Section icon="📅" title="Fixtures" subtitle="Fixture results and team" type="fixtures" defaultName={'fixtures-'+today} />
+        <Section icon="📦" title="Everything" subtitle="Full JSON backup — all data" type="all" defaultName={'soccer-backup-'+today} />
+
+        <div style={{background:'#3a0b0b',border:'1px solid #ef444433',borderRadius:12,padding:'14px 16px',marginTop:4}}>
+          <div style={{fontSize:14,fontWeight:700,color:'#fca5a5',marginBottom:4}}>🗑 Reset All Data</div>
+          <div style={{fontSize:11,color:'#94a3b8',marginBottom:12}}>Permanently clears everything. Export a backup first.</div>
+          {!confirmReset
+            ?<button onClick={()=>setConfirmReset(true)} style={{width:'100%',padding:'11px',borderRadius:9,border:'1px solid #ef4444',background:'transparent',color:'#ef4444',fontWeight:700,fontSize:13,cursor:'pointer'}}>Reset All Data</button>
+            :<div style={{display:'flex',gap:8}}>
+              <button onClick={doReset} style={{flex:1,padding:'11px',borderRadius:9,border:'none',background:'#ef4444',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer'}}>Yes, delete everything</button>
+              <button onClick={()=>setConfirmReset(false)} style={{flex:1,padding:'11px',borderRadius:9,border:'1px solid #334155',background:'transparent',color:'#94a3b8',fontWeight:700,fontSize:13,cursor:'pointer'}}>Cancel</button>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 export default function App() {
   const [screen, setScreen]         = useState("menu");
   const [games, setGames]           = useState(()=>loadGames());
@@ -2447,8 +2883,9 @@ export default function App() {
 
   if(screen==="opponentStats") return <OpponentStatsScreen opponent={scoutTeam} onBack={()=>setScreen("squad")} />;
   if(screen==="teamScreen")    return <TeamScreen onBack={()=>setScreen("menu")} onViewStats={()=>setScreen("stats")} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("teamScreen");setScreen("squad");}} />;
+  if(screen==="importExport")  return <ImportExportScreen onBack={()=>setScreen("menu")} />;
   if(screen==="menu")          return <MenuScreen games={games} settings={settings} onNewGame={()=>{setSquadMode("newGame");setSquadBackTo("menu");setScreen("squad");}} onViewSeason={()=>setScreen("season")} onViewTeam={()=>setScreen("teamScreen")} onViewSettings={()=>setScreen("settings")} />;
-  if(screen==="settings")      return <SettingsScreen settings={settings} onSave={handleSaveSettings} onBack={()=>setScreen("menu")} />;
+  if(screen==="settings")      return <SettingsScreen settings={settings} onSave={handleSaveSettings} onBack={()=>setScreen("menu")} onViewImportExport={()=>setScreen("importExport")} />;
   if(screen==="stats")         return <StatsScreen games={games} onBack={()=>setScreen("teamScreen")} />;
   if(screen==="season")        return <SeasonHubScreen games={games} onBack={()=>setScreen("menu")} onOpenGame={id=>{setOpenGameId(id);setScreen("gameDetail");}} onDeleteGame={deleteGame} />;
   if(screen==="gameDetail"){   const game=games.find(g=>g.id===openGameId); return <GameDetailScreen game={game} onBack={()=>setScreen("season")} onUpdateGame={updateGame} />; }
@@ -2566,8 +3003,4 @@ const S = {
   halfPill:     { fontSize:12, fontWeight:700, color:"#94a3b8", background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"7px 14px", cursor:"pointer" },
   halfPillOn:   { color:"#f1f5f9", background:"#1d4ed8", borderColor:"#3b82f6" },
   swipeHint:    { fontSize:9, color:"#334155", textAlign:"center", margin:"2px 0 0" },
-  alarmBanner:  { width:"100%", maxWidth:500, background:"#7f1d1d", color:"#fca5a5", borderRadius:8, padding:"8px 14px", fontSize:12, fontWeight:700, textAlign:"center", marginBottom:4 },
-  noteEntry:    { display:"flex", alignItems:"flex-start", gap:8, background:"#0f172a", borderRadius:8, padding:"8px 10px", marginBottom:6 },
-  noteTime:     { fontSize:10, fontWeight:700, color:"#64748b", minWidth:50 },
-  noteText:     { flex:1, fontSize:12, color:"#cbd5e1", lineHeight:1.5 },
 };

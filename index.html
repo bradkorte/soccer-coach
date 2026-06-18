@@ -223,6 +223,44 @@ const FORMATIONS = {
 };
 const DEFAULT_FORMATION = "1-3-2-3";
 const POSITIONS = FORMATIONS[DEFAULT_FORMATION];
+// All positions across all formations — used in squad position dropdowns
+const ALL_POSITIONS = [{
+  id: "gk",
+  label: "Goalkeeper"
+}, {
+  id: "dl",
+  label: "Left Def"
+}, {
+  id: "dc",
+  label: "Centre Def"
+}, {
+  id: "dr",
+  label: "Right Def"
+}, {
+  id: "ml",
+  label: "Left Mid"
+}, {
+  id: "mc",
+  label: "Centre Mid"
+}, {
+  id: "mr",
+  label: "Right Mid"
+}, {
+  id: "al",
+  label: "Left Wing"
+}, {
+  id: "ar",
+  label: "Right Wing"
+}, {
+  id: "lf",
+  label: "Left Fwd"
+}, {
+  id: "rf",
+  label: "Right Fwd"
+}, {
+  id: "st",
+  label: "Striker"
+}];
 const PAIR_COLORS = ["#f59e0b", "#a855f7", "#06b6d4"];
 function getPositions(formation) {
   return FORMATIONS[formation] || FORMATIONS[DEFAULT_FORMATION];
@@ -475,6 +513,79 @@ function computePlayerStats(games) {
     gkPeriods: s.gkPeriods,
     potm: s.potm
   })).sort((a, b) => b.apps - a.apps || b.goals - a.goals);
+}
+
+// ── Single source of truth for all results involving my team ─────────────────
+// Priority: fixtureScores (entered via Fixtures screen) > game object scores
+// Returns array of { id, type, round, dateStr, opponent, isHome, us, them, game }
+function getAllResults() {
+  const myTeam = localStorage.getItem('soccerCoach_fixtureTeam') || '';
+  const fxScores = loadFxScores();
+  const games = loadGames();
+  const results = [];
+  const usedGameIds = new Set();
+
+  // 1. Fixture-based results — fixtureScores is the truth
+  FIXTURES.forEach(f => {
+    if (!myTeam || f.home !== myTeam && f.away !== myTeam) return;
+    const sc = fxScores[fixtureKey(f)];
+    if (!sc || sc.postponed) return; // no score recorded yet
+    const isHome = f.home === myTeam;
+    const us = isHome ? sc.home : sc.away;
+    const them = isHome ? sc.away : sc.home;
+    // Attach full game object if one exists (for lineup/events detail)
+    const game = games.find(g => g.linkedFixtureKey === fixtureKey(f)) || null;
+    if (game) usedGameIds.add(game.id);
+    results.push({
+      id: fixtureKey(f),
+      type: 'fixture',
+      round: f.round,
+      dateStr: f.date,
+      opponent: isHome ? f.away : f.home,
+      isHome,
+      us,
+      them,
+      game
+    });
+  });
+
+  // 2. Standalone games — played through the app but not linked to any fixture
+  games.forEach(g => {
+    if (g.linkedFixtureKey || usedGameIds.has(g.id)) return;
+    const sc = getScore(g, fxScores);
+    results.push({
+      id: g.id,
+      type: 'standalone',
+      round: null,
+      dateStr: new Date(g.date).toLocaleDateString('en-AU'),
+      opponent: g.opponent || 'Opposition',
+      isHome: null,
+      us: sc.us,
+      them: sc.them,
+      game: g
+    });
+  });
+  return results;
+}
+
+// ── Season stats — now driven by getAllResults so fixtures & game log agree ──
+function computeSeasonStats() {
+  const results = getAllResults();
+  const played = results.length;
+  const wins = results.filter(r => r.us > r.them).length;
+  const draws = results.filter(r => r.us === r.them).length;
+  const losses = results.filter(r => r.us < r.them).length;
+  const gf = results.reduce((s, r) => s + r.us, 0);
+  const ga = results.reduce((s, r) => s + r.them, 0);
+  return {
+    played,
+    wins,
+    draws,
+    losses,
+    gf,
+    ga,
+    gd: gf - ga
+  };
 }
 
 // ── Alarm ─────────────────────────────────────────────────────────────────────
@@ -1875,15 +1986,15 @@ function MenuScreen({
   onViewTeam,
   onViewSettings
 }) {
-  const played = games.length;
-  const _fx = loadFxScores();
-  const _sc = games.map(g => getScore(g, _fx));
-  const wins = _sc.filter(s => s.us > s.them).length;
-  const draws = _sc.filter(s => s.us === s.them).length;
-  const losses = _sc.filter(s => s.us < s.them).length;
-  const gf = _sc.reduce((sum, s) => sum + s.us, 0);
-  const ga = _sc.reduce((sum, s) => sum + s.them, 0);
-  const gd = gf - ga;
+  const {
+    played,
+    wins,
+    draws,
+    losses,
+    gf,
+    ga,
+    gd
+  } = computeSeasonStats();
   const teamName = settings.teamName || "Coach";
   return /*#__PURE__*/React.createElement("div", {
     style: S.page
@@ -2019,10 +2130,7 @@ function MenuScreen({
     style: {
       ...S.tile,
       background: "#1e293b",
-      border: "1px solid #334155",
-      gridColumn: "1/-1",
-      aspectRatio: "auto",
-      padding: "14px 0"
+      border: "1px solid #334155"
     },
     onClick: onViewSettings
   }, /*#__PURE__*/React.createElement("span", {
@@ -2038,12 +2146,12 @@ function MenuScreen({
 function SettingsScreen({
   settings,
   onSave,
-  onBack
+  onBack,
+  onViewImportExport
 }) {
   const [form, setForm] = useState({
     ...settings
   });
-  const [importMsg, setImportMsg] = useState('');
   const allTeams = [...new Set(FIXTURES.flatMap(f => [f.home, f.away]))].sort();
   function upd(key, val) {
     setForm(f => ({
@@ -2056,39 +2164,6 @@ function SettingsScreen({
     if (form.teamName) localStorage.setItem('soccerCoach_fixtureTeam', form.teamName);
     onSave(form);
     onBack();
-  }
-  function exportData() {
-    const data = {
-      version: 1,
-      exportDate: new Date().toISOString(),
-      fixtureScores: loadFxScores(),
-      teamNotes: loadTeamNotes()
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
-      type: 'application/json'
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `soccer-coach-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-  function importData(file) {
-    const reader = new FileReader();
-    reader.onload = e => {
-      try {
-        const data = JSON.parse(e.target.result);
-        if (data.fixtureScores) saveFxScores(data.fixtureScores);
-        if (data.teamNotes) saveTeamNotes(data.teamNotes);
-        setImportMsg('✓ Data imported successfully');
-        setTimeout(() => setImportMsg(''), 3000);
-      } catch {
-        setImportMsg('✗ Invalid file — please use a Soccer Coach export.');
-        setTimeout(() => setImportMsg(''), 4000);
-      }
-    };
-    reader.readAsText(file);
   }
   return /*#__PURE__*/React.createElement("div", {
     style: S.page
@@ -2133,63 +2208,18 @@ function SettingsScreen({
       paddingTop: 12,
       marginTop: 4
     }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 12,
-      fontWeight: 700,
-      color: '#64748b',
-      marginBottom: 10
-    }
-  }, "Season Data"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      gap: 8
-    }
   }, /*#__PURE__*/React.createElement("button", {
     style: {
       ...S.btnDark,
-      flex: 1,
-      fontSize: 13
-    },
-    onClick: exportData
-  }, "\uD83D\uDCE4 Export"), /*#__PURE__*/React.createElement("label", {
-    style: {
-      ...S.btnDark,
-      flex: 1,
+      width: '100%',
       fontSize: 13,
-      cursor: 'pointer',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 10
-    }
-  }, "\uD83D\uDCE5 Import", /*#__PURE__*/React.createElement("input", {
-    type: "file",
-    accept: ".json",
-    style: {
-      display: 'none'
+      gap: 8
     },
-    onChange: e => {
-      if (e.target.files[0]) {
-        importData(e.target.files[0]);
-        e.target.value = '';
-      }
-    }
-  }))), importMsg && /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 12,
-      color: importMsg.startsWith('✓') ? '#4ade80' : '#f87171',
-      textAlign: 'center',
-      marginTop: 8
-    }
-  }, importMsg), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: '#475569',
-      marginTop: 8,
-      lineHeight: 1.5
-    }
-  }, "Export saves all fixture scores and team notes. Import merges data from a previous export."))));
+    onClick: onViewImportExport
+  }, "\uD83D\uDCE6 Import / Export Data"))));
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -2199,64 +2229,93 @@ function StatsScreen({
   games,
   onBack
 }) {
-  const [sortBy, setSortBy] = useState("apps");
-  const rows = computePlayerStats(games).sort((a, b) => {
-    if (sortBy === "goals") return b.goals - a.goals;
-    if (sortBy === "gkPeriods") return b.gkPeriods - a.gkPeriods;
-    if (sortBy === "potm") return b.potm - a.potm;
-    return b.apps - a.apps || b.goals - a.goals;
-  });
+  const rows = computePlayerStats(games).sort((a, b) => b.apps - a.apps || b.goals - a.goals);
+  const COL = {
+    width: 38,
+    textAlign: "center",
+    fontSize: 13,
+    fontWeight: 700,
+    flexShrink: 0
+  };
   return /*#__PURE__*/React.createElement("div", {
     style: S.page
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       ...S.card,
-      maxWidth: 440
+      maxWidth: 440,
+      padding: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "14px 16px 10px",
+      borderBottom: "1px solid #1e3a5f"
     }
   }, /*#__PURE__*/React.createElement("button", {
     style: S.btnGhost,
     onClick: onBack
   }, "\u2190 Back"), /*#__PURE__*/React.createElement("h1", {
-    style: S.h1
-  }, "Player Stats"), rows.length === 0 && /*#__PURE__*/React.createElement("p", {
-    style: S.sub
-  }, "Save some games to see player stats here."), rows.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      ...S.h1,
+      marginBottom: 0
+    }
+  }, "Player Stats"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      ...S.sub,
+      marginTop: 4,
+      marginBottom: 0,
+      fontSize: 11
+    }
+  }, games.length, " game", games.length !== 1 ? "s" : "", " recorded")), rows.length === 0 ? /*#__PURE__*/React.createElement("p", {
+    style: {
+      ...S.sub,
+      padding: "20px 16px"
+    }
+  }, "Save some games to see player stats.") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
-      gap: 6
+      alignItems: "center",
+      padding: "8px 16px",
+      background: "#0f172a",
+      borderBottom: "1px solid #1e3a5f"
     }
-  }, [["apps", "Games"], ["goals", "Goals"], ["gkPeriods", "GK"], ["potm", "MVP"]].map(([key, lbl]) => /*#__PURE__*/React.createElement("button", {
-    key: key,
-    style: {
-      ...S.tab,
-      ...(sortBy === key ? S.tabOn : {}),
-      flex: 1,
-      padding: "7px 0",
-      fontSize: 11
-    },
-    onClick: () => setSortBy(key)
-  }, lbl))), /*#__PURE__*/React.createElement("div", {
-    style: S.statsHeader
   }, /*#__PURE__*/React.createElement("span", {
     style: {
-      flex: 1
+      flex: 1,
+      fontSize: 11,
+      fontWeight: 700,
+      color: "#64748b",
+      textTransform: "uppercase",
+      letterSpacing: 1
     }
   }, "Player"), /*#__PURE__*/React.createElement("span", {
-    style: S.statCol
+    style: {
+      ...COL,
+      fontSize: 11,
+      color: "#64748b"
+    }
   }, "Apps"), /*#__PURE__*/React.createElement("span", {
-    style: S.statCol
+    style: {
+      ...COL,
+      fontSize: 14
+    }
   }, "\u26BD"), /*#__PURE__*/React.createElement("span", {
-    style: S.statCol
+    style: {
+      ...COL,
+      fontSize: 14
+    }
   }, "\uD83E\uDDE4"), /*#__PURE__*/React.createElement("span", {
     style: {
-      ...S.statCol,
-      fontSize: 10
+      ...COL,
+      fontSize: 14
     }
   }, "\u2B50")), rows.map((r, i) => /*#__PURE__*/React.createElement("div", {
     key: r.name,
     style: {
-      ...S.statsRow,
-      background: i % 2 === 0 ? "#0f172a" : "#111827"
+      display: "flex",
+      alignItems: "center",
+      padding: "10px 16px",
+      borderBottom: "1px solid #0f172a",
+      background: i % 2 === 0 ? "#111827" : "#0f172a"
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
@@ -2270,34 +2329,28 @@ function StatsScreen({
     }
   }, r.name), /*#__PURE__*/React.createElement("span", {
     style: {
-      ...S.statCol,
-      color: sortBy === "apps" ? "#06b6d4" : "#94a3b8"
+      ...COL,
+      color: "#94a3b8"
     }
   }, r.apps || "–"), /*#__PURE__*/React.createElement("span", {
     style: {
-      ...S.statCol,
-      color: r.goals > 0 ? "#22c55e" : "#64748b",
+      ...COL,
+      color: r.goals > 0 ? "#22c55e" : "#334155",
       fontWeight: r.goals > 0 ? 800 : 400
     }
   }, r.goals || "–"), /*#__PURE__*/React.createElement("span", {
     style: {
-      ...S.statCol,
+      ...COL,
       color: r.gkPeriods > 0 ? "#38bdf8" : "#334155",
       fontWeight: r.gkPeriods > 0 ? 700 : 400
     }
-  }, r.gkPeriods > 0 ? r.gkPeriods : "–"), /*#__PURE__*/React.createElement("span", {
+  }, r.gkPeriods || "–"), /*#__PURE__*/React.createElement("span", {
     style: {
-      ...S.statCol,
+      ...COL,
       color: r.potm > 0 ? "#fcd34d" : "#334155",
       fontWeight: r.potm > 0 ? 700 : 400
     }
-  }, r.potm > 0 ? r.potm : "–"))), /*#__PURE__*/React.createElement("p", {
-    style: {
-      ...S.sub,
-      fontSize: 11,
-      textAlign: "center"
-    }
-  }, "Stats from ", games.length, " saved game", games.length !== 1 ? "s" : "", "."))));
+  }, r.potm || "–"))))));
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -2410,116 +2463,136 @@ function SeasonHubScreen({
     setTeamNotes(updated);
     saveTeamNotes(updated);
   }
+  const {
+    played,
+    wins,
+    draws,
+    losses,
+    gf,
+    ga,
+    gd
+  } = computeSeasonStats();
   const fxScores = loadFxScores();
-  const wins = games.filter(g => {
-    const s = getScore(g, fxScores);
-    return s.us > s.them;
-  }).length;
-  const draws = games.filter(g => {
-    const s = getScore(g, fxScores);
-    return s.us === s.them;
-  }).length;
-  const losses = games.filter(g => {
-    const s = getScore(g, fxScores);
-    return s.us < s.them;
-  }).length;
 
   // Sub-screen: Game Log
-  if (subScreen === 'log') return /*#__PURE__*/React.createElement("div", {
-    style: S.page
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      ...S.card,
-      padding: 0,
-      display: 'flex',
-      flexDirection: 'column',
-      maxHeight: '100vh'
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      padding: '14px 16px 10px',
-      borderBottom: '1px solid #1e3a5f',
-      flexShrink: 0
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => setSubScreen(null),
-    style: S.backBtn
-  }, "\u2190 Season"), /*#__PURE__*/React.createElement("h2", {
-    style: {
-      margin: '8px 0 0',
-      fontSize: 18,
-      fontWeight: 800,
-      color: '#f1f5f9'
-    }
-  }, "\uD83D\uDCCB Game Log")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      overflowY: 'auto',
-      flex: 1,
-      padding: '4px 16px 40px'
-    }
-  }, games.length === 0 && /*#__PURE__*/React.createElement("p", {
-    style: {
-      ...S.sub,
-      padding: '20px 0'
-    }
-  }, "No games saved yet."), games.slice().reverse().map(g => {
-    const sc = getScore(g, fxScores);
-    const res = sc.us > sc.them ? 'W' : sc.us < sc.them ? 'L' : 'D';
-    const resColor = res === 'W' ? '#22c55e' : res === 'L' ? '#ef4444' : '#f59e0b';
-    const scorers = [...new Set((g.goals || []).filter(x => x.team === 'us').map(x => x.scorer))];
-    const potmArr = Array.isArray(g.potm) ? g.potm : g.potm ? [g.potm] : [];
+  if (subScreen === 'log') {
+    const allRes = getAllResults();
     return /*#__PURE__*/React.createElement("div", {
-      key: g.id,
-      style: {
-        ...S.gameRow,
-        marginBottom: 6
-      },
-      onClick: () => onOpenGame(g.id)
+      style: S.page
     }, /*#__PURE__*/React.createElement("div", {
       style: {
-        ...S.resultBadge,
-        background: resColor + '22',
-        color: resColor,
-        border: `1px solid ${resColor}55`
-      }
-    }, res), /*#__PURE__*/React.createElement("div", {
-      style: {
-        flex: 1,
-        minWidth: 0
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: S.gameOpp
-    }, "vs ", g.opponent || 'Opposition'), /*#__PURE__*/React.createElement("div", {
-      style: S.gameDate
-    }, new Date(g.date).toLocaleDateString()), /*#__PURE__*/React.createElement("div", {
-      style: {
+        ...S.card,
+        padding: 0,
         display: 'flex',
-        gap: 6,
-        marginTop: 3,
-        flexWrap: 'wrap'
+        flexDirection: 'column',
+        maxHeight: '100vh'
       }
-    }, scorers.length > 0 && /*#__PURE__*/React.createElement("span", {
+    }, /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 9,
-        color: '#86efac',
-        fontWeight: 600
+        padding: '14px 16px 10px',
+        borderBottom: '1px solid #1e3a5f',
+        flexShrink: 0
       }
-    }, "\u26BD ", scorers.join(', ')), potmArr.length > 0 && /*#__PURE__*/React.createElement("span", {
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => setSubScreen(null),
+      style: S.backBtn
+    }, "\u2190 Season"), /*#__PURE__*/React.createElement("h2", {
       style: {
-        fontSize: 9,
-        color: '#fcd34d',
-        fontWeight: 600
+        margin: '8px 0 0',
+        fontSize: 18,
+        fontWeight: 800,
+        color: '#f1f5f9'
       }
-    }, "\u2B50 ", potmArr.join(', ')))), /*#__PURE__*/React.createElement("div", {
-      style: S.gameScore
-    }, sc.us, "\u2013", sc.them), /*#__PURE__*/React.createElement("button", {
-      style: S.btnTinyX,
-      onClick: e => {
-        e.stopPropagation();
-        onDeleteGame(g.id);
+    }, "\uD83D\uDCCB Game Log"), /*#__PURE__*/React.createElement("p", {
+      style: {
+        margin: '4px 0 0',
+        fontSize: 11,
+        color: '#64748b'
       }
-    }, "\u2715"));
-  }))));
+    }, allRes.length, " result", allRes.length !== 1 ? 's' : '', " \u2014 fixture results + standalone games")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        overflowY: 'auto',
+        flex: 1,
+        padding: '4px 16px 40px'
+      }
+    }, allRes.length === 0 && /*#__PURE__*/React.createElement("p", {
+      style: {
+        ...S.sub,
+        padding: '20px 0'
+      }
+    }, "No results yet. Enter scores in Fixtures or play a game."), allRes.map(r => {
+      const res = r.us > r.them ? 'W' : r.us < r.them ? 'L' : 'D';
+      const resColor = res === 'W' ? '#22c55e' : res === 'L' ? '#ef4444' : '#f59e0b';
+      const g = r.game;
+      const scorers = g ? [...new Set((g.goals || []).filter(x => x.team === 'us').map(x => x.scorer))] : [];
+      const potmArr = g ? Array.isArray(g.potm) ? g.potm : g.potm ? [g.potm] : [] : [];
+      const hasDetail = !!g;
+      return /*#__PURE__*/React.createElement("div", {
+        key: r.id,
+        style: {
+          ...S.gameRow,
+          marginBottom: 6,
+          opacity: 1
+        },
+        onClick: () => hasDetail && onOpenGame(g.id)
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          ...S.resultBadge,
+          background: resColor + '22',
+          color: resColor,
+          border: `1px solid ${resColor}55`
+        }
+      }, res), /*#__PURE__*/React.createElement("div", {
+        style: {
+          flex: 1,
+          minWidth: 0
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: S.gameOpp
+      }, "vs ", r.opponent), /*#__PURE__*/React.createElement("div", {
+        style: S.gameDate
+      }, r.round ? r.round + ' · ' : '', r.dateStr, r.type === 'fixture' && /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 9,
+          color: '#475569',
+          marginLeft: 4
+        }
+      }, r.isHome ? 'H' : 'A')), /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: 'flex',
+          gap: 6,
+          marginTop: 3,
+          flexWrap: 'wrap'
+        }
+      }, scorers.length > 0 && /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 9,
+          color: '#86efac',
+          fontWeight: 600
+        }
+      }, "\u26BD ", scorers.join(', ')), potmArr.length > 0 && /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 9,
+          color: '#fcd34d',
+          fontWeight: 600
+        }
+      }, "\u2B50 ", potmArr.join(', ')), !hasDetail && /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 9,
+          color: '#475569',
+          fontWeight: 600
+        }
+      }, "fixture only"))), /*#__PURE__*/React.createElement("div", {
+        style: S.gameScore
+      }, r.us, "\u2013", r.them), hasDetail && /*#__PURE__*/React.createElement("button", {
+        style: S.btnTinyX,
+        onClick: e => {
+          e.stopPropagation();
+          onDeleteGame(g.id);
+        }
+      }, "\u2715"));
+    }))));
+  }
 
   // Sub-screen: Fixtures
   if (subScreen === 'fixtures') return /*#__PURE__*/React.createElement("div", {
@@ -2703,7 +2776,7 @@ function SeasonHubScreen({
     onClick: onBack
   }, "\u2190 Menu"), /*#__PURE__*/React.createElement("h1", {
     style: S.h1
-  }, "\uD83D\uDCC5 Season"), games.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDCC5 Season"), played > 0 && /*#__PURE__*/React.createElement("div", {
     style: S.scoreTile
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -2713,7 +2786,7 @@ function SeasonHubScreen({
     style: S.scoreTileStat
   }, /*#__PURE__*/React.createElement("div", {
     style: S.scoreTileNum
-  }, games.length), /*#__PURE__*/React.createElement("div", {
+  }, played), /*#__PURE__*/React.createElement("div", {
     style: S.scoreTileLbl
   }, "Played")), /*#__PURE__*/React.createElement("div", {
     style: S.scoreTileStat
@@ -3111,7 +3184,30 @@ function GameDetailScreen({
   }, "\u2014 select \u2014"), allPlayers.map(n => /*#__PURE__*/React.createElement("option", {
     key: n,
     value: n
-  }, n)))), /*#__PURE__*/React.createElement("div", {
+  }, n)))), game.voiceNotes && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#0c1a0c",
+      border: "1px solid #22c55e33",
+      borderRadius: 10,
+      padding: "10px 14px",
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      fontWeight: 700,
+      color: "#4ade80",
+      letterSpacing: 1,
+      marginBottom: 6
+    }
+  }, "\uD83C\uDF99\uFE0F VOICE NOTES"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: "#d1fae5",
+      whiteSpace: "pre-wrap",
+      lineHeight: 1.6
+    }
+  }, game.voiceNotes)), /*#__PURE__*/React.createElement("div", {
     style: S.reportBox
   }, loading ? "✨ Generating…" : report), !loading && /*#__PURE__*/React.createElement("div", {
     style: {
@@ -3394,7 +3490,12 @@ function SquadScreen({
   const [squad, setSquad] = useState(() => loadSquad());
   const [config, setConfig] = useState(() => loadConfig());
   const [input, setInput] = useState("");
-  const [opponent, setOpponent] = useState("");
+
+  // Pre-fill opponent from next fixture
+  const myTeam = localStorage.getItem('soccerCoach_fixtureTeam') || '';
+  const nextFix = FIXTURES.find(f => (f.home === myTeam || f.away === myTeam) && f.s === 'u');
+  const suggestedOpponent = nextFix ? nextFix.home === myTeam ? nextFix.away : nextFix.home : '';
+  const [opponent, setOpponent] = useState(suggestedOpponent);
   function persist(next) {
     setSquad(next);
     saveSquad(next);
@@ -3404,17 +3505,19 @@ function SquadScreen({
     if (!name || squad.some(p => p.name === name)) return;
     persist([...squad, {
       name,
-      pos: ""
+      pos: "",
+      pos2: "",
+      pos3: ""
     }]);
     setInput("");
   }
   function remove(name) {
     persist(squad.filter(p => p.name !== name));
   }
-  function setPos(name, pos) {
+  function setPos(name, field, val) {
     persist(squad.map(p => p.name === name ? {
       ...p,
-      pos
+      [field]: val
     } : p));
   }
   function updCfg(key, val) {
@@ -3428,6 +3531,12 @@ function SquadScreen({
   const isNewGame = mode === "newGame";
   const pm = getPeriodMins(config);
   const pmDisplay = Number.isInteger(pm) ? `${pm}` : pm.toFixed(1);
+  const posOpts = /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014"), ALL_POSITIONS.map(p => /*#__PURE__*/React.createElement("option", {
+    key: p.id,
+    value: p.id
+  }, p.label)));
   return /*#__PURE__*/React.createElement("div", {
     style: S.page
   }, /*#__PURE__*/React.createElement("div", {
@@ -3439,7 +3548,123 @@ function SquadScreen({
     style: S.pill
   }, config.formation || DEFAULT_FORMATION), /*#__PURE__*/React.createElement("h1", {
     style: S.h1
-  }, isNewGame ? "New Game" : "Manage Squad"), isNewGame && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }, isNewGame ? "New Game" : "Manage Squad"), /*#__PURE__*/React.createElement("div", {
+    style: S.fieldLbl
+  }, "Players ", squad.length > 0 && `(${squad.length})`), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      marginBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    style: S.inp,
+    placeholder: "Player name\u2026",
+    value: input,
+    onChange: e => setInput(e.target.value),
+    onKeyDown: e => e.key === "Enter" && addPlayer()
+  }), /*#__PURE__*/React.createElement("button", {
+    style: S.btnAdd,
+    onClick: addPlayer
+  }, "Add")), /*#__PURE__*/React.createElement("div", {
+    style: S.squadList
+  }, squad.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: S.empty
+  }, "No players yet."), squad.map((p, i) => /*#__PURE__*/React.createElement("div", {
+    key: p.name,
+    style: {
+      ...S.squadRow,
+      flexDirection: "column",
+      alignItems: "stretch",
+      gap: 6,
+      padding: "10px 10px"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: S.squadNum
+  }, i + 1), /*#__PURE__*/React.createElement("span", {
+    style: {
+      ...S.squadName,
+      flex: 1
+    }
+  }, p.name), /*#__PURE__*/React.createElement("button", {
+    style: S.btnX,
+    onClick: () => remove(p.name)
+  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      paddingLeft: 28
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 9,
+      color: "#64748b",
+      fontWeight: 700,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+      marginBottom: 2
+    }
+  }, "Primary"), /*#__PURE__*/React.createElement("select", {
+    style: {
+      ...S.posSel,
+      width: "100%"
+    },
+    value: p.pos || "",
+    onChange: e => setPos(p.name, "pos", e.target.value)
+  }, posOpts)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 9,
+      color: "#64748b",
+      fontWeight: 700,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+      marginBottom: 2
+    }
+  }, "Alt 1"), /*#__PURE__*/React.createElement("select", {
+    style: {
+      ...S.posSel,
+      width: "100%"
+    },
+    value: p.pos2 || "",
+    onChange: e => setPos(p.name, "pos2", e.target.value)
+  }, posOpts)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 9,
+      color: "#64748b",
+      fontWeight: 700,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+      marginBottom: 2
+    }
+  }, "Alt 2"), /*#__PURE__*/React.createElement("select", {
+    style: {
+      ...S.posSel,
+      width: "100%"
+    },
+    value: p.pos3 || "",
+    onChange: e => setPos(p.name, "pos3", e.target.value)
+  }, posOpts)))))), isNewGame && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
     style: S.fieldLbl
   }, "Opponent"), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -3464,7 +3689,13 @@ function SquadScreen({
       whiteSpace: "nowrap"
     },
     onClick: () => onViewOpponent(opponent.trim())
-  }, "\uD83D\uDD0D Scout"))), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDD0D Scout")), suggestedOpponent && opponent === suggestedOpponent && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "#60a5fa",
+      marginTop: 4
+    }
+  }, "\uD83D\uDCC5 From next fixture \u2014 tap to change")), /*#__PURE__*/React.createElement("div", {
     style: S.configBox
   }, /*#__PURE__*/React.createElement("div", {
     style: S.configHd
@@ -3516,46 +3747,7 @@ function SquadScreen({
       color: "#22c55e",
       textAlign: "center"
     }
-  }, "= ", pmDisplay, " min per period"))), /*#__PURE__*/React.createElement("div", {
-    style: S.fieldLbl
-  }, "Players ", squad.length > 0 && `(${squad.length})`), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 8
-    }
-  }, /*#__PURE__*/React.createElement("input", {
-    style: S.inp,
-    placeholder: "Player name\u2026",
-    value: input,
-    onChange: e => setInput(e.target.value),
-    onKeyDown: e => e.key === "Enter" && addPlayer()
-  }), /*#__PURE__*/React.createElement("button", {
-    style: S.btnAdd,
-    onClick: addPlayer
-  }, "Add")), /*#__PURE__*/React.createElement("div", {
-    style: S.squadList
-  }, squad.length === 0 && /*#__PURE__*/React.createElement("div", {
-    style: S.empty
-  }, "No players yet."), squad.map((p, i) => /*#__PURE__*/React.createElement("div", {
-    key: p.name,
-    style: S.squadRow
-  }, /*#__PURE__*/React.createElement("span", {
-    style: S.squadNum
-  }, i + 1), /*#__PURE__*/React.createElement("span", {
-    style: S.squadName
-  }, p.name), /*#__PURE__*/React.createElement("select", {
-    style: S.posSel,
-    value: p.pos,
-    onChange: e => setPos(p.name, e.target.value)
-  }, /*#__PURE__*/React.createElement("option", {
-    value: ""
-  }, "No pos"), POSITIONS.map(pos => /*#__PURE__*/React.createElement("option", {
-    key: pos.id,
-    value: pos.id
-  }, pos.label))), /*#__PURE__*/React.createElement("button", {
-    style: S.btnX,
-    onClick: () => remove(p.name)
-  }, "\u2715")))), isNewGame ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+  }, "= ", pmDisplay, " min per period")), /*#__PURE__*/React.createElement("button", {
     style: {
       ...S.btnGreen,
       opacity: squad.length < 9 ? 0.4 : 1
@@ -3564,7 +3756,7 @@ function SquadScreen({
     onClick: () => onNext(squad, config, opponent)
   }, "Pick Starting XI \u2192"), squad.length < 9 && /*#__PURE__*/React.createElement("p", {
     style: S.warn
-  }, "Need at least 9 players.")) : /*#__PURE__*/React.createElement("button", {
+  }, "Need at least 9 players.")), !isNewGame && /*#__PURE__*/React.createElement("button", {
     style: S.btnGreen,
     onClick: onBack
   }, "Done")));
@@ -3586,8 +3778,17 @@ function PickerScreen({
   const [slots, setSlots] = useState(() => {
     const s = {};
     posIds.forEach(id => s[id] = "");
+    // First pass: fill by position match (primary, then alts)
     squad.forEach(p => {
-      if (p.pos && posIds.includes(p.pos) && !s[p.pos]) s[p.pos] = p.name;
+      [p.pos, p.pos2, p.pos3].filter(Boolean).forEach(pos => {
+        if (posIds.includes(pos) && !s[pos]) s[pos] = p.name;
+      });
+    });
+    // Second pass: greedy fill any remaining slots with unassigned players
+    const used = new Set(Object.values(s).filter(Boolean));
+    const remaining = [...squad.map(p => p.name).filter(n => !used.has(n))];
+    posIds.forEach(id => {
+      if (!s[id] && remaining.length) s[id] = remaining.shift();
     });
     return s;
   });
@@ -4697,6 +4898,7 @@ function MatchScreen({
   }))]);
   const [halfIdx, setHalfIdx] = useState(0);
   const [pidx, setPidx] = useState(0);
+  const [manualPeriod, setManualPeriod] = useState(false);
   const [selected, setSelected] = useState(null);
   const [dragging, setDragging] = useState(null);
   const [periodLeft, setPeriodLeft] = useState(Math.round(periodMins * 60));
@@ -4709,7 +4911,13 @@ function MatchScreen({
   const [eventsView, setEventsView] = useState(false);
   const [report, setReport] = useState("");
   const [reportLoading, setReportLoading] = useState(false);
+  const [voiceNotes, setVoiceNotes] = useState(""); // accumulated transcript
+  const [voiceReview, setVoiceReview] = useState(""); // editable copy in review modal
+  const [isVoiceRec, setIsVoiceRec] = useState(false);
+  const [voicePulse, setVoicePulse] = useState(false);
   const timerRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const pulseRef = useRef(null);
   const periods = halves[halfIdx];
   const cur = periods[pidx];
   let prevSlots = null;
@@ -4756,10 +4964,67 @@ function MatchScreen({
     } else clearInterval(timerRef.current);
     return () => clearInterval(timerRef.current);
   }, [running]);
+  // Auto-advance period tab when timer crosses period boundaries
+  useEffect(() => {
+    if (manualPeriod) return;
+    const pSecs = Math.round(periodMins * 60);
+    const next = Math.min(Math.floor(halfElapsed / pSecs), periods.length - 1);
+    if (next >= 0) setPidx(next);
+  }, [halfElapsed, manualPeriod, periodMins, periods.length]);
   function toggleRun() {
     unlockAudio();
     setRunning(r => !r);
     setAlarmed(false);
+  }
+
+  // ── Voice notes (Web Speech API) ────────────────────────────────────────
+  function startVoice() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      alert('Speech recognition is not supported on this browser. Try Chrome or Safari on iOS 14.5+.');
+      return;
+    }
+    const rec = new SR();
+    rec.lang = 'en-AU';
+    rec.continuous = true;
+    rec.interimResults = false;
+    let buf = '';
+    rec.onresult = e => {
+      buf = Array.from(e.results).map(r => r[0].transcript).join(' ');
+    };
+    rec.onerror = () => stopVoice(buf);
+    rec.onend = () => {
+      if (isVoiceRecRef.current) {
+        stopVoice(buf);
+      }
+    };
+    rec.start();
+    recognitionRef.current = rec;
+    isVoiceRecRef.current = true;
+    setIsVoiceRec(true);
+    // Pulse animation
+    pulseRef.current = setInterval(() => setVoicePulse(p => !p), 600);
+  }
+  const isVoiceRecRef = useRef(false);
+  function stopVoice(extraText) {
+    isVoiceRecRef.current = false;
+    setIsVoiceRec(false);
+    clearInterval(pulseRef.current);
+    setVoicePulse(false);
+    try {
+      recognitionRef.current?.stop();
+    } catch {}
+    if (extraText && extraText.trim()) {
+      const ts = String(Math.floor(halfElapsed / 60)).padStart(2, '0') + ':' + String(halfElapsed % 60).padStart(2, '0');
+      setVoiceNotes(prev => prev ? prev + '\n[' + ts + '] ' + extraText.trim() : '[' + ts + '] ' + extraText.trim());
+    }
+  }
+  function toggleVoice() {
+    if (isVoiceRec) {
+      stopVoice('');
+    } else {
+      startVoice();
+    }
   }
   function resetPeriodTimer() {
     setRunning(false);
@@ -4770,8 +5035,8 @@ function MatchScreen({
     setRunning(false);
     setPeriodLeft(Math.round(periodMins * 60));
     setAlarmed(false);
+    setManualPeriod(false); // return to timer-driven period
     if (pidx < periods.length - 1) {
-      setPidx(pidx + 1);
       setSelected(null);
     } else if (halfIdx < halves.length - 1) {
       setHalfIdx(halfIdx + 1);
@@ -4781,6 +5046,7 @@ function MatchScreen({
     }
   }
   function switchPeriod(i) {
+    setManualPeriod(true);
     setPidx(i);
     setSelected(null);
   }
@@ -4788,6 +5054,7 @@ function MatchScreen({
     if (h < 0 || h > halves.length - 1) return;
     setHalfIdx(h);
     setPidx(0);
+    setManualPeriod(false);
     setSelected(null);
     setHalfElapsed(0);
   }
@@ -4963,7 +5230,8 @@ function MatchScreen({
       scoreUs: usGoals.length,
       scoreThem: themGoals.length,
       halves,
-      config
+      config,
+      voiceNotes: voiceNotes || ""
     };
   }
   async function generateReport() {
@@ -5098,7 +5366,74 @@ function MatchScreen({
   }, "Save"), /*#__PURE__*/React.createElement("button", {
     style: S.btnCancel,
     onClick: () => setModal(null)
-  }, "Cancel")))), /*#__PURE__*/React.createElement("div", {
+  }, "Cancel")))), modal === "voiceReview" && /*#__PURE__*/React.createElement("div", {
+    style: S.modalBack,
+    onClick: () => {}
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      ...S.modalBox,
+      maxWidth: 460,
+      maxHeight: "85vh",
+      display: "flex",
+      flexDirection: "column"
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    style: S.modalHeader
+  }, /*#__PURE__*/React.createElement("span", {
+    style: S.modalTitle
+  }, "\uD83C\uDF99\uFE0F Review Voice Notes"), /*#__PURE__*/React.createElement("button", {
+    style: S.btnX,
+    onClick: () => setModal("save")
+  }, "\u2715")), /*#__PURE__*/React.createElement("p", {
+    style: {
+      ...S.sub,
+      margin: "0 0 10px",
+      fontSize: 12
+    }
+  }, "Edit your notes before saving. These will be stored with the game."), /*#__PURE__*/React.createElement("textarea", {
+    value: voiceReview,
+    onChange: e => setVoiceReview(e.target.value),
+    rows: 10,
+    style: {
+      ...S.sel,
+      fontFamily: "inherit",
+      lineHeight: 1.6,
+      resize: "vertical",
+      flex: 1,
+      whiteSpace: "pre-wrap"
+    },
+    placeholder: "Your voice notes will appear here\u2026"
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      marginTop: 12
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    style: {
+      ...S.btnGreen,
+      flex: 2
+    },
+    onClick: () => {
+      const game = currentGameObj();
+      game.voiceNotes = voiceReview.trim();
+      game.report = voiceReview.trim() || report || buildLocalReport(game);
+      game.id = "g_" + Date.now();
+      onSaveGame(game);
+    }
+  }, "\u2713 Approve & Save"), /*#__PURE__*/React.createElement("button", {
+    style: {
+      ...S.btnDark,
+      flex: 1
+    },
+    onClick: () => {
+      const game = currentGameObj();
+      game.id = "g_" + Date.now();
+      game.report = report || buildLocalReport(game);
+      onSaveGame(game);
+    }
+  }, "Save without Notes")))), /*#__PURE__*/React.createElement("div", {
     style: S.header
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -5458,6 +5793,33 @@ function MatchScreen({
   }, "\uD83D\uDCCA Events ", matchEvents.length > 0 && /*#__PURE__*/React.createElement("span", {
     style: S.noteBadge
   }, matchEvents.length)), /*#__PURE__*/React.createElement("button", {
+    style: S.btnNotes,
+    onClick: toggleVoice,
+    title: isVoiceRec ? "Stop recording" : "Start voice note",
+    style: {
+      ...S.btnNotes,
+      flex: 0,
+      width: 52,
+      paddingLeft: 0,
+      paddingRight: 0,
+      flexDirection: "column",
+      gap: 2,
+      background: isVoiceRec ? voicePulse ? "#7f1d1d" : "#450a0a" : "#1e293b",
+      border: isVoiceRec ? "1px solid #ef4444" : "1px solid #334155",
+      color: isVoiceRec ? "#fca5a5" : "#94a3b8",
+      transition: "background 0.3s"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 18
+    }
+  }, isVoiceRec ? "🔴" : "🎙️"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 8,
+      fontWeight: 700,
+      marginTop: 1
+    }
+  }, voiceNotes ? "●" : "")), /*#__PURE__*/React.createElement("button", {
     style: S.btnReport,
     onClick: generateReport
   }, "\uD83D\uDCCB Report")), /*#__PURE__*/React.createElement("button", {
@@ -5467,7 +5829,12 @@ function MatchScreen({
       maxWidth: 500,
       marginTop: 8
     },
-    onClick: () => setModal("save")
+    onClick: () => {
+      if (voiceNotes.trim()) {
+        setVoiceReview(voiceNotes);
+        setModal("voiceReview");
+      } else setModal("save");
+    }
   }, "End & Save Game"), /*#__PURE__*/React.createElement("div", {
     style: S.halfBar
   }, /*#__PURE__*/React.createElement("button", {
@@ -5501,6 +5868,590 @@ function MatchScreen({
 // ════════════════════════════════════════════════════════════════════════════════
 //  ROOT
 // ════════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════
+//  SCREEN: IMPORT / EXPORT
+// ════════════════════════════════════════════════════════════════════════════════
+function ImportExportScreen({
+  onBack
+}) {
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [status, setStatus] = useState('');
+  const [statusOk, setStatusOk] = useState(true);
+  // Filename modal: { type, defaultName } | null
+  const [exportPending, setExportPending] = useState(null);
+  const [filename, setFilename] = useState('');
+  function msg(text, ok = true) {
+    setStatus(text);
+    setStatusOk(ok);
+    setTimeout(() => setStatus(''), 3500);
+  }
+
+  // ── CSV helpers ────────────────────────────────────────────────────────
+  function esc(v) {
+    const s = String(v ?? '');
+    return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function row(arr) {
+    return arr.map(esc).join(',');
+  }
+  function buildCsv(type) {
+    if (type === 'team') {
+      const squad = JSON.parse(localStorage.getItem('soccerCoach_squad') || '[]');
+      const lines = [row(['Name', 'Primary Position', 'Alt Position 1', 'Alt Position 2'])];
+      squad.forEach(p => lines.push(row([p.name, p.pos || '', p.pos2 || '', p.pos3 || ''])));
+      return lines.join('\n');
+    }
+    if (type === 'scores') {
+      const games = JSON.parse(localStorage.getItem('soccerCoach_games') || '[]');
+      const fxSc = JSON.parse(localStorage.getItem('soccerCoach_fixtureScores') || '{}');
+      const lines = [row(['Date', 'Opponent', 'Our Score', 'Their Score', 'Result', 'Goal Scorers', 'MVP', 'Events'])];
+      games.forEach(g => {
+        let us = g.scoreUs || 0,
+          them = g.scoreThem || 0;
+        if (g.linkedFixtureKey && fxSc[g.linkedFixtureKey]) {
+          const sc = fxSc[g.linkedFixtureKey];
+          us = g.fixtureIsHome ? sc.home : sc.away;
+          them = g.fixtureIsHome ? sc.away : sc.home;
+        }
+        const res = us > them ? 'W' : us < them ? 'L' : 'D';
+        const scorers = [...new Set((g.goals || []).filter(x => x.team === 'us').map(x => x.scorer))].join('; ');
+        const potm = Array.isArray(g.potm) ? g.potm.join('; ') : g.potm || '';
+        const evts = (g.matchEvents || []).map(e => e.minute + "' " + e.type + (e.team ? ' (' + e.team + ')' : '')).join('; ');
+        lines.push(row([new Date(g.date).toLocaleDateString('en-AU'), g.opponent || '', us, them, res, scorers, potm, evts]));
+      });
+      return lines.join('\n');
+    }
+    if (type === 'fixtures') {
+      // Comma-separated CSV
+      const SEP = ',';
+      const tRow = arr => arr.map(v => String(v).includes(',') ? '"' + v + '"' : v).join(SEP);
+      const fxSc = JSON.parse(localStorage.getItem('soccerCoach_fixtureScores') || '{}');
+      const headers = ['Round', 'Date & Time (AEST)', 'Home Team', 'Away Team', 'Venue & Field', 'Match Status / Result'];
+      const lines = [tRow(headers)];
+      let lastRound = null;
+      FIXTURES.forEach(f => {
+        const k = f.round + '|||' + f.home + '|||' + f.away;
+        const sc = fxSc[k];
+        let result;
+        if (!sc) result = '0:00';else if (sc.postponed) result = 'Postponed';else result = sc.home + ':' + sc.away;
+        const roundCell = f.round !== lastRound ? f.round : '';
+        lastRound = f.round;
+        // Format date: "2 May" + "9:30am" → "Sat, May 2, 2026, 09:30 AM"
+        const year = new Date().getFullYear();
+        const d = new Date((f.date || '') + ' ' + year);
+        const dn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()];
+        const mn = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()];
+        const tm = (f.time || '').replace(/^(\d+):(\d+)(am|pm)$/i, (_, h, m, p) => String(h).padStart(2, '0') + ':' + m + ' ' + p.toUpperCase());
+        const dateTime = dn + ', ' + mn + ' ' + d.getDate() + ', ' + year + ', ' + tm;
+        lines.push(tRow([roundCell, dateTime, f.home, f.away, f.venue || '', result]));
+      });
+      return lines.join('\n');
+    }
+    if (type === 'all') {
+      // JSON for full backup (CSV can't handle nested data)
+      const ALL_KEYS = ['soccerCoach_squad', 'soccerCoach_config', 'soccerCoach_games', 'soccerCoach_settings', 'soccerCoach_fixtureScores', 'soccerCoach_teamNotes', 'soccerCoach_teamNicknames', 'soccerCoach_fixtureTeam'];
+      const data = {
+        _exported: new Date().toISOString()
+      };
+      ALL_KEYS.forEach(k => {
+        const v = localStorage.getItem(k);
+        if (v) data[k] = JSON.parse(v);
+      });
+      return JSON.stringify(data, null, 2);
+    }
+    return '';
+  }
+
+  // ── Export ────────────────────────────────────────────────────────────
+  async function doExport() {
+    const {
+      type,
+      fname
+    } = exportPending || {};
+    const isJson = type === 'all';
+    const ext = isJson ? '.json' : '.csv';
+    const mime = isJson ? 'application/json' : 'text/csv';
+    const finalName = (filename || fname) + ext;
+    const data = buildCsv(type);
+    const blob = new Blob([data], {
+      type: mime
+    });
+    setExportPending(null);
+    setFilename('');
+    if (navigator.share && navigator.canShare) {
+      const file = new File([blob], finalName, {
+        type: mime
+      });
+      if (navigator.canShare({
+        files: [file]
+      })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: finalName
+          });
+          msg('Exported ' + finalName);
+          return;
+        } catch (e) {
+          if (e.name === 'AbortError') return;
+        }
+      }
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = finalName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    msg('Exported ' + finalName);
+  }
+
+  // ── Import ────────────────────────────────────────────────────────────
+  // Parse CSV or TSV — auto-detects separator from header row
+  function parseSV(text) {
+    const lines = text.trim().split(/\r?\n/);
+    if (lines.length < 2) return [];
+    const sep = lines[0].includes('\t') ? '\t' : ',';
+    function splitLine(line) {
+      if (sep === '\t') return line.split('\t').map(s => s.replace(/^"|"$/g, '').trim());
+      const cols = [];
+      let cur = '',
+        inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"' && !inQ) {
+          inQ = true;
+        } else if (c === '"' && inQ && line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else if (c === '"' && inQ) {
+          inQ = false;
+        } else if (c === sep && !inQ) {
+          cols.push(cur);
+          cur = '';
+        } else cur += c;
+      }
+      cols.push(cur);
+      return cols;
+    }
+    const headers = splitLine(lines[0]).map(h => h.replace(/^"|"$/g, '').trim());
+    return lines.slice(1).map(line => {
+      const cols = splitLine(line);
+      const obj = {};
+      headers.forEach((h, i) => obj[h] = (cols[i] || '').replace(/^"|"$/g, '').trim());
+      return obj;
+    });
+  }
+  function doImport(type) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,.tsv,.txt,.json';
+    input.onchange = e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try {
+          const text = ev.target.result;
+          const isJson = file.name.endsWith('.json');
+          if (isJson) {
+            // Full JSON backup restore
+            const data = JSON.parse(text);
+            let count = 0;
+            Object.entries(data).forEach(([k, v]) => {
+              if (k !== '_exported') {
+                localStorage.setItem(k, JSON.stringify(v));
+                count++;
+              }
+            });
+            msg('Imported ' + count + ' data sets — reloading', true);
+            setTimeout(() => window.location.reload(), 1500);
+            return;
+          }
+          // CSV / TSV import
+          const rows = parseSV(text);
+          if (type === 'team') {
+            const squad = rows.map(r => ({
+              name: r['Name'],
+              pos: r['Primary Position'] || '',
+              pos2: r['Alt Position 1'] || '',
+              pos3: r['Alt Position 2'] || ''
+            })).filter(p => p.name);
+            localStorage.setItem('soccerCoach_squad', JSON.stringify(squad));
+            msg('Imported ' + squad.length + ' players — reloading', true);
+            setTimeout(() => window.location.reload(), 1500);
+          } else if (type === 'scores') {
+            msg('Score import coming soon — use JSON backup for full restore', false);
+          } else if (type === 'fixtures') {
+            // Overwrite all fixture scores from new TSV format
+            const fxSc = {};
+            let count = 0;
+            let lastRound = '';
+            rows.forEach(r => {
+              // Carry forward round (blank in rows 2+ of each group)
+              const round = (r['Round'] || '').trim() || lastRound;
+              if (round) lastRound = round;
+              // Support new format (Home Team/Away Team) and old format (Home/Away)
+              const home = (r['Home Team'] || r['Home'] || '').trim();
+              const away = (r['Away Team'] || r['Away'] || '').trim();
+              if (!round || !home || !away) return;
+              const k = round + '|||' + home + '|||' + away;
+              const result = (r['Match Status / Result'] || r['Status'] || '').trim();
+              if (!result || result === '0:00') return; // unplayed
+              if (result.toLowerCase() === 'postponed') {
+                fxSc[k] = {
+                  postponed: true
+                };
+                count++;
+                return;
+              }
+              // Parse score: "2:1" or "2-1"
+              const parts = result.split(/[:\-]/);
+              if (parts.length === 2) {
+                const h = parseInt(parts[0]),
+                  a = parseInt(parts[1]);
+                if (!isNaN(h) && !isNaN(a)) {
+                  fxSc[k] = {
+                    home: h,
+                    away: a
+                  };
+                  count++;
+                }
+              }
+            });
+            localStorage.setItem('soccerCoach_fixtureScores', JSON.stringify(fxSc));
+            msg('Imported ' + count + ' fixture results — reloading', true);
+            setTimeout(() => window.location.reload(), 1500);
+          }
+        } catch (err) {
+          msg('Could not import: ' + err.message, false);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }
+
+  // ── Reset ─────────────────────────────────────────────────────────────
+  function doReset() {
+    ['soccerCoach_squad', 'soccerCoach_config', 'soccerCoach_games', 'soccerCoach_settings', 'soccerCoach_fixtureScores', 'soccerCoach_teamNotes', 'soccerCoach_teamNicknames', 'soccerCoach_fixtureTeam'].forEach(k => localStorage.removeItem(k));
+    msg('All data cleared — reloading', true);
+    setTimeout(() => window.location.reload(), 1200);
+  }
+  const CARD = '#1e293b';
+  const today = new Date().toISOString().split('T')[0];
+  function Section({
+    icon,
+    title,
+    subtitle,
+    type,
+    defaultName
+  }) {
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: CARD,
+        borderRadius: 12,
+        padding: '14px 16px',
+        marginBottom: 10
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 10
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 20
+      }
+    }, icon), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 14,
+        fontWeight: 700,
+        color: '#f1f5f9'
+      }
+    }, title), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: '#64748b'
+      }
+    }, subtitle))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        setExportPending({
+          type,
+          fname: defaultName
+        });
+        setFilename(defaultName);
+      },
+      style: {
+        flex: 1,
+        padding: '11px',
+        borderRadius: 9,
+        border: 'none',
+        background: '#1d4ed8',
+        color: '#fff',
+        fontWeight: 700,
+        fontSize: 13,
+        cursor: 'pointer'
+      }
+    }, "\u2191 Export ", type === 'all' ? 'JSON' : type === 'fixtures' ? 'TSV' : 'CSV'), /*#__PURE__*/React.createElement("button", {
+      onClick: () => doImport(type),
+      style: {
+        flex: 1,
+        padding: '11px',
+        borderRadius: 9,
+        border: 'none',
+        background: '#164e63',
+        color: '#7dd3fc',
+        fontWeight: 700,
+        fontSize: 13,
+        cursor: 'pointer'
+      }
+    }, "\u2193 Import")));
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      ...S.wrap,
+      background: '#0f172a'
+    }
+  }, exportPending && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,0.7)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 9999,
+      padding: 24
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#1e293b',
+      borderRadius: 16,
+      padding: 24,
+      width: '100%',
+      maxWidth: 380
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 16,
+      fontWeight: 800,
+      color: '#f1f5f9',
+      marginBottom: 4
+    }
+  }, "Save as"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: '#64748b',
+      marginBottom: 16
+    }
+  }, "Enter a filename for your export"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      background: '#0f172a',
+      border: '1px solid #334155',
+      borderRadius: 9,
+      padding: '10px 12px',
+      marginBottom: 16,
+      gap: 4
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    autoFocus: true,
+    value: filename,
+    onChange: e => setFilename(e.target.value),
+    onKeyDown: e => {
+      if (e.key === 'Enter') doExport();
+      if (e.key === 'Escape') {
+        setExportPending(null);
+        setFilename('');
+      }
+    },
+    style: {
+      flex: 1,
+      background: 'none',
+      border: 'none',
+      color: '#f1f5f9',
+      fontSize: 14,
+      outline: 'none',
+      fontFamily: 'inherit'
+    },
+    placeholder: "filename"
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      color: '#64748b',
+      flexShrink: 0
+    }
+  }, exportPending.type === 'all' ? '.json' : '.csv')), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: doExport,
+    style: {
+      flex: 2,
+      padding: '12px',
+      borderRadius: 9,
+      border: 'none',
+      background: '#1d4ed8',
+      color: '#fff',
+      fontWeight: 700,
+      fontSize: 14,
+      cursor: 'pointer'
+    }
+  }, "Export"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setExportPending(null);
+      setFilename('');
+    },
+    style: {
+      flex: 1,
+      padding: '12px',
+      borderRadius: 9,
+      border: '1px solid #334155',
+      background: 'transparent',
+      color: '#94a3b8',
+      fontWeight: 700,
+      fontSize: 14,
+      cursor: 'pointer'
+    }
+  }, "Cancel")))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 20,
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    style: S.btnGhost,
+    onClick: onBack
+  }, "\u2190 Back"), /*#__PURE__*/React.createElement("h2", {
+    style: {
+      margin: 0,
+      fontSize: 18,
+      fontWeight: 800,
+      color: '#f1f5f9'
+    }
+  }, "Import / Export")), status && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: statusOk ? '#0b2818' : '#3a0b0b',
+      border: '1px solid ' + (statusOk ? '#22c55e44' : '#ef444444'),
+      borderRadius: 9,
+      padding: '10px 14px',
+      marginBottom: 14,
+      fontSize: 13,
+      color: statusOk ? '#4ade80' : '#fca5a5',
+      fontWeight: 600,
+      flexShrink: 0
+    }
+  }, status), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      overflowY: 'auto'
+    }
+  }, /*#__PURE__*/React.createElement(Section, {
+    icon: "\uD83D\uDC65",
+    title: "Team",
+    subtitle: "Squad, positions and settings",
+    type: "team",
+    defaultName: 'team-' + today
+  }), /*#__PURE__*/React.createElement(Section, {
+    icon: "\uD83D\uDCCA",
+    title: "Scores",
+    subtitle: "Game results and match events",
+    type: "scores",
+    defaultName: 'scores-' + today
+  }), /*#__PURE__*/React.createElement(Section, {
+    icon: "\uD83D\uDCC5",
+    title: "Fixtures",
+    subtitle: "Fixture results and team",
+    type: "fixtures",
+    defaultName: 'fixtures-' + today
+  }), /*#__PURE__*/React.createElement(Section, {
+    icon: "\uD83D\uDCE6",
+    title: "Everything",
+    subtitle: "Full JSON backup \u2014 all data",
+    type: "all",
+    defaultName: 'soccer-backup-' + today
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#3a0b0b',
+      border: '1px solid #ef444433',
+      borderRadius: 12,
+      padding: '14px 16px',
+      marginTop: 4
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 14,
+      fontWeight: 700,
+      color: '#fca5a5',
+      marginBottom: 4
+    }
+  }, "\uD83D\uDDD1 Reset All Data"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: '#94a3b8',
+      marginBottom: 12
+    }
+  }, "Permanently clears everything. Export a backup first."), !confirmReset ? /*#__PURE__*/React.createElement("button", {
+    onClick: () => setConfirmReset(true),
+    style: {
+      width: '100%',
+      padding: '11px',
+      borderRadius: 9,
+      border: '1px solid #ef4444',
+      background: 'transparent',
+      color: '#ef4444',
+      fontWeight: 700,
+      fontSize: 13,
+      cursor: 'pointer'
+    }
+  }, "Reset All Data") : /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: doReset,
+    style: {
+      flex: 1,
+      padding: '11px',
+      borderRadius: 9,
+      border: 'none',
+      background: '#ef4444',
+      color: '#fff',
+      fontWeight: 700,
+      fontSize: 13,
+      cursor: 'pointer'
+    }
+  }, "Yes, delete everything"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setConfirmReset(false),
+    style: {
+      flex: 1,
+      padding: '11px',
+      borderRadius: 9,
+      border: '1px solid #334155',
+      background: 'transparent',
+      color: '#94a3b8',
+      fontWeight: 700,
+      fontSize: 13,
+      cursor: 'pointer'
+    }
+  }, "Cancel")))));
+}
 function App() {
   const [screen, setScreen] = useState("menu");
   const [games, setGames] = useState(() => loadGames());
@@ -5550,6 +6501,9 @@ function App() {
       setScreen("squad");
     }
   });
+  if (screen === "importExport") return /*#__PURE__*/React.createElement(ImportExportScreen, {
+    onBack: () => setScreen("menu")
+  });
   if (screen === "menu") return /*#__PURE__*/React.createElement(MenuScreen, {
     games: games,
     settings: settings,
@@ -5565,7 +6519,8 @@ function App() {
   if (screen === "settings") return /*#__PURE__*/React.createElement(SettingsScreen, {
     settings: settings,
     onSave: handleSaveSettings,
-    onBack: () => setScreen("menu")
+    onBack: () => setScreen("menu"),
+    onViewImportExport: () => setScreen("importExport")
   });
   if (screen === "stats") return /*#__PURE__*/React.createElement(StatsScreen, {
     games: games,
@@ -6467,39 +7422,6 @@ const S = {
     color: "#334155",
     textAlign: "center",
     margin: "2px 0 0"
-  },
-  alarmBanner: {
-    width: "100%",
-    maxWidth: 500,
-    background: "#7f1d1d",
-    color: "#fca5a5",
-    borderRadius: 8,
-    padding: "8px 14px",
-    fontSize: 12,
-    fontWeight: 700,
-    textAlign: "center",
-    marginBottom: 4
-  },
-  noteEntry: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: 8,
-    background: "#0f172a",
-    borderRadius: 8,
-    padding: "8px 10px",
-    marginBottom: 6
-  },
-  noteTime: {
-    fontSize: 10,
-    fontWeight: 700,
-    color: "#64748b",
-    minWidth: 50
-  },
-  noteText: {
-    flex: 1,
-    fontSize: 12,
-    color: "#cbd5e1",
-    lineHeight: 1.5
   }
 };
 ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
