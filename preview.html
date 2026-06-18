@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Soccer Coach — Preview</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+  body { margin: 0; background: #f0fdf4; }
+  #devbar { position: fixed; bottom: 0; left: 0; right: 0; background: #1e293b; color: #94a3b8;
+            font: 12px/2 monospace; padding: 0 12px; z-index: 99999;
+            display: flex; justify-content: space-between; align-items: center; }
+  #error { padding: 24px; color: #f87171; font: 14px/1.6 monospace; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="error"></div>
+<div id="devbar">
+  <span id="status">Loading…</span>
+  <span>DEV PREVIEW — <a href="#" onclick="loadApp();return false" style="color:#60a5fa">Reload</a></span>
+</div>
+
+<script>
+function loadApp() {
+  document.getElementById('error').textContent = '';
+  document.getElementById('status').textContent = 'Loading…';
+
+  fetch('./soccer-coach.jsx?t=' + Date.now())
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+    .then(src => {
+      document.getElementById('status').textContent = 'Compiling…';
+
+      src = src
+        .replace(/^import\s+\{([^}]+)\}\s+from\s+['"]react['"]\s*;?/m,
+                 (_, n) => 'var { ' + n.trim() + ' } = React;')
+        .replace(/^import\s+.*?from\s+['"][^'"]+['"]\s*;?$/gm, '')
+        .replace(/^export\s+default\s+/gm, '')
+        .replace(/^export\s+\{[^}]*\}\s*;?$/gm, '');
+
+      let compiled;
+      try {
+        compiled = Babel.transform(src, {
+          presets: [['react', { runtime: 'classic' }]],
+          filename: 'soccer-coach.jsx',
+        }).code;
+      } catch (e) { throw new Error('Babel compile error: ' + e.message); }
+
+      if (window.__appRoot) { try { window.__appRoot.unmount(); } catch(_){} }
+
+      let App;
+      try {
+        App = new Function(compiled + ';\nreturn App;')();
+      } catch (e) { throw new Error('Runtime error: ' + e.message); }
+
+      window.__appRoot = ReactDOM.createRoot(document.getElementById('root'));
+      window.__appRoot.render(React.createElement(App));
+
+      document.getElementById('status').textContent =
+        'Loaded ' + (src.length / 1024).toFixed(0) + 'KB @ ' + new Date().toLocaleTimeString();
+    })
+    .catch(e => {
+      document.getElementById('error').textContent = e.message;
+      document.getElementById('status').textContent = 'Error';
+      console.error(e);
+    });
+}
+
+loadApp();
+</script>
+</body>
+</html>

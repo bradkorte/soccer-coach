@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Coaching Assistant Preview</title>
+    <style>
+      html, body, #root {
+        min-height: 100%;
+        margin: 0;
+        background: #0f172a;
+      }
+
+      body {
+        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      #preview-status {
+        position: fixed;
+        right: 10px;
+        bottom: 10px;
+        z-index: 9999;
+        max-width: 320px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid #334155;
+        background: #0f172acc;
+        color: #94a3b8;
+        font: 12px/1.4 system-ui, sans-serif;
+      }
+
+      #preview-status.error {
+        color: #fecaca;
+        background: #450a0a;
+        border-color: #ef4444;
+        white-space: pre-wrap;
+      }
+    </style>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="preview-status">Loading preview...</div>
+
+    <script>
+      async function bootPreview() {
+        const status = document.getElementById("preview-status");
+
+        try {
+          const response = await fetch("./soccer-coach.jsx", { cache: "no-store" });
+          if (!response.ok) throw new Error("Could not load soccer-coach.jsx");
+
+          let source = await response.text();
+          source = source
+            .replace(/import\s+\{\s*useState,\s*useEffect,\s*useRef\s*\}\s+from\s+["']react["'];?/, "const { useState, useEffect, useRef } = React;")
+            .replace(/export\s+default\s+function\s+App\s*\(/, "window.App = function App(");
+
+          const compiled = Babel.transform(source, {
+            presets: [["env", { targets: { browsers: "defaults" } }], "react"],
+            filename: "soccer-coach.jsx"
+          }).code;
+
+          (0, eval)(compiled);
+          ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(window.App));
+          status.textContent = "Preview loaded from soccer-coach.jsx";
+        } catch (error) {
+          status.className = "error";
+          status.textContent = error && error.stack ? error.stack : String(error);
+        }
+      }
+
+      bootPreview();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Coach" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>Coach</title>
+  <script>
+    const manifest = {name:"Coach – Match Day",short_name:"Coach",start_url:".",display:"standalone",background_color:"#0f172a",theme_color:"#0f172a",icons:[{src:"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f172a'/%3E%3Ctext y='.9em' font-size='80' x='10'%3E⚽%3C/text%3E%3C/svg%3E",sizes:"512x512",type:"image/svg+xml"}]};
+    const blob=new Blob([JSON.stringify(manifest)],{type:"application/json"});
+    const link=document.createElement("link");link.rel="manifest";link.href=URL.createObjectURL(blob);document.currentScript.after(link);
+  </script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#0f172a;font-family:'Inter',system-ui,-apple-system,sans-serif;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+    #root{min-height:100vh}
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef } = React;
+
+const POSITIONS = [
+  { id: "st", label: "Striker",         left:"50%", top:"7%",  tx:"-50%" },
+  { id: "al", label: "Left Wing",       left:"18%", top:"21%", tx:"-50%" },
+  { id: "ar", label: "Right Wing",      left:"82%", top:"21%", tx:"-50%" },
+  { id: "ml", label: "Left Mid",        left:"50%", top:"37%", tx:"calc(-50% - 38px)" },
+  { id: "mr", label: "Right Mid",       left:"50%", top:"37%", tx:"calc(-50% + 38px)" },
+  { id: "dl", label: "Left Defender",   left:"18%", top:"67%", tx:"-50%" },
+  { id: "dc", label: "Centre Defender", left:"50%", top:"67%", tx:"-50%" },
+  { id: "dr", label: "Right Defender",  left:"82%", top:"67%", tx:"-50%" },
+  { id: "gk", label: "Goalkeeper",      left:"50%", top:"83%", tx:"-50%" },
+];
+const POS_IDS = POSITIONS.map(p => p.id);
+const POS_LABEL = Object.fromEntries(POSITIONS.map(p => [p.id, p.label]));
+const PAIR_COLORS = ["#f59e0b", "#a855f7", "#06b6d4"];
+
+const SQUAD_KEY  = "soccerCoach_squad";
+const CONFIG_KEY = "soccerCoach_config";
+const GAMES_KEY  = "soccerCoach_games";
+
+function loadSquad()   { try { const v = JSON.parse(localStorage.getItem(SQUAD_KEY)); if (!Array.isArray(v)) return []; return v.map(x => typeof x === "string" ? { name:x, pos:"" } : x); } catch { return []; } }
+function saveSquad(l)  { try { localStorage.setItem(SQUAD_KEY, JSON.stringify(l)); } catch {} }
+function loadConfig()  { try { return JSON.parse(localStorage.getItem(CONFIG_KEY)) || { periodMins:8, numPeriods:3 }; } catch { return { periodMins:8, numPeriods:3 }; } }
+function saveConfig(c) { try { localStorage.setItem(CONFIG_KEY, JSON.stringify(c)); } catch {} }
+function loadGames()   { try { return JSON.parse(localStorage.getItem(GAMES_KEY)) || []; } catch { return []; } }
+function saveGames(g)  { try { localStorage.setItem(GAMES_KEY, JSON.stringify(g)); } catch {} }
+
+function cloneSlots(s) { return JSON.parse(JSON.stringify(s)); }
+function fmtTime(secs) { return String(Math.floor(secs/60)).padStart(2,"0")+":"+String(secs%60).padStart(2,"0"); }
+
+function computeSwapPairs(prevSlots, curSlots) {
+  const prevField = new Set(POS_IDS.map(id => prevSlots[id]).filter(Boolean));
+  const curField  = new Set(POS_IDS.map(id => curSlots[id]).filter(Boolean));
+  const wentOff = [...prevField].filter(n => !curField.has(n));
+  const cameOn  = [...curField].filter(n => !prevField.has(n));
+  const pairs = {};
+  const n = Math.min(wentOff.length, cameOn.length, PAIR_COLORS.length);
+  for (let i = 0; i < n; i++) { pairs[wentOff[i]] = i; pairs[cameOn[i]] = i; }
+  return pairs;
+}
+
+// ── Alarm ──────────────────────────────────────────────────────────────────────
+let audioCtx = null;
+function getCtx() { if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} } return audioCtx; }
+function unlockAudio() {
+  const ctx = getCtx(); if (!ctx) return;
+  ctx.resume && ctx.resume();
+  try { const o=ctx.createOscillator(),g=ctx.createGain(); o.connect(g);g.connect(ctx.destination); g.gain.value=0.0001; o.start(); o.stop(ctx.currentTime+0.03);} catch(e){}
+}
+function playAlarm() {
+  const ctx = getCtx(); if (!ctx) return;
+  const fire = () => {
+    const t0 = ctx.currentTime + 0.02;
+    [0,0.35,0.7,1.05,1.4,1.75].forEach((s,i) => {
+      const o=ctx.createOscillator(),g=ctx.createGain(); o.connect(g);g.connect(ctx.destination);
+      o.frequency.setValueAtTime(i%2?1175:880, t0+s); o.type="square";
+      g.gain.setValueAtTime(0.0001,t0+s); g.gain.exponentialRampToValueAtTime(0.9,t0+s+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t0+s+0.28);
+      o.start(t0+s); o.stop(t0+s+0.33);
+    });
+  };
+  if (ctx.state==="suspended") ctx.resume().then(fire).catch(fire); else fire();
+  if (navigator.vibrate) navigator.vibrate([300,120,300,120,300,120,500]);
+}
+
+// ── Player stats aggregation ────────────────────────────────────────────────────
+function computePlayerStats(games) {
+  const map = {};
+  const ensure = name => { if (!map[name]) map[name] = { goals:0, gameIds:new Set(), mins:0 }; };
+  games.forEach(game => {
+    const periodMins = game.config?.periodMins || 8;
+    if (game.halves) {
+      game.halves.forEach(half => {
+        half.forEach(period => {
+          if (!period.slots) return;
+          POS_IDS.map(id => period.slots[id]).filter(Boolean).forEach(name => {
+            ensure(name); map[name].gameIds.add(game.id); map[name].mins += periodMins;
+          });
+        });
+      });
+    }
+    (game.goals || []).filter(g => g.team === "us").forEach(g => {
+      ensure(g.scorer); map[g.scorer].goals++;
+      if (!game.halves) map[g.scorer].gameIds.add(game.id);
+    });
+  });
+  return Object.entries(map)
+    .map(([name, s]) => ({ name, goals:s.goals, apps:s.gameIds.size, mins:s.mins }))
+    .sort((a, b) => b.apps - a.apps || b.goals - a.goals);
+}
+
+// ── Built-in report (always works, no network) ──────────────────────────────────
+function buildLocalReport(game) {
+  const { opponent, goals, notes, date } = game;
+  const us = goals.filter(g=>g.team==="us");
+  const them = goals.filter(g=>g.team==="them").length;
+  const result = us.length>them ? "a win" : us.length<them ? "a loss" : "a draw";
+  const lines = [];
+  lines.push(`Match Report — vs ${opponent || "Opposition"}`);
+  if (date) lines.push(new Date(date).toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"}));
+  lines.push("");
+  lines.push(`Final score: ${us.length} – ${them} (${result}).`);
+  lines.push("");
+  if (us.length) {
+    lines.push("Our goals:");
+    us.forEach(g => lines.push(`  • ${g.scorer}${g.position?` (${g.position})`:""} — H${g.half} ${g.timeStr}`));
+    const tally = {};
+    us.forEach(g => { tally[g.scorer]=(tally[g.scorer]||0)+1; });
+    const scorers = Object.entries(tally).map(([n,c])=>c>1?`${n} (${c})`:n);
+    lines.push("");
+    lines.push(`Scorers: ${scorers.join(", ")}.`);
+  } else {
+    lines.push("No goals scored by our team this match.");
+  }
+  lines.push("");
+  if (notes && notes.length) {
+    lines.push("Coach's observations:");
+    notes.forEach(n => lines.push(`  • H${n.half} ${n.timeStr}: ${n.text}`));
+  }
+  return lines.join("\n");
+}
+
+// ── AI report with fallback ──────────────────────────────────────────────────────
+async function generateAIReport(game) {
+  const us = game.goals.filter(g=>g.team==="us").length;
+  const them = game.goals.filter(g=>g.team==="them").length;
+  const goalSummary = game.goals.map(g => `H${g.half} ${g.timeStr} — ${g.team==="us" ? `${g.scorer}${g.position?` ('${g.position}')`:""} (our team)` : "Opponent"}`).join("\n") || "No goals logged";
+  const noteSummary = (game.notes||[]).map(n => `H${n.half} ${n.timeStr}: ${n.text}`).join("\n") || "No notes recorded";
+  const prompt = `You are writing a match report for a U11 girls soccer match.
+
+Opponent: ${game.opponent || "Opposition"}
+Formation: 1-3-2-3 (9 players)
+Final score: Us ${us} – Them ${them}
+
+Goals:
+${goalSummary}
+
+Coach's notes:
+${noteSummary}
+
+Write a warm, encouraging match report (3-5 short paragraphs): result, key moments with goal scorers and their positions, observations from notes, positive takeaways and one or two development areas, and a short motivational closing. Age-appropriate and supportive. Refer to players by name where known.`;
+  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    method:"POST", headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, messages:[{ role:"user", content:prompt }] })
+  });
+  const data = await resp.json();
+  const text = data?.content?.[0]?.text;
+  if (!text) throw new Error("no text");
+  return text;
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+//  SCREEN: MAIN MENU
+// ════════════════════════════════════════════════════════════════════════════════
+function MenuScreen({ games, onNewGame, onViewSeason, onManageSquad, onViewStats }) {
+  const played = games.length;
+  const wins   = games.filter(g => g.scoreUs > g.scoreThem).length;
+  const draws  = games.filter(g => g.scoreUs === g.scoreThem).length;
+  const losses = games.filter(g => g.scoreUs < g.scoreThem).length;
+
+  return (
+    <div style={S.page}>
+      <div style={S.card}>
+        <div style={S.pill}>U11 GIRLS · 1-3-2-3</div>
+        <h1 style={S.h1}>Coach</h1>
+
+        {/* Scores tile — tappable, goes to season log */}
+        <div style={{ ...S.scoreTile, cursor:played>0?"pointer":"default", opacity:played>0?1:0.5 }}
+          onClick={() => played>0 && onViewSeason()}>
+          {played===0
+            ? <div style={{ fontSize:13, color:"#475569", textAlign:"center", padding:"8px 0" }}>No games yet — start a new game!</div>
+            : <>
+                <div style={{ display:"flex", gap:8 }}>
+                  <div style={S.scoreTileStat}><div style={S.scoreTileNum}>{played}</div><div style={S.scoreTileLbl}>Played</div></div>
+                  <div style={S.scoreTileStat}><div style={{...S.scoreTileNum,color:"#86efac"}}>{wins}</div><div style={S.scoreTileLbl}>Won</div></div>
+                  <div style={S.scoreTileStat}><div style={{...S.scoreTileNum,color:"#fcd34d"}}>{draws}</div><div style={S.scoreTileLbl}>Drew</div></div>
+                  <div style={S.scoreTileStat}><div style={{...S.scoreTileNum,color:"#fca5a5"}}>{losses}</div><div style={S.scoreTileLbl}>Lost</div></div>
+                </div>
+                <div style={{ fontSize:10, color:"#475569", textAlign:"right", marginTop:6 }}>Tap to view results →</div>
+              </>
+          }
+        </div>
+
+        {/* 2×2 tile grid */}
+        <div style={S.tileGrid}>
+          <button style={{...S.tile, background:"#14532d", border:"1px solid #22c55e33"}} onClick={onNewGame}>
+            <span style={S.tileIcon}>⚽</span><span style={S.tileLbl}>New Game</span>
+          </button>
+          <button style={{...S.tile, background:"#1e3a5f", border:"1px solid #3b82f633"}} onClick={onViewStats}>
+            <span style={S.tileIcon}>📊</span><span style={S.tileLbl}>Player Stats</span>
+          </button>
+          <button style={{...S.tile, background:"#1e293b", border:"1px solid #334155"}} onClick={onManageSquad}>
+            <span style={S.tileIcon}>👥</span><span style={S.tileLbl}>Manage Squad</span>
+          </button>
+          <button style={{...S.tile, background:"#1e293b", border:"1px solid #334155"}} onClick={onViewSeason}>
+            <span style={S.tileIcon}>📅</span><span style={S.tileLbl}>Season Log</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+//  SCREEN: PLAYER STATS
+// ════════════════════════════════════════════════════════════════════════════════
+function StatsScreen({ games, onBack }) {
+  const [sortBy, setSortBy] = useState("apps");
+  const rows = computePlayerStats(games).sort((a, b) =>
+    sortBy === "goals" ? b.goals - a.goals : sortBy === "mins" ? b.mins - a.mins : b.apps - a.apps || b.goals - a.goals
+  );
+  return (
+    <div style={S.page}>
+      <div style={{ ...S.card, maxWidth:440 }}>
+        <button style={S.btnGhost} onClick={onBack}>← Menu</button>
+        <h1 style={S.h1}>Player Stats</h1>
+        {rows.length === 0 && <p style={S.sub}>Save some games to see player stats here.</p>}
+        {rows.length > 0 && (
+          <>
+            <div style={{ display:"flex", gap:6 }}>
+              {[["apps","Games"],["goals","Goals"],["mins","Mins"]].map(([key,lbl]) => (
+                <button key={key} style={{ ...S.tab, ...(sortBy===key?S.tabOn:{}), flex:1, padding:"7px 0" }}
+                  onClick={() => setSortBy(key)}>{lbl}</button>
+              ))}
+            </div>
+            <div style={S.statsHeader}>
+              <span style={{ flex:1 }}>Player</span>
+              <span style={S.statCol}>Apps</span>
+              <span style={S.statCol}>⚽</span>
+              <span style={S.statCol}>Mins</span>
+            </div>
+            {rows.map((r, i) => (
+              <div key={r.name} style={{ ...S.statsRow, background:i%2===0?"#0f172a":"#111827" }}>
+                <span style={{ flex:1, fontSize:13, color:"#f1f5f9", fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{r.name}</span>
+                <span style={{ ...S.statCol, color:sortBy==="apps"?"#06b6d4":"#94a3b8" }}>{r.apps||"–"}</span>
+                <span style={{ ...S.statCol, color:r.goals>0?"#22c55e":"#64748b", fontWeight:r.goals>0?800:400 }}>{r.goals||"–"}</span>
+                <span style={{ ...S.statCol, color:sortBy==="mins"?"#f59e0b":"#94a3b8" }}>{r.mins||"–"}</span>
+              </div>
+            ))}
+            <p style={{ ...S.sub, fontSize:11, textAlign:"center" }}>Stats from {games.length} saved game{games.length!==1?"s":""}.</p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+//  SCREEN: SEASON LOG
+// ════════════════════════════════════════════════════════════════════════════════
+function SeasonScreen({ games, onBack, onOpenGame, onDeleteGame }) {
+  return (
+    <div style={S.page}>
+      <div style={{ ...S.card, maxWidth:440 }}>
+        <button style={S.btnGhost} onClick={onBack}>← Menu</button>
+        <h1 style={S.h1}>Season Log</h1>
+        {games.length===0 && <p style={S.sub}>No games saved yet. Finish a game and save it to see it here.</p>}
+        {games.slice().reverse().map((g) => {
+          const res = g.scoreUs>g.scoreThem ? "W" : g.scoreUs<g.scoreThem ? "L" : "D";
+          const resColor = res==="W" ? "#22c55e" : res==="L" ? "#ef4444" : "#f59e0b";
+          return (
+            <div key={g.id} style={S.gameRow} onClick={() => onOpenGame(g.id)}>
+              <div style={{ ...S.resultBadge, background:resColor+"22", color:resColor, border:`1px solid ${resColor}55` }}>{res}</div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={S.gameOpp}>vs {g.opponent || "Opposition"}</div>
+                <div style={S.gameDate}>{new Date(g.date).toLocaleDateString()}</div>
+              </div>
+              <div style={S.gameScore}>{g.scoreUs}–{g.scoreThem}</div>
+              <button style={S.btnTinyX} onClick={(e) => { e.stopPropagation(); onDeleteGame(g.id); }}>✕</button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+//  SCREEN: SAVED GAME DETAIL (report view)
+// ════════════════════════════════════════════════════════════════════════════════
+function GameDetailScreen({ game, onBack }) {
+  const [report, setReport] = useState(game.report || buildLocalReport(game));
+  const [loading, setLoading] = useState(false);
+  const [usedAI, setUsedAI] = useState(!!game.report);
+
+  async function regenerateAI() {
+    setLoading(true);
+    try {
+      const text = await generateAIReport(game);
+      setReport(text); setUsedAI(true);
+    } catch(e) {
+      setReport(buildLocalReport(game)); setUsedAI(false);
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div style={S.page}>
+      <div style={{ ...S.card, maxWidth:460 }}>
+        <button style={S.btnGhost} onClick={onBack}>← Season Log</button>
+        <h1 style={S.h1}>vs {game.opponent || "Opposition"}</h1>
+        <div style={S.detailScore}>{game.scoreUs} – {game.scoreThem}</div>
+        <div style={S.sub}>{new Date(game.date).toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}</div>
+
+        <div style={S.reportBox}>{loading ? "✨ Generating…" : report}</div>
+
+        <div style={{ display:"flex", gap:8 }}>
+          <button style={{ ...S.btnDark, flex:1 }} onClick={() => navigator.clipboard?.writeText(report)}>Copy</button>
+          <button style={{ ...S.btnBlue, flex:1 }} onClick={regenerateAI}>✨ AI Rewrite</button>
+        </div>
+        {!usedAI && <p style={{ ...S.sub, fontSize:11, textAlign:"center" }}>Built-in report shown. AI rewrite needs an internet connection.</p>}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+//  SCREEN: SQUAD + new game setup (opponent)
+// ════════════════════════════════════════════════════════════════════════════════
+function SquadScreen({ mode, onNext, onBack }) {
+  const [squad, setSquad]   = useState(() => loadSquad());
+  const [config, setConfig] = useState(() => loadConfig());
+  const [input, setInput]   = useState("");
+  const [opponent, setOpponent] = useState("");
+
+  function persist(next) { setSquad(next); saveSquad(next); }
+  function addPlayer() {
+    const name = input.trim();
+    if (!name || squad.some(p => p.name === name)) return;
+    persist([...squad, { name, pos:"" }]); setInput("");
+  }
+  function remove(name) { persist(squad.filter(p => p.name !== name)); }
+  function setPos(name, pos) { persist(squad.map(p => p.name === name ? { ...p, pos } : p)); }
+  function updCfg(key, val) { const next = { ...config, [key]: val }; setConfig(next); saveConfig(next); }
+
+  const isNewGame = mode === "newGame";
+
+  return (
+    <div style={S.page}>
+      <div style={S.card}>
+        <button style={S.btnGhost} onClick={onBack}>← Menu</button>
+        <div style={S.pill}>1 · 3 · 2 · 3</div>
+        <h1 style={S.h1}>{isNewGame ? "New Game" : "Manage Squad"}</h1>
+
+        {isNewGame && (
+          <div>
+            <div style={S.fieldLbl}>Opponent</div>
+            <input style={{ ...S.inp, width:"100%" }} placeholder="e.g. Riverside Rovers"
+              value={opponent} onChange={e => setOpponent(e.target.value)} />
+          </div>
+        )}
+
+        <div style={S.fieldLbl}>Players {squad.length>0 && `(${squad.length})`}</div>
+        <div style={{ display:"flex", gap:8 }}>
+          <input style={S.inp} placeholder="Player name…" value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key==="Enter" && addPlayer()} />
+          <button style={S.btnAdd} onClick={addPlayer}>Add</button>
+        </div>
+        <div style={S.squadList}>
+          {squad.length===0 && <div style={S.empty}>No players yet.</div>}
+          {squad.map((p,i) => (
+            <div key={p.name} style={S.squadRow}>
+              <span style={S.squadNum}>{i+1}</span>
+              <span style={S.squadName}>{p.name}</span>
+              <select style={S.posSel} value={p.pos} onChange={e => setPos(p.name, e.target.value)}>
+                <option value="">No pos</option>
+                {POSITIONS.map(pos => <option key={pos.id} value={pos.id}>{pos.label}</option>)}
+              </select>
+              <button style={S.btnX} onClick={() => remove(p.name)}>✕</button>
+            </div>
+          ))}
+        </div>
+
+        {isNewGame && (
+          <div style={S.configBox}>
+            <div style={S.configHd}>⚙️ Match Settings (per half)</div>
+            {[["periodMins","Period length","min",1,30],["numPeriods","Periods / half","",1,6]].map(([key,lbl,unit,mn,mx]) => (
+              <div key={key} style={S.configRow}>
+                <label style={S.configLbl}>{lbl}</label>
+                <div style={S.configVal}>
+                  <button style={S.stepBtn} onClick={() => updCfg(key, Math.max(mn, config[key]-1))}>−</button>
+                  <span style={S.stepNum}>{config[key]}{unit?` ${unit}`:""}</span>
+                  <button style={S.stepBtn} onClick={() => updCfg(key, Math.min(mx, config[key]+1))}>+</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {isNewGame
+          ? <>
+              <button style={{ ...S.btnGreen, opacity:squad.length<9?0.4:1 }}
+                disabled={squad.length<9} onClick={() => onNext(squad, config, opponent)}>
+                Pick Starting XI →
+              </button>
+              {squad.length<9 && <p style={S.warn}>Need at least 9 players.</p>}
+            </>
+          : <button style={S.btnGreen} onClick={onBack}>Done</button>
+        }
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+//  SCREEN: LINEUP PICKER
+// ════════════════════════════════════════════════════════════════════════════════
+function PickerScreen({ squad, config, opponent, onNext, onBack }) {
+  const names = squad.map(p => p.name);
+  const [slots, setSlots] = useState(() => {
+    const s = {}; POS_IDS.forEach(id => s[id] = "");
+    squad.forEach(p => { if (p.pos && !s[p.pos]) s[p.pos] = p.name; });
+    return s;
+  });
+  const assigned = Object.values(slots).filter(Boolean);
+  const bench = names.filter(n => !assigned.includes(n));
+
+  function set(posId, name) {
+    setSlots(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(k => { if (next[k]===name && k!==posId) next[k]=""; });
+      next[posId] = name; return next;
+    });
+  }
+  function canStart() { return POSITIONS.every(p => slots[p.id]); }
+  function buildHalf() {
+    const base = { ...slots, bench: names.filter(n => !Object.values(slots).includes(n)) };
+    return Array.from({ length: config.numPeriods }, (_, i) => ({ slots: cloneSlots(base), seeded: i===0 }));
+  }
+
+  return (
+    <div style={S.page}>
+      <div style={{ ...S.card, maxWidth:420 }}>
+        <button style={S.btnGhost} onClick={onBack}>← Back</button>
+        <h1 style={S.h1}>Starting Lineup</h1>
+        <p style={S.sub}>vs {opponent || "Opposition"} — pre-filled from default positions.</p>
+        <div style={S.pickerGrid}>
+          {POSITIONS.map(pos => (
+            <div key={pos.id} style={S.pickerRow}>
+              <span style={S.pickerLabel}>{pos.label}</span>
+              <select style={S.sel} value={slots[pos.id]} onChange={e => set(pos.id, e.target.value)}>
+                <option value="">— select —</option>
+                {names.map(name => (
+                  <option key={name} value={name} disabled={assigned.includes(name) && slots[pos.id]!==name}>
+                    {name}{assigned.includes(name) && slots[pos.id]!==name ? " ✓" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+        {bench.length>0 && <div style={S.benchPreview}><span style={S.benchPreviewHd}>Bench: </span>{bench.join(", ")}</div>}
+        <button style={{ ...S.btnGreen, opacity:canStart()?1:0.4 }} disabled={!canStart()}
+          onClick={() => onNext(buildHalf())}>Start Match →</button>
+        {!canStart() && <p style={S.warn}>Assign all 9 positions to continue.</p>}
+      </div>
+    </div>
+  );
+}
+
+// ── Token ─────────────────────────────────────────────────────────────────────
+function Token({ name, color, selected, onTap, onDragStart }) {
+  const bg = color||(selected?"#7c3aed":"#1e3a5f");
+  return (
+    <div draggable={!!onDragStart} onDragStart={onDragStart} onClick={onTap}
+      style={{ ...S.token, background:bg,
+        boxShadow: selected?"0 0 0 3px #a78bfa":color?`0 0 0 2.5px ${color}`:"none",
+        transform: selected?"scale(1.1)":"none", cursor:"pointer" }}>
+      {name}
+    </div>
+  );
+}
+
+// ── Goal Modal (with position auto-detect) ──────────────────────────────────────
+function GoalModal({ squad, slots, onLog, onClose }) {
+  const [scorer, setScorer] = useState("");
+  const posOf = (name) => { const id = POS_IDS.find(id => slots[id]===name); return id ? POS_LABEL[id] : "Bench"; };
+  return (
+    <div style={S.modalBack} onClick={onClose}>
+      <div style={S.modalBox} onClick={e => e.stopPropagation()}>
+        <div style={S.modalTitle}>⚽ Log Our Goal</div>
+        <div style={S.modalLbl}>Scorer</div>
+        <select style={S.sel} value={scorer} onChange={e => setScorer(e.target.value)}>
+          <option value="">— select player —</option>
+          {squad.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+        </select>
+        {scorer && <div style={{ fontSize:12, color:"#06b6d4", marginTop:2 }}>Position: {posOf(scorer)}</div>}
+        <div style={{ display:"flex", gap:8, marginTop:8 }}>
+          <button style={{ ...S.btnGreen, flex:1, opacity:scorer?1:0.4 }} disabled={!scorer}
+            onClick={() => { onLog(scorer, posOf(scorer)); onClose(); }}>Log Goal</button>
+          <button style={S.btnCancel} onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+//  SCREEN: MATCH
+// ════════════════════════════════════════════════════════════════════════════════
+function MatchScreen({ half1, config, squad, opponent, onSaveGame, onExit }) {
+  const [halves, setHalves] = useState(() => {
+    const fresh = () => Array.from({ length: config.numPeriods }, () => ({ slots:null, seeded:false }));
+    return [half1, fresh()];
+  });
+  const [halfIdx, setHalfIdx] = useState(0);
+  const [pidx, setPidx]       = useState(0);
+  const [selected, setSelected] = useState(null);
+  const [dragging, setDragging] = useState(null);
+  const [periodLeft, setPeriodLeft] = useState(config.periodMins*60);
+  const [halfElapsed, setHalfElapsed] = useState(0);
+  const [running, setRunning] = useState(false);
+  const [alarmed, setAlarmed] = useState(false);
+  const [goals, setGoals]     = useState([]);
+  const [notes, setNotes]     = useState([]);
+  const [recording, setRecording] = useState(false);
+  const [modal, setModal]     = useState(null); // "goal" | "notes" | "report" | "save"
+  const [report, setReport]   = useState("");
+  const [reportLoading, setReportLoading] = useState(false);
+  const timerRef = useRef(null);
+  const recogRef = useRef(null);
+
+  const periods = halves[halfIdx];
+  const cur = periods[pidx];
+
+  let prevSlots = null;
+  if (pidx > 0) prevSlots = periods[pidx-1]?.slots;
+  else if (halfIdx > 0) { const ph = halves[halfIdx-1]; prevSlots = ph[ph.length-1]?.slots; }
+  const swapPairs = (prevSlots && cur.slots) ? computeSwapPairs(prevSlots, cur.slots) : {};
+
+  // seed empty periods
+  useEffect(() => {
+    let need = false;
+    halves.forEach(h => h.forEach(p => { if (!p.slots) need = true; }));
+    if (!need) return;
+    setHalves(hs => {
+      const next = hs.map(h => h.map(p => ({ ...p })));
+      let prev = null;
+      for (let hi=0; hi<next.length; hi++) for (let pi=0; pi<next[hi].length; pi++) {
+        if (next[hi][pi].slots) prev = next[hi][pi].slots;
+        else if (prev) { next[hi][pi].slots = cloneSlots(prev); prev = next[hi][pi].slots; }
+      }
+      return next;
+    });
+  }, [halves]);
+
+  // timers
+  useEffect(() => {
+    if (running) {
+      timerRef.current = setInterval(() => {
+        setHalfElapsed(g => g+1);
+        setPeriodLeft(t => {
+          if (t <= 1) { clearInterval(timerRef.current); setRunning(false); setAlarmed(true); playAlarm(); return 0; }
+          return t-1;
+        });
+      }, 1000);
+    } else clearInterval(timerRef.current);
+    return () => clearInterval(timerRef.current);
+  }, [running]);
+
+  function toggleRun() { unlockAudio(); setRunning(r=>!r); setAlarmed(false); }
+  function resetPeriodTimer() { setRunning(false); setPeriodLeft(config.periodMins*60); setAlarmed(false); }
+  function testAlarm() { unlockAudio(); playAlarm(); }
+  function goNextPeriod() {
+    setRunning(false); setPeriodLeft(config.periodMins*60); setAlarmed(false);
+    if (pidx < periods.length-1) { setPidx(pidx+1); setSelected(null); }
+    else if (halfIdx < halves.length-1) { setHalfIdx(halfIdx+1); setPidx(0); setSelected(null); setHalfElapsed(0); }
+  }
+  function switchPeriod(i) { setPidx(i); setSelected(null); }
+  function switchHalf(h) { if (h<0||h>halves.length-1) return; setHalfIdx(h); setPidx(0); setSelected(null); setHalfElapsed(0); }
+
+  // swipe
+  const touchStart = useRef(null);
+  function onTouchStart(e) { touchStart.current = { x:e.touches[0].clientX, y:e.touches[0].clientY }; }
+  function onTouchEnd(e) {
+    if (!touchStart.current) return;
+    const dx = e.changedTouches[0].clientX - touchStart.current.x;
+    const dy = e.changedTouches[0].clientY - touchStart.current.y;
+    touchStart.current = null;
+    if (Math.abs(dx)>80 && Math.abs(dx)>Math.abs(dy)*2) { dx<0?switchHalf(halfIdx+1):switchHalf(halfIdx-1); }
+  }
+  const pitchTouch = useRef(null);
+  function onPitchTouchStart(e) { e.stopPropagation(); pitchTouch.current = { x:e.touches[0].clientX, y:e.touches[0].clientY }; }
+  function onPitchTouchEnd(e) {
+    e.stopPropagation();
+    if (!pitchTouch.current) return;
+    const dx = e.changedTouches[0].clientX - pitchTouch.current.x;
+    const dy = e.changedTouches[0].clientY - pitchTouch.current.y;
+    pitchTouch.current = null;
+    const adx=Math.abs(dx), ady=Math.abs(dy);
+    if (adx<25 && ady<25) return;
+    if (adx > ady*1.2) {
+      if (dx<0 && pidx<periods.length-1) switchPeriod(pidx+1);
+      if (dx>0 && pidx>0) switchPeriod(pidx-1);
+    } else {
+      if (dy<0) switchHalf(halfIdx+1);
+      if (dy>0) switchHalf(halfIdx-1);
+    }
+  }
+
+  // movement
+  function applyMove(slots, name, from, to) {
+    const s = {}; POS_IDS.forEach(id => s[id]=slots[id]);
+    let bench = [...slots.bench];
+    if (from==="bench") bench = bench.filter(n=>n!==name); else if (POS_IDS.includes(from)) s[from]="";
+    if (to==="bench") { if (!bench.includes(name)) bench.push(name); }
+    else { const d=s[to]; s[to]=name; if (d&&d!==name){ if(from==="bench"){if(!bench.includes(d))bench.push(d);}else s[from]=d; } }
+    const onField = new Set(POS_IDS.map(id=>s[id]).filter(Boolean));
+    bench = [...new Set(bench.filter(n=>!onField.has(n)))];
+    return { ...s, bench };
+  }
+  function flatten(hs) { const f=[]; hs.forEach((h,hi)=>h.forEach((p,pi)=>f.push({hi,pi,slots:p.slots}))); return f; }
+  function movePlayer(name, from, to) {
+    if (from===to) return;
+    setHalves(hs => {
+      const flat = flatten(hs);
+      const idx = flat.findIndex(f=>f.hi===halfIdx&&f.pi===pidx);
+      if (idx<0) return hs;
+      const after = applyMove(flat[idx].slots, name, from, to);
+      const newByKey = { [`${halfIdx}.${pidx}`]: after };
+      for (let j=idx+1; j<flat.length; j++) {
+        const cand = flat[j].slots; if (!cand) continue;
+        let candFrom = null;
+        if ((cand.bench||[]).includes(name)) candFrom="bench";
+        else { const pos = POS_IDS.find(id=>cand[id]===name); if (pos) candFrom=pos; }
+        if (candFrom===from) { newByKey[`${flat[j].hi}.${flat[j].pi}`] = applyMove(cand, name, from, to); }
+        else break;
+      }
+      return hs.map((h,hi)=>h.map((p,pi)=>{ const k=`${hi}.${pi}`; return newByKey[k]?{...p,slots:newByKey[k],seeded:true}:p; }));
+    });
+  }
+  function handleTap(id, isBench, benchName) {
+    if (selected) {
+      const to = isBench ? "bench" : id;
+      if (selected.from===to && (!isBench || selected.name===benchName)) { setSelected(null); return; }
+      movePlayer(selected.name, selected.from, to); setSelected(null);
+    } else {
+      if (isBench) { setSelected({ name:benchName, from:"bench" }); return; }
+      const name = cur.slots[id]; if (name) setSelected({ name, from:id });
+    }
+  }
+  function handleDrop(toId) { if (!dragging) return; movePlayer(dragging.name, dragging.from, toId); setDragging(null); }
+  function getTokenColor(name) { if (!name) return null; const i=swapPairs[name]; return i!==undefined?PAIR_COLORS[i]:null; }
+
+  // goals
+  function logGoal(scorer, position) { setGoals(g => [...g, { scorer, position, secs:halfElapsed, timeStr:fmtTime(halfElapsed), team:"us", half:halfIdx+1 }]); }
+  function logThemGoal() { setGoals(g => [...g, { scorer:"Opponent", secs:halfElapsed, timeStr:fmtTime(halfElapsed), team:"them", half:halfIdx+1 }]); }
+  function removeGoal(i) { setGoals(g => g.filter((_,j)=>j!==i)); }
+
+  // notes
+  function startRecording() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert("Voice notes need Safari (iOS) or Chrome (Android). You can also type a note."); return; }
+    const r = new SR(); r.lang="en-GB"; r.continuous=true; r.interimResults=false;
+    r.onresult = e => { const text = Array.from(e.results).map(x=>x[0].transcript).join(" ").trim(); if (text) setNotes(n=>[...n,{ text, half:halfIdx+1, timeStr:fmtTime(halfElapsed), secs:halfElapsed }]); };
+    r.onerror = e => { if (e.error==="not-allowed") alert("Microphone permission denied. Enable it in Settings → Safari."); setRecording(false); };
+    r.onend = () => setRecording(false);
+    r.start(); recogRef.current = r; setRecording(true);
+  }
+  function stopRecording() { recogRef.current?.stop(); setRecording(false); }
+  function addTypedNote(text) { if (text && text.trim()) setNotes(n=>[...n,{ text:text.trim(), half:halfIdx+1, timeStr:fmtTime(halfElapsed), secs:halfElapsed }]); }
+  function removeNote(i) { setNotes(n => n.filter((_,j)=>j!==i)); }
+
+  const usGoals   = goals.filter(g=>g.team==="us");
+  const themGoals = goals.filter(g=>g.team==="them");
+
+  // report
+  function currentGameObj() {
+    return { opponent, date: Date.now(), goals, notes, scoreUs:usGoals.length, scoreThem:themGoals.length, halves, config };
+  }
+  async function generateReport() {
+    setModal("report"); setReportLoading(true);
+    const game = currentGameObj();
+    try { const text = await generateAIReport(game); setReport(text); }
+    catch(e) { setReport(buildLocalReport(game)); }
+    setReportLoading(false);
+  }
+
+  function saveAndExit() {
+    const game = currentGameObj();
+    game.id = "g_" + Date.now();
+    game.report = report || buildLocalReport(game);
+    onSaveGame(game);
+  }
+
+  const pMM = String(Math.floor(periodLeft/60)).padStart(2,"0");
+  const pSS = String(periodLeft%60).padStart(2,"0");
+  const gMM = String(Math.floor(halfElapsed/60)).padStart(2,"0");
+  const gSS = String(halfElapsed%60).padStart(2,"0");
+  const pct = periodLeft/(config.periodMins*60);
+  const ringColor = pct>0.4?"#22c55e":pct>0.15?"#f59e0b":"#ef4444";
+
+  const swapEntries = PAIR_COLORS.map((c,i) => {
+    const players = Object.entries(swapPairs).filter(([,v])=>v===i).map(([k])=>k);
+    return players.length===2?{color:c,a:players[0],b:players[1]}:null;
+  }).filter(Boolean);
+
+  // cumulative rest counts (up to current)
+  const offCounts = {};
+  { let stop=false;
+    halves.forEach((h,hi)=>h.forEach((p,pi)=>{
+      if (!p.slots) return;
+      const future = hi>halfIdx || (hi===halfIdx && pi>pidx);
+      if (!future) (p.slots.bench||[]).forEach(n=>{ offCounts[n]=(offCounts[n]||0)+1; });
+    }));
+  }
+  const offSummary = Object.entries(offCounts).sort((a,b)=>b[1]-a[1]);
+
+  if (!cur.slots) return <div style={S.wrap}><p style={{ color:"#64748b" }}>Loading…</p></div>;
+
+  return (
+    <div style={S.wrap} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      {modal==="goal" && <GoalModal squad={squad} slots={cur.slots} onLog={logGoal} onClose={()=>setModal(null)} />}
+
+      {/* Notes modal */}
+      {modal==="notes" && (
+        <div style={S.modalBack} onClick={()=>setModal(null)}>
+          <div style={{ ...S.modalBox, maxWidth:440, maxHeight:"85vh", overflowY:"auto" }} onClick={e=>e.stopPropagation()}>
+            <div style={S.modalHeader}><span style={S.modalTitle}>🎙️ Coach's Notes</span><button style={S.btnX} onClick={()=>setModal(null)}>✕</button></div>
+            <button style={{ ...S.micBtnLarge, background: recording?"#ef4444":"#166534" }}
+              onClick={recording?stopRecording:startRecording}>
+              {recording ? "⏹  Stop Recording" : "🎙️  Record Voice Note"}
+            </button>
+            {recording && <p style={{ fontSize:12, color:"#fca5a5", textAlign:"center", margin:"0 0 8px" }}>🔴 Listening… speak now</p>}
+            <div style={{ display:"flex", gap:6, marginBottom:10 }}>
+              <input style={S.inp} placeholder="…or type a note" id="typedNote"
+                onKeyDown={e => { if (e.key==="Enter") { addTypedNote(e.target.value); e.target.value=""; } }} />
+              <button style={S.btnAdd} onClick={() => { const el=document.getElementById("typedNote"); addTypedNote(el.value); el.value=""; }}>Add</button>
+            </div>
+            {notes.length===0 && <p style={{ ...S.sub, textAlign:"center" }}>No notes yet.</p>}
+            {notes.map((n,i)=>(
+              <div key={i} style={S.noteEntry}>
+                <div style={S.noteTime}>H{n.half} {n.timeStr}</div>
+                <div style={S.noteText}>{n.text}</div>
+                <button style={S.btnTinyX} onClick={()=>removeNote(i)}>✕</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Report modal */}
+      {modal==="report" && (
+        <div style={S.modalBack} onClick={()=>setModal(null)}>
+          <div style={{ ...S.modalBox, maxWidth:460, maxHeight:"85vh", overflowY:"auto" }} onClick={e=>e.stopPropagation()}>
+            <div style={S.modalHeader}><span style={S.modalTitle}>📋 Match Report</span><button style={S.btnX} onClick={()=>setModal(null)}>✕</button></div>
+            <div style={S.reportBox}>{reportLoading ? "✨ Generating…" : report}</div>
+            {!reportLoading && (
+              <div style={{ display:"flex", gap:8 }}>
+                <button style={{ ...S.btnDark, flex:1 }} onClick={() => navigator.clipboard?.writeText(report)}>Copy</button>
+                <button style={{ ...S.btnGreen, flex:1 }} onClick={saveAndExit}>Save Game ✓</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Save confirm modal */}
+      {modal==="save" && (
+        <div style={S.modalBack} onClick={()=>setModal(null)}>
+          <div style={S.modalBox} onClick={e=>e.stopPropagation()}>
+            <div style={S.modalTitle}>End & Save Game?</div>
+            <p style={S.sub}>Final score vs {opponent||"Opposition"}: {usGoals.length}–{themGoals.length}. This saves the game and a report to your Season Log.</p>
+            <div style={{ display:"flex", gap:8 }}>
+              <button style={{ ...S.btnGreen, flex:1 }} onClick={saveAndExit}>Save</button>
+              <button style={S.btnCancel} onClick={()=>setModal(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div style={S.header}>
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          <button style={S.btnGhost} onClick={onExit}>←</button>
+          <div style={S.gameClock}><span style={S.clockLabel}>{halfIdx===0?"1ST":"2ND"}</span><span style={S.gameClockNum}>{gMM}:{gSS}</span></div>
+          <div style={{ position:"relative", width:52, height:52 }}>
+            <svg width="52" height="52" style={{ position:"absolute", top:0, left:0, transform:"rotate(-90deg)" }}>
+              <circle cx="26" cy="26" r="22" fill="none" stroke="#1e293b" strokeWidth="4"/>
+              <circle cx="26" cy="26" r="22" fill="none" stroke={ringColor} strokeWidth="4"
+                strokeDasharray={`${2*Math.PI*22}`} strokeDashoffset={`${2*Math.PI*22*(1-pct)}`}
+                strokeLinecap="round" style={{ transition:"stroke-dashoffset 1s linear, stroke 0.5s" }}/>
+            </svg>
+            <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+              color:alarmed?"#ef4444":"#f1f5f9", animation:alarmed?"pulse 0.6s ease-in-out infinite alternate":"none" }}>
+              <span style={{ fontSize:6, color:"#64748b", fontWeight:700 }}>PERIOD</span>
+              <span style={{ fontVariantNumeric:"tabular-nums", fontSize:11, fontWeight:800 }}>{pMM}:{pSS}</span>
+            </div>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+            <button style={{ ...S.btnSm, background:running?"#ef4444":"#22c55e" }} onClick={toggleRun}>{running?"⏸":"▶"}</button>
+            {alarmed
+              ? <button style={{ ...S.btnSm, background:"#1d4ed8" }} onClick={goNextPeriod}>Next→</button>
+              : <button style={{ ...S.btnSm, background:"#475569" }} onClick={resetPeriodTimer}>↺</button>}
+          </div>
+        </div>
+        <button style={{ ...S.micBtn, background:recording?"#ef4444":"#1e293b",
+          boxShadow:recording?"0 0 0 3px #ef444444":"none", animation:recording?"pulse 0.8s ease-in-out infinite alternate":"none" }}
+          onClick={()=>setModal("notes")}>
+          {recording?"🔴":"🎙️"}<span style={{ fontSize:9, marginTop:2, color:recording?"#fca5a5":"#94a3b8" }}>{recording?"Rec…":"Notes"}</span>
+        </button>
+      </div>
+
+      <div style={{ fontSize:12, color:"#64748b", marginBottom:4 }}>vs <b style={{ color:"#cbd5e1" }}>{opponent||"Opposition"}</b></div>
+
+      {alarmed && <div style={S.alarmBanner}>🔔 Period over! Make your subs, then tap Next →</div>}
+
+      {/* Tabs */}
+      <div style={S.tabsRow}>
+        <span style={S.halfChip}>{halfIdx===0?"1st Half":"2nd Half"}</span>
+        <div style={S.tabs}>
+          {periods.map((p,i)=>(
+            <button key={i} style={{ ...S.tab, ...(i===pidx?S.tabOn:{}) }} onClick={()=>switchPeriod(i)}>
+              {`${i*config.periodMins}–${(i+1)*config.periodMins}m`}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {(swapEntries.length>0 || selected) && (
+        <div style={S.legend}>
+          {swapEntries.length>0 && <span style={{ fontSize:10, color:"#64748b" }}>Swaps:</span>}
+          {swapEntries.map(({color,a,b})=>(
+            <div key={a} style={S.legendRow}><div style={{ ...S.dot, background:color }}/><span style={{ fontSize:10, color }}>{a} ↔ {b}</span></div>
+          ))}
+          {selected && <div style={{ ...S.legendRow, background:"#7c3aed22", padding:"2px 8px", borderRadius:6 }}><div style={{ ...S.dot, background:"#7c3aed" }}/><span style={{ fontSize:10, color:"#c4b5fd" }}>Moving: {selected.name}</span></div>}
+        </div>
+      )}
+
+      {/* Pitch + bench */}
+      <div style={S.mainRow}>
+        <div style={S.pitchOuter} onDragOver={e=>e.preventDefault()} onTouchStart={onPitchTouchStart} onTouchEnd={onPitchTouchEnd}>
+          <div style={S.cc}/><div style={S.hw}/><div style={S.ptop}/><div style={S.pbot}/>
+          {POSITIONS.map(pos=>{
+            const name = cur.slots[pos.id];
+            const isSel = selected?.from===pos.id;
+            const color = isSel?null:getTokenColor(name);
+            return (
+              <div key={pos.id} style={{ position:"absolute", left:pos.left, top:pos.top, transform:`translateX(${pos.tx})`,
+                display:"flex", flexDirection:"column", alignItems:"center", gap:2, zIndex:isSel?10:1 }}
+                onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();handleDrop(pos.id);}}
+                onClick={e=>{e.stopPropagation();handleTap(pos.id,false,null);}}>
+                {name ? <Token name={name} color={color} selected={isSel} onTap={()=>{}}
+                  onDragStart={()=>{setDragging({name,from:pos.id});setSelected(null);}}/> : <div style={S.emptySlot}/>}
+                <span style={S.posLbl}>{pos.label}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div style={S.bench} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();handleDrop("bench");}}
+          onClick={()=>{ if (selected) handleTap(null,true,null); }}>
+          <div style={S.benchHd}>BENCH</div>
+          {cur.slots.bench.length===0 && <div style={S.benchEm}>—</div>}
+          {cur.slots.bench.map(name=>{
+            const isSel = selected?.name===name && selected?.from==="bench";
+            const color = isSel?null:getTokenColor(name);
+            return (
+              <div key={name} style={{ marginBottom:6 }} onClick={e=>{e.stopPropagation();handleTap(null,true,name);}}>
+                <Token name={name} color={color} selected={isSel} onDragStart={()=>{setDragging({name,from:"bench"});setSelected(null);}}/>
+              </div>
+            );
+          })}
+          <div style={S.benchDiv}/>
+          <div style={{ fontSize:8, color:"#64748b", textAlign:"center", marginBottom:4, fontWeight:700 }}>TIMES RESTED</div>
+          {offSummary.length===0 && <div style={{ fontSize:9, color:"#334155", textAlign:"center" }}>none yet</div>}
+          {offSummary.map(([n,c])=>(
+            <div key={n} style={{ display:"flex", justifyContent:"space-between", fontSize:9, color:"#cbd5e1", padding:"1px 2px" }}>
+              <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{n.split(" ")[0]}</span>
+              <span style={{ color:c>=2?"#f59e0b":"#64748b", fontWeight:700 }}>{c}×</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <p style={S.hint}>{selected?`Tap destination for ${selected.name}`:"Tap player to move"}</p>
+
+      {/* Goals */}
+      <div style={S.goalSection}>
+        <div style={S.goalHeader}>
+          <div style={S.scoreBlock}>
+            <span style={S.scoreLabel}>Us</span><span style={S.scoreNum}>{usGoals.length}</span>
+            <span style={S.scoreDash}>–</span><span style={S.scoreNum}>{themGoals.length}</span><span style={S.scoreLabel}>Them</span>
+          </div>
+          <div style={{ display:"flex", gap:6 }}>
+            <button style={S.btnGoalUs} onClick={()=>setModal("goal")}>⚽ Our Goal</button>
+            <button style={S.btnGoalThem} onClick={logThemGoal}>+ Their Goal</button>
+          </div>
+        </div>
+        {goals.length>0 && (
+          <div style={S.goalLog}>
+            {goals.map((g,i)=>(
+              <div key={i} style={{ ...S.goalEntry, color:g.team==="us"?"#86efac":"#fca5a5" }}>
+                <span>⚽ H{g.half} {g.timeStr} — {g.team==="us"?`${g.scorer}${g.position?` (${g.position})`:""}`:"Opponent"}</span>
+                <button style={S.btnTinyX} onClick={()=>removeGoal(i)}>✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Bottom buttons */}
+      <div style={{ display:"flex", gap:8, width:"100%", maxWidth:500, marginTop:8 }}>
+        <button style={S.btnNotes} onClick={()=>setModal("notes")}>🎙️ Notes {notes.length>0 && <span style={S.noteBadge}>{notes.length}</span>}</button>
+        <button style={S.btnReport} onClick={generateReport}>📋 Report</button>
+      </div>
+      <button style={{ ...S.btnGreen, width:"100%", maxWidth:500, marginTop:8 }} onClick={()=>setModal("save")}>End &amp; Save Game</button>
+
+      {/* Half bar */}
+      <div style={S.halfBar}>
+        <button style={{ ...S.halfArrow, opacity:halfIdx>0?1:0.3 }} onClick={()=>switchHalf(halfIdx-1)} disabled={halfIdx===0}>←</button>
+        <div style={S.halfBarCenter}>
+          {["1st Half","2nd Half"].map((lbl,i)=>(
+            <div key={i} style={{ ...S.halfPill, ...(i===halfIdx?S.halfPillOn:{}) }} onClick={()=>switchHalf(i)}>{lbl}</div>
+          ))}
+        </div>
+        <button style={{ ...S.halfArrow, opacity:halfIdx<halves.length-1?1:0.3 }} onClick={()=>switchHalf(halfIdx+1)} disabled={halfIdx>=halves.length-1}>→</button>
+      </div>
+      <p style={S.swipeHint}>swipe field ← → period · ↑ ↓ half</p>
+      <button style={{ background:"#1e293b", border:"1px solid #334155", color:"#94a3b8", borderRadius:8, padding:"8px 14px", fontSize:12, fontWeight:700, cursor:"pointer", marginTop:6 }} onClick={testAlarm}>🔊 Test alarm</button>
+
+      <style>{`@keyframes pulse { from{opacity:1}to{opacity:0.3} }`}</style>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+//  ROOT
+// ════════════════════════════════════════════════════════════════════════════════
+function App() {
+  const [screen, setScreen] = useState("menu"); // menu | season | gameDetail | stats | squad | picker | match
+  const [games, setGames]   = useState(() => loadGames());
+  const [squad, setSquad]   = useState([]);
+  const [config, setConfig] = useState({ periodMins:8, numPeriods:3 });
+  const [opponent, setOpponent] = useState("");
+  const [half1, setHalf1]   = useState(null);
+  const [squadMode, setSquadMode] = useState("newGame");
+  const [openGameId, setOpenGameId] = useState(null);
+
+  function saveGame(game) {
+    const next = [...games, game];
+    setGames(next); saveGames(next);
+    setScreen("season");
+  }
+  function deleteGame(id) {
+    const next = games.filter(g=>g.id!==id);
+    setGames(next); saveGames(next);
+  }
+
+  if (screen==="menu")
+    return <MenuScreen games={games}
+      onNewGame={() => { setSquadMode("newGame"); setScreen("squad"); }}
+      onViewSeason={() => setScreen("season")}
+      onViewStats={() => setScreen("stats")}
+      onManageSquad={() => { setSquadMode("manage"); setScreen("squad"); }} />;
+
+
+  if (screen==="stats")
+    return <StatsScreen games={games} onBack={() => setScreen("menu")} />;
+
+  if (screen==="season")
+    return <SeasonScreen games={games} onBack={()=>setScreen("menu")}
+      onOpenGame={(id)=>{ setOpenGameId(id); setScreen("gameDetail"); }}
+      onDeleteGame={deleteGame} />;
+
+  if (screen==="gameDetail") {
+    const game = games.find(g=>g.id===openGameId);
+    return <GameDetailScreen game={game} onBack={()=>setScreen("season")} />;
+  }
+
+  if (screen==="squad")
+    return <SquadScreen mode={squadMode}
+      onNext={(s,c,opp) => { setSquad(s); setConfig(c); setOpponent(opp); setScreen("picker"); }}
+      onBack={()=>setScreen("menu")} />;
+
+  if (screen==="picker")
+    return <PickerScreen squad={squad} config={config} opponent={opponent}
+      onNext={(h)=>{ setHalf1(h); setScreen("match"); }}
+      onBack={()=>setScreen("squad")} />;
+
+
+  return <MatchScreen half1={half1} config={config} squad={squad} opponent={opponent}
+    onSaveGame={saveGame} onExit={()=>setScreen("menu")} />;
+}
+
+// ── Styles ────────────────────────────────────────────────────────────────────
+const S = {
+  page:       { minHeight:"100vh", background:"#0f172a", display:"flex", alignItems:"center", justifyContent:"center", padding:16 },
+  card:       { background:"#1e293b", borderRadius:16, padding:"24px 20px", width:"100%", maxWidth:400, display:"flex", flexDirection:"column", gap:12 },
+  pill:       { alignSelf:"flex-start", background:"#22c55e22", color:"#22c55e", border:"1px solid #22c55e44", borderRadius:20, fontSize:11, fontWeight:700, padding:"3px 12px", letterSpacing:2 },
+  h1:         { margin:0, fontSize:24, fontWeight:800, color:"#f1f5f9" },
+  sub:        { margin:0, fontSize:13, color:"#94a3b8", lineHeight:1.5 },
+  fieldLbl:   { fontSize:12, fontWeight:700, color:"#64748b", marginBottom:4 },
+  inp:        { flex:1, background:"#0f172a", border:"1px solid #334155", borderRadius:8, color:"#f1f5f9", fontSize:14, padding:"9px 12px", outline:"none", fontFamily:"inherit" },
+  btnAdd:     { background:"#1d4ed8", color:"#fff", border:"none", borderRadius:8, padding:"9px 16px", fontWeight:700, fontSize:14, cursor:"pointer" },
+  btnGreen:   { background:"#22c55e", color:"#0f172a", border:"none", borderRadius:10, padding:"12px 0", fontWeight:800, fontSize:14, cursor:"pointer" },
+  btnBlue:    { background:"#1d4ed8", color:"#fff", border:"none", borderRadius:10, padding:"12px 0", fontWeight:800, fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 },
+  btnDark:    { background:"#0f172a", color:"#cbd5e1", border:"1px solid #334155", borderRadius:10, padding:"12px 0", fontWeight:700, fontSize:14, cursor:"pointer" },
+  btnCancel:  { background:"#1e293b", color:"#94a3b8", border:"1px solid #334155", borderRadius:10, padding:"12px 16px", fontWeight:700, fontSize:14, cursor:"pointer" },
+  btnGhost:   { background:"none", border:"1px solid #334155", color:"#94a3b8", borderRadius:8, padding:"6px 10px", fontSize:14, cursor:"pointer", alignSelf:"flex-start" },
+  btnX:       { background:"none", border:"none", color:"#475569", fontSize:14, cursor:"pointer", padding:"0 2px" },
+  btnTinyX:   { background:"none", border:"none", color:"#475569", fontSize:11, cursor:"pointer", marginLeft:4 },
+  countBadge: { background:"#ffffff22", borderRadius:10, fontSize:11, fontWeight:800, padding:"1px 7px", marginLeft:2 },
+  seasonStrip:{ display:"flex", gap:8, background:"#0f172a", borderRadius:12, padding:"12px 8px" },
+  seasonStat: { flex:1, textAlign:"center" },
+  seasonNum:  { fontSize:22, fontWeight:900, color:"#f1f5f9" },
+  seasonLbl:  { fontSize:10, color:"#64748b", fontWeight:700, marginTop:2 },
+  gameRow:    { display:"flex", alignItems:"center", gap:10, background:"#0f172a", borderRadius:10, padding:"10px 12px", cursor:"pointer" },
+  resultBadge:{ width:30, height:30, borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:14, flexShrink:0 },
+  gameOpp:    { fontSize:14, fontWeight:700, color:"#f1f5f9", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" },
+  gameDate:   { fontSize:11, color:"#64748b" },
+  gameScore:  { fontSize:18, fontWeight:800, color:"#f1f5f9" },
+  detailScore:{ fontSize:36, fontWeight:900, color:"#f1f5f9" },
+  reportBox:  { background:"#0f172a", borderRadius:10, padding:"14px 16px", fontSize:13, color:"#e2e8f0", lineHeight:1.7, whiteSpace:"pre-wrap", maxHeight:"50vh", overflowY:"auto" },
+  squadList:  { display:"flex", flexDirection:"column", gap:4, maxHeight:200, overflowY:"auto" },
+  squadRow:   { display:"flex", alignItems:"center", gap:6, background:"#0f172a", borderRadius:8, padding:"6px 8px" },
+  squadNum:   { fontSize:11, color:"#475569", minWidth:16 },
+  squadName:  { flex:1, fontSize:13, color:"#f1f5f9", fontWeight:600, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" },
+  posSel:     { background:"#1e293b", border:"1px solid #334155", borderRadius:6, color:"#94a3b8", fontSize:11, padding:"4px 4px", outline:"none", fontFamily:"inherit", maxWidth:96 },
+  empty:      { fontSize:13, color:"#334155", padding:"12px 0", textAlign:"center" },
+  warn:       { margin:0, fontSize:11, color:"#f59e0b", textAlign:"center" },
+  configBox:  { background:"#0f172a", borderRadius:10, padding:"12px 14px", display:"flex", flexDirection:"column", gap:10 },
+  configHd:   { fontSize:12, fontWeight:700, color:"#64748b" },
+  configRow:  { display:"flex", alignItems:"center", justifyContent:"space-between" },
+  configLbl:  { fontSize:13, color:"#94a3b8" },
+  configVal:  { display:"flex", alignItems:"center", gap:8 },
+  stepBtn:    { background:"#1e293b", border:"1px solid #334155", color:"#f1f5f9", borderRadius:6, width:28, height:28, fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" },
+  stepNum:    { fontSize:14, fontWeight:700, color:"#f1f5f9", minWidth:64, textAlign:"center" },
+  pickerGrid: { display:"flex", flexDirection:"column", gap:8 },
+  pickerRow:  { display:"flex", alignItems:"center", gap:10 },
+  pickerLabel:{ fontSize:12, fontWeight:700, color:"#94a3b8", minWidth:124, textAlign:"right" },
+  sel:        { flex:1, background:"#0f172a", border:"1px solid #334155", borderRadius:8, color:"#f1f5f9", fontSize:13, padding:"8px 10px", outline:"none", fontFamily:"inherit" },
+  benchPreview:  { background:"#0f172a", borderRadius:8, padding:"8px 12px", fontSize:12, color:"#64748b" },
+  benchPreviewHd:{ fontWeight:700, color:"#475569" },
+  wrap:       { minHeight:"100vh", background:"#0f172a", color:"#f1f5f9", fontFamily:"'Inter',system-ui,sans-serif", display:"flex", flexDirection:"column", alignItems:"center", padding:"10px 8px 24px" },
+  header:     { width:"100%", maxWidth:500, display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:4 },
+  gameClock:  { display:"flex", flexDirection:"column", alignItems:"center", background:"#1e293b", borderRadius:8, padding:"4px 10px", border:"1px solid #334155" },
+  clockLabel: { fontSize:7, color:"#64748b", fontWeight:700, letterSpacing:1 },
+  gameClockNum:{ fontVariantNumeric:"tabular-nums", fontSize:16, fontWeight:800, color:"#f1f5f9" },
+  btnSm:      { border:"none", borderRadius:7, padding:"5px 9px", fontSize:12, fontWeight:700, color:"#fff", cursor:"pointer", minWidth:32 },
+  micBtn:     { display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", width:52, height:52, borderRadius:12, border:"1px solid #334155", fontSize:22, cursor:"pointer", flexShrink:0, transition:"background 0.2s, box-shadow 0.2s" },
+  micBtnLarge:{ width:"100%", padding:"14px 0", border:"none", borderRadius:12, fontSize:16, fontWeight:800, color:"#fff", cursor:"pointer", transition:"background 0.2s", marginBottom:10 },
+  alarmBanner:{ background:"#ef444422", border:"1px solid #ef4444", color:"#fca5a5", borderRadius:8, padding:"7px 14px", fontSize:12, fontWeight:600, textAlign:"center", width:"100%", maxWidth:500, marginBottom:5 },
+  tabsRow:    { display:"flex", alignItems:"center", gap:8, marginBottom:5, width:"100%", maxWidth:500, flexWrap:"wrap" },
+  halfChip:   { fontSize:10, fontWeight:800, color:"#06b6d4", background:"#06b6d422", border:"1px solid #06b6d444", borderRadius:6, padding:"4px 8px", letterSpacing:0.5, whiteSpace:"nowrap" },
+  tabs:       { display:"flex", gap:5, flexWrap:"wrap" },
+  tab:        { background:"#1e293b", border:"1px solid #334155", color:"#94a3b8", borderRadius:8, padding:"5px 9px", fontSize:11, fontWeight:600, cursor:"pointer" },
+  tabOn:      { background:"#1d4ed8", border:"1px solid #3b82f6", color:"#fff" },
+  legend:     { display:"flex", gap:7, marginBottom:5, flexWrap:"wrap", alignItems:"center", width:"100%", maxWidth:500 },
+  legendRow:  { display:"flex", alignItems:"center", gap:4 },
+  dot:        { width:8, height:8, borderRadius:"50%", flexShrink:0 },
+  mainRow:    { display:"flex", gap:10, alignItems:"flex-start", width:"100%", maxWidth:500 },
+  pitchOuter: { flex:1, borderRadius:12, overflow:"hidden", border:"2px solid #22c55e44", background:"linear-gradient(180deg,#15803d 0%,#166534 50%,#15803d 100%)", position:"relative", aspectRatio:"0.68", touchAction:"none" },
+  cc:         { position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-50%)", width:"30%", paddingBottom:"30%", border:"1.5px solid #ffffff20", borderRadius:"50%", pointerEvents:"none" },
+  hw:         { position:"absolute", top:"50%", left:0, right:0, height:1.5, background:"#ffffff20", pointerEvents:"none" },
+  ptop:       { position:"absolute", top:0, left:"25%", right:"25%", height:"12%", border:"1.5px solid #ffffff20", borderTop:"none", pointerEvents:"none" },
+  pbot:       { position:"absolute", bottom:0, left:"25%", right:"25%", height:"12%", border:"1.5px solid #ffffff20", borderBottom:"none", pointerEvents:"none" },
+  token:      { borderRadius:7, padding:"5px 5px", fontSize:10, fontWeight:700, color:"#fff", textAlign:"center", width:60, lineHeight:1.2, userSelect:"none", transition:"transform 0.1s, box-shadow 0.15s", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" },
+  emptySlot:  { width:58, height:28, border:"1.5px dashed #ffffff30", borderRadius:7 },
+  posLbl:     { fontSize:7, color:"#ffffff60", fontWeight:600, letterSpacing:0.5, textTransform:"uppercase", textAlign:"center" },
+  bench:      { width:88, borderRadius:12, border:"1px solid #334155", background:"#1a2236", padding:"10px 6px", display:"flex", flexDirection:"column", alignItems:"center", minHeight:280 },
+  benchHd:    { fontSize:9, fontWeight:800, color:"#64748b", letterSpacing:1.5, marginBottom:8 },
+  benchEm:    { fontSize:12, color:"#334155", marginTop:8 },
+  benchDiv:   { width:"100%", height:1, background:"#334155", margin:"8px 0" },
+  hint:       { marginTop:6, fontSize:10, color:"#475569", textAlign:"center", marginBottom:12 },
+  goalSection:{ width:"100%", maxWidth:500, background:"#1e293b", borderRadius:12, padding:"12px 14px", marginTop:8, display:"flex", flexDirection:"column", gap:8 },
+  goalHeader: { display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:8 },
+  scoreBlock: { display:"flex", alignItems:"center", gap:8 },
+  scoreLabel: { fontSize:11, fontWeight:700, color:"#94a3b8" },
+  scoreNum:   { fontSize:28, fontWeight:900, color:"#f1f5f9", minWidth:24, textAlign:"center" },
+  scoreDash:  { fontSize:20, color:"#334155" },
+  btnGoalUs:  { background:"#166534", color:"#86efac", border:"1px solid #22c55e44", borderRadius:7, padding:"6px 10px", fontSize:11, fontWeight:700, cursor:"pointer" },
+  btnGoalThem:{ background:"#7f1d1d", color:"#fca5a5", border:"1px solid #ef444444", borderRadius:7, padding:"6px 10px", fontSize:11, fontWeight:700, cursor:"pointer" },
+  goalLog:    { display:"flex", flexDirection:"column", gap:3 },
+  goalEntry:  { display:"flex", alignItems:"center", justifyContent:"space-between", background:"#0f172a", borderRadius:6, padding:"5px 10px", fontSize:11, fontWeight:600 },
+  btnNotes:   { flex:1, background:"#1e293b", border:"1px solid #334155", color:"#94a3b8", borderRadius:10, padding:"11px 0", fontWeight:700, fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:4 },
+  noteBadge:  { display:"inline-block", background:"#06b6d4", color:"#0f172a", borderRadius:10, fontSize:10, fontWeight:800, padding:"1px 6px", marginLeft:4 },
+  btnReport:  { flex:1, background:"linear-gradient(135deg,#1d4ed8,#7c3aed)", color:"#fff", border:"none", borderRadius:10, padding:"11px 0", fontWeight:800, fontSize:13, cursor:"pointer" },
+  halfBar:    { display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, width:"100%", maxWidth:500, marginTop:14, background:"#1e293b", borderRadius:12, padding:"8px 12px" },
+  halfArrow:  { background:"#0f172a", border:"1px solid #334155", color:"#f1f5f9", borderRadius:8, width:40, height:36, fontSize:18, fontWeight:800, cursor:"pointer" },
+  halfBarCenter:{ display:"flex", gap:6 },
+  halfPill:   { fontSize:12, fontWeight:700, color:"#94a3b8", background:"#0f172a", border:"1px solid #334155", borderRadius:8, padding:"7px 14px", cursor:"pointer" },
+  halfPillOn: { background:"#0e7490", border:"1px solid #06b6d4", color:"#fff" },
+  scoreTile:    { background:"#0f172a", borderRadius:12, padding:"14px 16px", border:"1px solid #1e3a5f", transition:"border-color 0.2s" },
+  scoreTileStat:{ flex:1, textAlign:"center" },
+  scoreTileNum: { fontSize:24, fontWeight:900, color:"#f1f5f9" },
+  scoreTileLbl: { fontSize:10, color:"#64748b", fontWeight:700, marginTop:2 },
+  tileGrid:     { display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 },
+  tile:         { aspectRatio:"1", borderRadius:14, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:8, cursor:"pointer", padding:0 },
+  tileIcon:     { fontSize:30 },
+  tileLbl:      { fontSize:13, fontWeight:700, color:"#f1f5f9", textAlign:"center", lineHeight:1.2 },
+  statsHeader:  { display:"flex", alignItems:"center", background:"#0f172a", borderRadius:"8px 8px 0 0", padding:"6px 12px", fontSize:10, fontWeight:700, color:"#64748b", letterSpacing:0.5 },
+  statsRow:     { display:"flex", alignItems:"center", padding:"9px 12px" },
+  statCol:      { minWidth:48, textAlign:"center", fontSize:13, fontWeight:700 },
+  swipeHint:  { fontSize:10, color:"#475569", textAlign:"center", marginTop:6 },
+  modalBack:  { position:"fixed", inset:0, background:"#00000088", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100, padding:16 },
+  modalBox:   { background:"#1e293b", borderRadius:16, padding:"24px 20px", width:"100%", maxWidth:340, display:"flex", flexDirection:"column", gap:12 },
+  modalHeader:{ display:"flex", justifyContent:"space-between", alignItems:"center" },
+  modalTitle: { fontSize:18, fontWeight:800, color:"#f1f5f9" },
+  modalLbl:   { fontSize:12, fontWeight:700, color:"#94a3b8" },
+  noteEntry:  { display:"flex", alignItems:"flex-start", gap:8, background:"#0f172a", borderRadius:8, padding:"7px 10px", marginBottom:6 },
+  noteTime:   { fontSize:10, color:"#06b6d4", fontWeight:700, whiteSpace:"nowrap", marginTop:1, minWidth:52 },
+  noteText:   { flex:1, fontSize:12, color:"#cbd5e1", lineHeight:1.5 },
+};
+
+const root=ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+  </script>
+</body>
+</html>
