@@ -84,7 +84,7 @@ function saveSettings(s){ try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(s
 const FX_SCORES_KEY   = "soccerCoach_fixtureScores";
 const TEAM_NOTES_KEY  = "soccerCoach_teamNotes";
 function fixtureKey(f){ return f.round+'|||'+f.home+'|||'+f.away; }
-function loadFxScores()   { try{return JSON.parse(localStorage.getItem(FX_SCORES_KEY))||{};}catch{return{};} }
+function loadFxScores()   { try{const v=JSON.parse(localStorage.getItem(FX_SCORES_KEY));return(v&&Object.keys(v).length>0)?v:HARDCODED_FX_SCORES;}catch{return HARDCODED_FX_SCORES;} }
 function saveFxScores(s)  { try{localStorage.setItem(FX_SCORES_KEY,JSON.stringify(s));}catch{} }
 function loadTeamNotes()  { try{return JSON.parse(localStorage.getItem(TEAM_NOTES_KEY))||{};}catch{return{};} }
 function saveTeamNotes(n) { try{localStorage.setItem(TEAM_NOTES_KEY,JSON.stringify(n));}catch{} }
@@ -357,168 +357,193 @@ async function generateAIReport(game) {
 function _fx(round, items){ return items.map(([date,time,home,away,venue,s])=>({round,date,time,home,away,venue,s})); }
 const HARDCODED_FIXTURES = [
   ..._fx("Round 1",[
-    ["2 May","9:30am","Bardon Latrobe U11 Girls Stars","Toowong FC U11 White","Bowman Park - Field 3","r"],
-    ["2 May","11:00am","UQFC U11 Girls Rubies Joey Central","Brisbane Knights FC U11 Girls Joeys","Cubberla Creek Reserve - Field 2A","r"],
-    ["2 May","11:00am","Toowong FC U11 Rose","Bardon Latrobe U11 Girls Bananas","Dunmore Park - Field 1A","r"],
-    ["2 May","11:30am","Springfield United U11 Emeralds Girls","UQFC U11 Girls Emeralds Joey Central","Springfield Central Sports Complex - Field 1D","r"],
-    ["2 May","11:30am","Bardon Latrobe U11 Girls Bandits","UQFC U11 Girls Sapphires Joey Central","Bowman Park - Field 3","r"],
-    ["2 May","1:00pm","UQFC U11 Girls Diamonds Joey Central","Under 11 Koalas","Cubberla Creek Reserve - Field 2C","r"],
-    ["2 May","3:00pm","The Gap Under 11 Canberra","Mitchelton FC U11 Girls Glitter Dragons","Hilder Road State School - Field 1","r"],
+    ["2 May","9:30am","Bardon Stars","Toowong White","Bowman Park - Field 3","r"],
+    ["2 May","11:00am","UQFC Rubies","Brisbane Knights","Cubberla Creek Reserve - Field 2A","r"],
+    ["2 May","11:00am","Toowong Rose","Bardon Bananas","Dunmore Park - Field 1A","r"],
+    ["2 May","11:30am","Springfield United Emeralds","UQFC Emeralds","Springfield Central Sports Complex - Field 1D","r"],
+    ["2 May","11:30am","Bardon Bandits","UQFC Sapphires","Bowman Park - Field 3","r"],
+    ["2 May","1:00pm","UQFC Diamonds","Ipswich Koalas","Cubberla Creek Reserve - Field 2C","r"],
+    ["2 May","3:00pm","The Gap","Mitchelton Glitter Dragons","Hilder Road State School - Field 1","r"],
   ]),
   ..._fx("Round 2",[
-    ["9 May","10:00am","UQFC U11 Girls Emeralds Joey Central","Bardon Latrobe U11 Girls Bandits","Cubberla Creek Reserve - Field 2C","r"],
-    ["9 May","10:00am","Brisbane Knights FC U11 Girls Joeys","Springfield United U11 Emeralds Girls","Croatian Community Centre QLD - Field 3A","r"],
-    ["9 May","10:00am","Under 11 Koalas","UQFC U11 Girls Rubies Joey Central","Sutton Park - Field 4","r"],
-    ["9 May","11:00am","UQFC U11 Girls Sapphires Joey Central","The Gap Under 11 Canberra","Cubberla Creek Reserve - Field 2B","r"],
-    ["9 May","11:00am","Toowong FC U11 White","Toowong FC U11 Rose","Dunmore Park - Field 1A","r"],
-    ["9 May","11:30am","Mitchelton FC U11 Girls Glitter Dragons","Bardon Latrobe U11 Girls Stars","Teralba Park - Field 2B","r"],
-    ["9 May","11:30am","Bardon Latrobe U11 Girls Bananas","UQFC U11 Girls Diamonds Joey Central","Bowman Park - Field 4","r"],
+    ["9 May","10:00am","UQFC Emeralds","Bardon Bandits","Cubberla Creek Reserve - Field 2C","r"],
+    ["9 May","10:00am","Brisbane Knights","Springfield United Emeralds","Croatian Community Centre QLD - Field 3A","r"],
+    ["9 May","10:00am","Ipswich Koalas","UQFC Rubies","Sutton Park - Field 4","r"],
+    ["9 May","11:00am","UQFC Sapphires","The Gap","Cubberla Creek Reserve - Field 2B","r"],
+    ["9 May","11:00am","Toowong White","Toowong Rose","Dunmore Park - Field 1A","r"],
+    ["9 May","11:30am","Mitchelton Glitter Dragons","Bardon Stars","Teralba Park - Field 2B","r"],
+    ["9 May","11:30am","Bardon Bananas","UQFC Diamonds","Bowman Park - Field 4","r"],
   ]),
   ..._fx("Round 3",[
-    ["16 May","10:00am","Brisbane Knights FC U11 Girls Joeys","Under 11 Koalas","Croatian Community Centre QLD - Field 3A","r"],
-    ["16 May","10:00am","Toowong FC U11 Rose","Mitchelton FC U11 Girls Glitter Dragons","Dunmore Park - Field 1A","r"],
-    ["16 May","11:00am","UQFC U11 Girls Rubies Joey Central","Bardon Latrobe U11 Girls Bananas","Cubberla Creek Reserve - Field 2B","r"],
-    ["16 May","1:30pm","Bardon Latrobe U11 Girls Stars","UQFC U11 Girls Sapphires Joey Central","Bowman Park - Field 3","r"],
-    ["16 May","2:00pm","UQFC U11 Girls Diamonds Joey Central","Toowong FC U11 White","Cubberla Creek Reserve - Field 2B","r"],
-    ["16 May","2:00pm","The Gap Under 11 Canberra","UQFC U11 Girls Emeralds Joey Central","Hilder Road State School - Field 1","r"],
-    ["16 May","2:30pm","Bardon Latrobe U11 Girls Bandits","Springfield United U11 Emeralds Girls","Bowman Park - Field 4","r"],
+    ["16 May","10:00am","Brisbane Knights","Ipswich Koalas","Croatian Community Centre QLD - Field 3A","r"],
+    ["16 May","10:00am","Toowong Rose","Mitchelton Glitter Dragons","Dunmore Park - Field 1A","r"],
+    ["16 May","11:00am","UQFC Rubies","Bardon Bananas","Cubberla Creek Reserve - Field 2B","r"],
+    ["16 May","1:30pm","Bardon Stars","UQFC Sapphires","Bowman Park - Field 3","r"],
+    ["16 May","2:00pm","UQFC Diamonds","Toowong White","Cubberla Creek Reserve - Field 2B","r"],
+    ["16 May","2:00pm","The Gap","UQFC Emeralds","Hilder Road State School - Field 1","r"],
+    ["16 May","2:30pm","Bardon Bandits","Springfield United Emeralds","Bowman Park - Field 4","r"],
   ]),
   ..._fx("Round 4",[
-    ["23 May","8:30am","Bardon Latrobe U11 Girls Bananas","Under 11 Koalas","Bowman Park - Field 3","r"],
-    ["23 May","8:30am","Bardon Latrobe U11 Girls Bandits","Brisbane Knights FC U11 Girls Joeys","Bowman Park - Field 4","r"],
-    ["23 May","10:30am","Mitchelton FC U11 Girls Glitter Dragons","UQFC U11 Girls Diamonds Joey Central","Teralba Park - Field 2A","r"],
-    ["23 May","11:00am","UQFC U11 Girls Emeralds Joey Central","Bardon Latrobe U11 Girls Stars","Cubberla Creek Reserve - Field 2B","r"],
-    ["23 May","11:00am","Toowong FC U11 White","UQFC U11 Girls Rubies Joey Central","Dunmore Park - Field 1B","r"],
-    ["23 May","11:30am","Springfield United U11 Emeralds Girls","The Gap Under 11 Canberra","Springfield Central Sports Complex - Field 1E","r"],
-    ["23 May","1:00pm","UQFC U11 Girls Sapphires Joey Central","Toowong FC U11 Rose","Cubberla Creek Reserve - Field 2B","r"],
+    ["23 May","8:30am","Bardon Bananas","Ipswich Koalas","Bowman Park - Field 3","r"],
+    ["23 May","8:30am","Bardon Bandits","Brisbane Knights","Bowman Park - Field 4","r"],
+    ["23 May","10:30am","Mitchelton Glitter Dragons","UQFC Diamonds","Teralba Park - Field 2A","r"],
+    ["23 May","11:00am","UQFC Emeralds","Bardon Stars","Cubberla Creek Reserve - Field 2B","r"],
+    ["23 May","11:00am","Toowong White","UQFC Rubies","Dunmore Park - Field 1B","r"],
+    ["23 May","11:30am","Springfield United Emeralds","The Gap","Springfield Central Sports Complex - Field 1E","r"],
+    ["23 May","1:00pm","UQFC Sapphires","Toowong Rose","Cubberla Creek Reserve - Field 2B","r"],
   ]),
   ..._fx("Round 5",[
-    ["30 May","9:00am","Under 11 Koalas","Toowong FC U11 White","Sutton Park - Field 4","r"],
-    ["30 May","9:30am","Bardon Latrobe U11 Girls Stars","Springfield United U11 Emeralds Girls","Bowman Park - Field 3","r"],
-    ["30 May","10:00am","UQFC U11 Girls Diamonds Joey Central","UQFC U11 Girls Sapphires Joey Central","Cubberla Creek Reserve - Field 2A","r"],
-    ["30 May","10:00am","Brisbane Knights FC U11 Girls Joeys","Bardon Latrobe U11 Girls Bananas","Croatian Community Centre QLD - Field 3A","r"],
-    ["30 May","11:00am","Toowong FC U11 Rose","UQFC U11 Girls Emeralds Joey Central","Dunmore Park - Field 1B","r"],
-    ["30 May","1:00pm","The Gap Under 11 Canberra","Bardon Latrobe U11 Girls Bandits","Walton Bridge Reserve - Field 3","r"],
-    ["30 May","3:00pm","UQFC U11 Girls Rubies Joey Central","Mitchelton FC U11 Girls Glitter Dragons","Cubberla Creek Reserve - Field 2B","r"],
+    ["30 May","9:00am","Ipswich Koalas","Toowong White","Sutton Park - Field 4","r"],
+    ["30 May","9:30am","Bardon Stars","Springfield United Emeralds","Bowman Park - Field 3","r"],
+    ["30 May","10:00am","UQFC Diamonds","UQFC Sapphires","Cubberla Creek Reserve - Field 2A","r"],
+    ["30 May","10:00am","Brisbane Knights","Bardon Bananas","Croatian Community Centre QLD - Field 3A","r"],
+    ["30 May","11:00am","Toowong Rose","UQFC Emeralds","Dunmore Park - Field 1B","r"],
+    ["30 May","1:00pm","The Gap","Bardon Bandits","Walton Bridge Reserve - Field 3","r"],
+    ["30 May","3:00pm","UQFC Rubies","Mitchelton Glitter Dragons","Cubberla Creek Reserve - Field 2B","r"],
   ]),
   ..._fx("Round 6",[
-    ["6 Jun","9:30am","Bardon Latrobe U11 Girls Bandits","Bardon Latrobe U11 Girls Stars","Bowman Park - Field 3","r"],
-    ["6 Jun","10:00am","Toowong FC U11 White","Bardon Latrobe U11 Girls Bananas","Dunmore Park - Field 1B","r"],
-    ["6 Jun","10:30am","Springfield United U11 Emeralds Girls","Toowong FC U11 Rose","Springfield Central Sports Complex - Field 1D","r"],
-    ["6 Jun","11:30am","Mitchelton FC U11 Girls Glitter Dragons","Under 11 Koalas","Teralba Park - Field 2B","r"],
-    ["6 Jun","12:00pm","UQFC U11 Girls Emeralds Joey Central","UQFC U11 Girls Diamonds Joey Central","Cubberla Creek Reserve - Field 2B","r"],
-    ["6 Jun","1:00pm","UQFC U11 Girls Sapphires Joey Central","UQFC U11 Girls Rubies Joey Central","Cubberla Creek Reserve - Field 2C","r"],
-    ["6 Jun","3:00pm","The Gap Under 11 Canberra","Brisbane Knights FC U11 Girls Joeys","Walton Bridge Reserve - Field 2","r"],
+    ["6 Jun","9:30am","Bardon Bandits","Bardon Stars","Bowman Park - Field 3","r"],
+    ["6 Jun","10:00am","Toowong White","Bardon Bananas","Dunmore Park - Field 1B","r"],
+    ["6 Jun","10:30am","Springfield United Emeralds","Toowong Rose","Springfield Central Sports Complex - Field 1D","r"],
+    ["6 Jun","11:30am","Mitchelton Glitter Dragons","Ipswich Koalas","Teralba Park - Field 2B","r"],
+    ["6 Jun","12:00pm","UQFC Emeralds","UQFC Diamonds","Cubberla Creek Reserve - Field 2B","r"],
+    ["6 Jun","1:00pm","UQFC Sapphires","UQFC Rubies","Cubberla Creek Reserve - Field 2C","r"],
+    ["6 Jun","3:00pm","The Gap","Brisbane Knights","Walton Bridge Reserve - Field 2","r"],
   ]),
   ..._fx("Round 7",[
-    ["13 Jun","10:00am","Brisbane Knights FC U11 Girls Joeys","Toowong FC U11 White","Croatian Community Centre QLD - Field 3A","p"],
-    ["13 Jun","10:00am","Toowong FC U11 Rose","Bardon Latrobe U11 Girls Bandits","Dunmore Park - Field 1A","r"],
-    ["13 Jun","11:00am","UQFC U11 Girls Rubies Joey Central","UQFC U11 Girls Emeralds Joey Central","Cubberla Creek Reserve - Field 2B","r"],
-    ["13 Jun","11:00am","Under 11 Koalas","UQFC U11 Girls Sapphires Joey Central","Sutton Park - Field 4","r"],
-    ["13 Jun","12:00pm","UQFC U11 Girls Diamonds Joey Central","Springfield United U11 Emeralds Girls","Cubberla Creek Reserve - Field 2A","r"],
-    ["13 Jun","1:30pm","Bardon Latrobe U11 Girls Stars","The Gap Under 11 Canberra","Bowman Park - Field 3","p"],
-    ["13 Jun","1:30pm","Bardon Latrobe U11 Girls Bananas","Mitchelton FC U11 Girls Glitter Dragons","Bowman Park - Field 4","p"],
+    ["13 Jun","10:00am","Brisbane Knights","Toowong White","Croatian Community Centre QLD - Field 3A","r"],
+    ["13 Jun","10:00am","Toowong Rose","Bardon Bandits","Dunmore Park - Field 1A","r"],
+    ["13 Jun","11:00am","UQFC Rubies","UQFC Emeralds","Cubberla Creek Reserve - Field 2B","r"],
+    ["13 Jun","11:00am","Ipswich Koalas","UQFC Sapphires","Sutton Park - Field 4","r"],
+    ["13 Jun","12:00pm","UQFC Diamonds","Springfield United Emeralds","Cubberla Creek Reserve - Field 2A","r"],
+    ["13 Jun","1:30pm","Bardon Stars","The Gap","Bowman Park - Field 3","r"],
+    ["13 Jun","1:30pm","Bardon Bananas","Mitchelton Glitter Dragons","Bowman Park - Field 4","r"],
   ]),
   ..._fx("Round 8",[
-    ["20 Jun","9:30am","Bardon Latrobe U11 Girls Bandits","UQFC U11 Girls Diamonds Joey Central","Bowman Park - Field 3","u"],
-    ["20 Jun","9:30am","Bardon Latrobe U11 Girls Stars","Brisbane Knights FC U11 Girls Joeys","Bowman Park - Field 4","u"],
-    ["20 Jun","10:00am","UQFC U11 Girls Emeralds Joey Central","Under 11 Koalas","Cubberla Creek Reserve - Field 2B","u"],
-    ["20 Jun","11:30am","Springfield United U11 Emeralds Girls","UQFC U11 Girls Rubies Joey Central","Springfield Central Sports Complex - Field 1G","u"],
-    ["20 Jun","12:00pm","UQFC U11 Girls Sapphires Joey Central","Bardon Latrobe U11 Girls Bananas","Cubberla Creek Reserve - Field 2C","u"],
-    ["20 Jun","12:30pm","Mitchelton FC U11 Girls Glitter Dragons","Toowong FC U11 White","Teralba Park - Field 11","u"],
-    ["20 Jun","2:00pm","The Gap Under 11 Canberra","Toowong FC U11 Rose","Hilder Road State School - Field 2","u"],
+    ["20 Jun","9:30am","Bardon Bandits","UQFC Diamonds","Bowman Park - Field 3","r"],
+    ["20 Jun","9:30am","Bardon Stars","Brisbane Knights","Bowman Park - Field 4","r"],
+    ["20 Jun","10:00am","UQFC Emeralds","Ipswich Koalas","Cubberla Creek Reserve - Field 2B","r"],
+    ["20 Jun","11:30am","Springfield United Emeralds","UQFC Rubies","Springfield Central Sports Complex - Field 1G","r"],
+    ["20 Jun","12:00pm","UQFC Sapphires","Bardon Bananas","Cubberla Creek Reserve - Field 2C","r"],
+    ["20 Jun","12:30pm","Mitchelton Glitter Dragons","Toowong White","Teralba Park - Field 11","r"],
+    ["20 Jun","2:00pm","The Gap","Toowong Rose","Hilder Road State School - Field 2","r"],
   ]),
   ..._fx("Round 9",[
-    ["27 Jun","8:30am","Bardon Latrobe U11 Girls Bananas","UQFC U11 Girls Emeralds Joey Central","Bowman Park - Field 3","u"],
-    ["27 Jun","9:00am","Under 11 Koalas","Springfield United U11 Emeralds Girls","Sutton Park - Field 3","u"],
-    ["27 Jun","10:00am","Brisbane Knights FC U11 Girls Joeys","Mitchelton FC U11 Girls Glitter Dragons","Croatian Community Centre QLD - Field 3A","u"],
-    ["27 Jun","10:00am","UQFC U11 Girls Rubies Joey Central","Bardon Latrobe U11 Girls Bandits","Cubberla Creek Reserve - Field 2A","u"],
-    ["27 Jun","10:00am","Toowong FC U11 Rose","Bardon Latrobe U11 Girls Stars","Dunmore Park - Field 1A","u"],
-    ["27 Jun","11:00am","Toowong FC U11 White","UQFC U11 Girls Sapphires Joey Central","Dunmore Park - Field 1B","u"],
-    ["27 Jun","12:00pm","UQFC U11 Girls Diamonds Joey Central","The Gap Under 11 Canberra","Cubberla Creek Reserve - Field 2C","u"],
+    ["27 Jun","8:30am","Bardon Bananas","UQFC Emeralds","Bowman Park - Field 3","r"],
+    ["27 Jun","9:00am","Ipswich Koalas","Springfield United Emeralds","Sutton Park - Field 3","r"],
+    ["27 Jun","10:00am","Brisbane Knights","Mitchelton Glitter Dragons","Croatian Community Centre QLD - Field 3A","r"],
+    ["27 Jun","10:00am","UQFC Rubies","Bardon Bandits","Cubberla Creek Reserve - Field 2A","r"],
+    ["27 Jun","10:00am","Toowong Rose","Bardon Stars","Dunmore Park - Field 1A","r"],
+    ["27 Jun","11:00am","Toowong White","UQFC Sapphires","Dunmore Park - Field 1B","r"],
+    ["27 Jun","12:00pm","UQFC Diamonds","The Gap","Cubberla Creek Reserve - Field 2C","r"],
   ]),
   ..._fx("Round 10",[
-    ["18 Jul","10:00am","UQFC U11 Girls Emeralds Joey Central","Toowong FC U11 White","Cubberla Creek Reserve - Field 2B","u"],
-    ["18 Jul","10:30am","Springfield United U11 Emeralds Girls","Bardon Latrobe U11 Girls Bananas","Springfield Central Sports Complex - Field 1C","u"],
-    ["18 Jul","10:30am","Bardon Latrobe U11 Girls Stars","UQFC U11 Girls Diamonds Joey Central","Bowman Park - Field 3","u"],
-    ["18 Jul","11:00am","Toowong FC U11 Rose","Brisbane Knights FC U11 Girls Joeys","Dunmore Park - Field 1B","u"],
-    ["18 Jul","11:30am","Bardon Latrobe U11 Girls Bandits","Under 11 Koalas","Bowman Park - Field 4","u"],
-    ["18 Jul","12:00pm","UQFC U11 Girls Sapphires Joey Central","Mitchelton FC U11 Girls Glitter Dragons","Cubberla Creek Reserve - Field 2B","u"],
-    ["18 Jul","2:00pm","The Gap Under 11 Canberra","UQFC U11 Girls Rubies Joey Central","Hilder Road State School - Field 1","u"],
+    ["18 Jul","10:00am","UQFC Emeralds","Toowong White","Cubberla Creek Reserve - Field 2B","r"],
+    ["18 Jul","10:30am","Springfield United Emeralds","Bardon Bananas","Springfield Central Sports Complex - Field 1C","r"],
+    ["18 Jul","10:30am","Bardon Stars","UQFC Diamonds","Bowman Park - Field 3","r"],
+    ["18 Jul","11:00am","Toowong Rose","Brisbane Knights","Dunmore Park - Field 1B","r"],
+    ["18 Jul","11:30am","Bardon Bandits","Ipswich Koalas","Bowman Park - Field 4","r"],
+    ["18 Jul","12:00pm","UQFC Sapphires","Mitchelton Glitter Dragons","Cubberla Creek Reserve - Field 2B","r"],
+    ["18 Jul","2:00pm","The Gap","UQFC Rubies","Hilder Road State School - Field 1","r"],
   ]),
   ..._fx("Round 11",[
-    ["25 Jul","9:30am","Bardon Latrobe U11 Girls Bananas","Bardon Latrobe U11 Girls Bandits","Bowman Park - Field 3","u"],
-    ["25 Jul","10:00am","Brisbane Knights FC U11 Girls Joeys","UQFC U11 Girls Sapphires Joey Central","Croatian Community Centre QLD - Field 3A","u"],
-    ["25 Jul","10:00am","Toowong FC U11 White","Springfield United U11 Emeralds Girls","Dunmore Park - Field 1B","u"],
-    ["25 Jul","10:30am","Mitchelton FC U11 Girls Glitter Dragons","UQFC U11 Girls Emeralds Joey Central","Teralba Park - Field 10","u"],
-    ["25 Jul","11:00am","Under 11 Koalas","The Gap Under 11 Canberra","Sutton Park - Field 4","u"],
-    ["25 Jul","1:00pm","UQFC U11 Girls Diamonds Joey Central","Toowong FC U11 Rose","Cubberla Creek Reserve - Field 2B","u"],
-    ["25 Jul","1:00pm","UQFC U11 Girls Rubies Joey Central","Bardon Latrobe U11 Girls Stars","Cubberla Creek Reserve - Field 2A","u"],
+    ["25 Jul","9:30am","Bardon Bananas","Bardon Bandits","Bowman Park - Field 3","r"],
+    ["25 Jul","10:00am","Brisbane Knights","UQFC Sapphires","Croatian Community Centre QLD - Field 3A","r"],
+    ["25 Jul","10:00am","Toowong White","Springfield United Emeralds","Dunmore Park - Field 1B","r"],
+    ["25 Jul","10:30am","Mitchelton Glitter Dragons","UQFC Emeralds","Teralba Park - Field 10","r"],
+    ["25 Jul","11:00am","Ipswich Koalas","The Gap","Sutton Park - Field 4","r"],
+    ["25 Jul","1:00pm","UQFC Diamonds","Toowong Rose","Cubberla Creek Reserve - Field 2B","r"],
+    ["25 Jul","1:00pm","UQFC Rubies","Bardon Stars","Cubberla Creek Reserve - Field 2A","r"],
   ]),
   ..._fx("Round 12",[
-    ["1 Aug","8:30am","Bardon Latrobe U11 Girls Bandits","Toowong FC U11 White","Bowman Park - Field 3","u"],
-    ["1 Aug","8:30am","Bardon Latrobe U11 Girls Stars","Under 11 Koalas","Bowman Park - Field 4","u"],
-    ["1 Aug","10:00am","Toowong FC U11 Rose","UQFC U11 Girls Rubies Joey Central","Dunmore Park - Field 1A","u"],
-    ["1 Aug","11:00am","UQFC U11 Girls Diamonds Joey Central","Brisbane Knights FC U11 Girls Joeys","Cubberla Creek Reserve - Field 2A","u"],
-    ["1 Aug","11:30am","Springfield United U11 Emeralds Girls","Mitchelton FC U11 Girls Glitter Dragons","Springfield Central Sports Complex - Field 1G","u"],
-    ["1 Aug","12:00pm","UQFC U11 Girls Emeralds Joey Central","UQFC U11 Girls Sapphires Joey Central","Cubberla Creek Reserve - Field 2C","u"],
-    ["1 Aug","2:00pm","The Gap Under 11 Canberra","Bardon Latrobe U11 Girls Bananas","Hilder Road State School - Field 2","u"],
+    ["1 Aug","8:30am","Bardon Bandits","Toowong White","Bowman Park - Field 3","r"],
+    ["1 Aug","8:30am","Bardon Stars","Ipswich Koalas","Bowman Park - Field 4","r"],
+    ["1 Aug","10:00am","Toowong Rose","UQFC Rubies","Dunmore Park - Field 1A","r"],
+    ["1 Aug","11:00am","UQFC Diamonds","Brisbane Knights","Cubberla Creek Reserve - Field 2A","r"],
+    ["1 Aug","11:30am","Springfield United Emeralds","Mitchelton Glitter Dragons","Springfield Central Sports Complex - Field 1G","r"],
+    ["1 Aug","12:00pm","UQFC Emeralds","UQFC Sapphires","Cubberla Creek Reserve - Field 2C","r"],
+    ["1 Aug","2:00pm","The Gap","Bardon Bananas","Hilder Road State School - Field 2","r"],
   ]),
   ..._fx("Round 13",[
-    ["8 Aug","10:30am","Mitchelton FC U11 Girls Glitter Dragons","Bardon Latrobe U11 Girls Bandits","Teralba Park - Field 11","u"],
-    ["8 Aug","11:00am","Toowong FC U11 White","The Gap Under 11 Canberra","Dunmore Park - Field 1B","u"],
-    ["8 Aug","11:00am","Under 11 Koalas","Toowong FC U11 Rose","Sutton Park - Field 4","u"],
-    ["8 Aug","12:00pm","UQFC U11 Girls Sapphires Joey Central","Springfield United U11 Emeralds Girls","Cubberla Creek Reserve - Field 2A","u"],
-    ["8 Aug","2:00pm","UQFC U11 Girls Rubies Joey Central","UQFC U11 Girls Diamonds Joey Central","Cubberla Creek Reserve - Field 2A","u"],
-    ["8 Aug","2:30pm","Bardon Latrobe U11 Girls Bananas","Bardon Latrobe U11 Girls Stars","Bowman Park - Field 3","u"],
-    ["8 Aug","3:00pm","UQFC U11 Girls Emeralds Joey Central","Brisbane Knights FC U11 Girls Joeys","Cubberla Creek Reserve - Field 2A","u"],
+    ["8 Aug","10:30am","Mitchelton Glitter Dragons","Bardon Bandits","Teralba Park - Field 11","r"],
+    ["8 Aug","11:00am","Toowong White","The Gap","Dunmore Park - Field 1B","r"],
+    ["8 Aug","11:00am","Ipswich Koalas","Toowong Rose","Sutton Park - Field 4","r"],
+    ["8 Aug","12:00pm","UQFC Sapphires","Springfield United Emeralds","Cubberla Creek Reserve - Field 2A","r"],
+    ["8 Aug","2:00pm","UQFC Rubies","UQFC Diamonds","Cubberla Creek Reserve - Field 2A","r"],
+    ["8 Aug","2:30pm","Bardon Bananas","Bardon Stars","Bowman Park - Field 3","r"],
+    ["8 Aug","3:00pm","UQFC Emeralds","Brisbane Knights","Cubberla Creek Reserve - Field 2A","r"],
   ]),
   ..._fx("Round 14",[
-    ["15 Aug","10:00am","Brisbane Knights FC U11 Girls Joeys","UQFC U11 Girls Rubies Joey Central","Croatian Community Centre QLD - Field 3A","u"],
-    ["15 Aug","10:00am","UQFC U11 Girls Sapphires Joey Central","Bardon Latrobe U11 Girls Bandits","Cubberla Creek Reserve - Field 2B","u"],
-    ["15 Aug","10:00am","Toowong FC U11 White","Bardon Latrobe U11 Girls Stars","Dunmore Park - Field 1A","u"],
-    ["15 Aug","10:00am","Under 11 Koalas","UQFC U11 Girls Diamonds Joey Central","Sutton Park - Field 3","u"],
-    ["15 Aug","10:30am","Bardon Latrobe U11 Girls Bananas","Toowong FC U11 Rose","Bowman Park - Field 4","u"],
-    ["15 Aug","11:00am","UQFC U11 Girls Emeralds Joey Central","Springfield United U11 Emeralds Girls","Cubberla Creek Reserve - Field 2A","u"],
-    ["15 Aug","11:30am","Mitchelton FC U11 Girls Glitter Dragons","The Gap Under 11 Canberra","Teralba Park - Field 2B","u"],
+    ["15 Aug","10:00am","Brisbane Knights","UQFC Rubies","Croatian Community Centre QLD - Field 3A","r"],
+    ["15 Aug","10:00am","UQFC Sapphires","Bardon Bandits","Cubberla Creek Reserve - Field 2B","r"],
+    ["15 Aug","10:00am","Toowong White","Bardon Stars","Dunmore Park - Field 1A","r"],
+    ["15 Aug","10:00am","Ipswich Koalas","UQFC Diamonds","Sutton Park - Field 3","r"],
+    ["15 Aug","10:30am","Bardon Bananas","Toowong Rose","Bowman Park - Field 4","r"],
+    ["15 Aug","11:00am","UQFC Emeralds","Springfield United Emeralds","Cubberla Creek Reserve - Field 2A","r"],
+    ["15 Aug","11:30am","Mitchelton Glitter Dragons","The Gap","Teralba Park - Field 2B","r"],
   ]),
   ..._fx("Round 15",[
-    ["22 Aug","10:00am","UQFC U11 Girls Rubies Joey Central","Under 11 Koalas","Cubberla Creek Reserve - Field 2B","u"],
-    ["22 Aug","10:30am","Bardon Latrobe U11 Girls Bandits","UQFC U11 Girls Emeralds Joey Central","Bowman Park - Field 4","u"],
-    ["22 Aug","11:00am","Toowong FC U11 Rose","Toowong FC U11 White","Dunmore Park - Field 1B","u"],
-    ["22 Aug","12:30pm","Springfield United U11 Emeralds Girls","Brisbane Knights FC U11 Girls Joeys","Springfield Central Sports Complex - Field 1C","u"],
-    ["22 Aug","12:30pm","Bardon Latrobe U11 Girls Stars","Mitchelton FC U11 Girls Glitter Dragons","Bowman Park - Field 4","u"],
-    ["22 Aug","2:00pm","The Gap Under 11 Canberra","UQFC U11 Girls Sapphires Joey Central","Hilder Road State School - Field 2","u"],
-    ["22 Aug","3:00pm","UQFC U11 Girls Diamonds Joey Central","Bardon Latrobe U11 Girls Bananas","Cubberla Creek Reserve - Field 2B","u"],
+    ["22 Aug","10:00am","UQFC Rubies","Ipswich Koalas","Cubberla Creek Reserve - Field 2B","r"],
+    ["22 Aug","10:30am","Bardon Bandits","UQFC Emeralds","Bowman Park - Field 4","r"],
+    ["22 Aug","11:00am","Toowong Rose","Toowong White","Dunmore Park - Field 1B","r"],
+    ["22 Aug","12:30pm","Springfield United Emeralds","Brisbane Knights","Springfield Central Sports Complex - Field 1C","r"],
+    ["22 Aug","12:30pm","Bardon Stars","Mitchelton Glitter Dragons","Bowman Park - Field 4","r"],
+    ["22 Aug","2:00pm","The Gap","UQFC Sapphires","Hilder Road State School - Field 2","r"],
+    ["22 Aug","3:00pm","UQFC Diamonds","Bardon Bananas","Cubberla Creek Reserve - Field 2B","r"],
   ]),
   ..._fx("Round 16",[
-    ["29 Aug","10:00am","UQFC U11 Girls Emeralds Joey Central","The Gap Under 11 Canberra","Cubberla Creek Reserve - Field 2C","u"],
-    ["29 Aug","10:00am","Under 11 Koalas","Brisbane Knights FC U11 Girls Joeys","Sutton Park - Field 4","u"],
-    ["29 Aug","11:00am","Toowong FC U11 White","UQFC U11 Girls Diamonds Joey Central","Dunmore Park - Field 1B","u"],
-    ["29 Aug","11:30am","Mitchelton FC U11 Girls Glitter Dragons","Toowong FC U11 Rose","Teralba Park - Field 2A","u"],
-    ["29 Aug","11:30am","Springfield United U11 Emeralds Girls","Bardon Latrobe U11 Girls Bandits","Springfield Central Sports Complex - Field 1C","u"],
-    ["29 Aug","11:30am","Bardon Latrobe U11 Girls Bananas","UQFC U11 Girls Rubies Joey Central","Bowman Park - Field 4","u"],
-    ["29 Aug","12:00pm","UQFC U11 Girls Sapphires Joey Central","Bardon Latrobe U11 Girls Stars","Cubberla Creek Reserve - Field 2C","u"],
+    ["29 Aug","10:00am","UQFC Emeralds","The Gap","Cubberla Creek Reserve - Field 2C","r"],
+    ["29 Aug","10:00am","Ipswich Koalas","Brisbane Knights","Sutton Park - Field 4","r"],
+    ["29 Aug","11:00am","Toowong White","UQFC Diamonds","Dunmore Park - Field 1B","r"],
+    ["29 Aug","11:30am","Mitchelton Glitter Dragons","Toowong Rose","Teralba Park - Field 2A","r"],
+    ["29 Aug","11:30am","Springfield United Emeralds","Bardon Bandits","Springfield Central Sports Complex - Field 1C","r"],
+    ["29 Aug","11:30am","Bardon Bananas","UQFC Rubies","Bowman Park - Field 4","r"],
+    ["29 Aug","12:00pm","UQFC Sapphires","Bardon Stars","Cubberla Creek Reserve - Field 2C","r"],
   ]),
   ..._fx("Round 17",[
-    ["5 Sep","9:00am","Under 11 Koalas","Bardon Latrobe U11 Girls Bananas","Sutton Park - Field 4","u"],
-    ["5 Sep","9:30am","Bardon Latrobe U11 Girls Stars","UQFC U11 Girls Emeralds Joey Central","Bowman Park - Field 4","u"],
-    ["5 Sep","10:00am","UQFC U11 Girls Rubies Joey Central","Toowong FC U11 White","Cubberla Creek Reserve - Field 2B","u"],
-    ["5 Sep","10:00am","Brisbane Knights FC U11 Girls Joeys","Bardon Latrobe U11 Girls Bandits","Croatian Community Centre QLD - Field 3A","u"],
-    ["5 Sep","11:00am","Toowong FC U11 Rose","UQFC U11 Girls Sapphires Joey Central","Dunmore Park - Field 1A","u"],
-    ["5 Sep","2:00pm","The Gap Under 11 Canberra","Springfield United U11 Emeralds Girls","Hilder Road State School - Field 1","u"],
-    ["5 Sep","3:00pm","UQFC U11 Girls Diamonds Joey Central","Mitchelton FC U11 Girls Glitter Dragons","Cubberla Creek Reserve - Field 2C","u"],
+    ["5 Sep","9:00am","Ipswich Koalas","Bardon Bananas","Sutton Park - Field 4","r"],
+    ["5 Sep","9:30am","Bardon Stars","UQFC Emeralds","Bowman Park - Field 4","r"],
+    ["5 Sep","10:00am","UQFC Rubies","Toowong White","Cubberla Creek Reserve - Field 2B","r"],
+    ["5 Sep","10:00am","Brisbane Knights","Bardon Bandits","Croatian Community Centre QLD - Field 3A","r"],
+    ["5 Sep","11:00am","Toowong Rose","UQFC Sapphires","Dunmore Park - Field 1A","r"],
+    ["5 Sep","2:00pm","The Gap","Springfield United Emeralds","Hilder Road State School - Field 1","r"],
+    ["5 Sep","3:00pm","UQFC Diamonds","Mitchelton Glitter Dragons","Cubberla Creek Reserve - Field 2C","r"],
   ]),
   ..._fx("Round 18",[
-    ["12 Sep","8:30am","Bardon Latrobe U11 Girls Bananas","Brisbane Knights FC U11 Girls Joeys","Bowman Park - Field 3","u"],
-    ["12 Sep","9:30am","Mitchelton FC U11 Girls Glitter Dragons","UQFC U11 Girls Rubies Joey Central","Teralba Park - Field 10","u"],
-    ["12 Sep","10:00am","UQFC U11 Girls Emeralds Joey Central","Toowong FC U11 Rose","Cubberla Creek Reserve - Field 2C","u"],
-    ["12 Sep","10:00am","Toowong FC U11 White","Under 11 Koalas","Dunmore Park - Field 1B","u"],
-    ["12 Sep","10:30am","Springfield United U11 Emeralds Girls","Bardon Latrobe U11 Girls Stars","Springfield Central Sports Complex - Field 1G","u"],
-    ["12 Sep","11:30am","Bardon Latrobe U11 Girls Bandits","The Gap Under 11 Canberra","Bowman Park - Field 4","u"],
-    ["12 Sep","12:00pm","UQFC U11 Girls Sapphires Joey Central","UQFC U11 Girls Diamonds Joey Central","Cubberla Creek Reserve - Field 2A","u"],
+    ["12 Sep","8:30am","Bardon Bananas","Brisbane Knights","Bowman Park - Field 3","r"],
+    ["12 Sep","9:30am","Mitchelton Glitter Dragons","UQFC Rubies","Teralba Park - Field 10","r"],
+    ["12 Sep","10:00am","UQFC Emeralds","Toowong Rose","Cubberla Creek Reserve - Field 2C","r"],
+    ["12 Sep","10:00am","Toowong White","Ipswich Koalas","Dunmore Park - Field 1B","r"],
+    ["12 Sep","10:30am","Springfield United Emeralds","Bardon Stars","Springfield Central Sports Complex - Field 1G","r"],
+    ["12 Sep","11:30am","Bardon Bandits","The Gap","Bowman Park - Field 4","r"],
+    ["12 Sep","12:00pm","UQFC Sapphires","UQFC Diamonds","Cubberla Creek Reserve - Field 2A","r"],
   ]),
 ];
+
+const HARDCODED_FX_SCORES = {
+  "Round 1|||UQFC Rubies|||Brisbane Knights": {"home":6,"away":0},
+  "Round 1|||Springfield United Emeralds|||UQFC Emeralds": {"home":5,"away":0},
+  "Round 1|||Bardon Bandits|||UQFC Sapphires": {"home":5,"away":2},
+  "Round 1|||UQFC Diamonds|||Ipswich Koalas": {"home":11,"away":0},
+  "Round 2|||UQFC Emeralds|||Bardon Bandits": {"home":1,"away":6},
+  "Round 2|||Ipswich Koalas|||UQFC Rubies": {"home":0,"away":2},
+  "Round 2|||UQFC Sapphires|||The Gap": {"home":7,"away":3},
+  "Round 2|||Bardon Bananas|||UQFC Diamonds": {"home":0,"away":6},
+  "Round 3|||UQFC Rubies|||Bardon Bananas": {"home":4,"away":0},
+  "Round 3|||UQFC Diamonds|||Toowong White": {"home":3,"away":2},
+  "Round 4|||Mitchelton Glitter Dragons|||UQFC Diamonds": {"home":1,"away":6},
+  "Round 4|||UQFC Emeralds|||Bardon Stars": {"home":4,"away":1},
+  "Round 4|||Toowong White|||UQFC Rubies": {"home":1,"away":3},
+  "Round 4|||UQFC Sapphires|||Toowong Rose": {"home":1,"away":0},
+  "Round 5|||UQFC Diamonds|||UQFC Sapphires": {"home":1,"away":1},
+  "Round 5|||Toowong Rose|||UQFC Emeralds": {"home":2,"away":1},
+  "Round 5|||UQFC Rubies|||Mitchelton Glitter Dragons": {"home":1,"away":0},
+  "Round 6|||UQFC Emeralds|||UQFC Diamonds": {"home":1,"away":1},
+  "Round 6|||UQFC Sapphires|||UQFC Rubies": {"home":4,"away":4},
+  "Round 7|||UQFC Rubies|||UQFC Emeralds": {"home":4,"away":1},
+  "Round 7|||Ipswich Koalas|||UQFC Sapphires": {"home":0,"away":5},
+  "Round 7|||UQFC Diamonds|||Springfield United Emeralds": {"home":1,"away":3},
+};
 
 // Load from localStorage if user has imported a schedule, else use hardcoded
 let FIXTURES = loadFixtures() || HARDCODED_FIXTURES;
@@ -2422,7 +2447,7 @@ function SquadScreen({ mode, onNext, onBack, onViewOpponent }) {
       </div>
 
       {/* ── Scrollable body ── */}
-      <div style={{ flex:1, overflowY:'auto', padding:'16px 14px 32px' }}>
+      <div style={{ flex:1, overflowY:'auto', padding:'16px 14px 12px' }}>
 
         {/* Search + Add */}
         <div style={{ display:'flex', gap:8, marginBottom:14 }}>
@@ -2513,12 +2538,7 @@ function SquadScreen({ mode, onNext, onBack, onViewOpponent }) {
           })}
         </div>
 
-        {/* Footer add button */}
-        <button
-          onClick={()=>{ setNewName(''); setSearch(''); setShowAdd(true); window.scrollTo(0,0); }}
-          style={{ width:'100%', marginTop:14, padding:'15px', background:'transparent', border:'1px solid #2A2A2A', borderRadius:12, color:'#A1A1A1', fontSize:14, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
-          <span style={{ fontSize:16 }}>👤</span> Add Player
-        </button>
+
 
         {/* ── New Game extras ── */}
         {isNewGame && (<>
@@ -2587,12 +2607,18 @@ function SquadScreen({ mode, onNext, onBack, onViewOpponent }) {
           {squad.length<9&&<p style={{ textAlign:'center', color:'#ef4444', fontSize:12, marginTop:6 }}>Need at least 9 players to continue.</p>}
         </>)}
 
-        {!isNewGame && (
-          <button style={{ width:'100%', marginTop:14, padding:'15px', background:'#F5C04A', color:'#000', border:'none', borderRadius:12, fontSize:15, fontWeight:800, cursor:'pointer' }} onClick={onBack}>
+      </div>
+
+      {/* Fixed Done footer — always visible above keyboard */}
+      {!isNewGame && (
+        <div style={{ flexShrink:0, padding:'10px 14px', paddingBottom:'max(14px,env(safe-area-inset-bottom))', background:'#0D0D0D', borderTop:'1px solid #1A1A1A' }}>
+          <button
+            style={{ width:'100%', padding:'15px', background:'#F5C04A', color:'#000', border:'none', borderRadius:12, fontSize:15, fontWeight:800, cursor:'pointer' }}
+            onClick={onBack}>
             Done
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2885,92 +2911,137 @@ function PickerScreen({ onNext, onBack, onManageSquad, onViewOpponent }) {
 
       {/* ── ON / OFF SWAP BLOCKS ── */}
       {(()=>{
-        const curSlots = activePeriods[activePeriod];
-        const prevSlots = activePeriod > 0
-          ? activePeriods[activePeriod - 1]
-          : null;
+        const prevPeriodSlots = activePeriod > 0 ? activePeriods[activePeriod - 1] : null;
 
-        // Derive bench for current period
-        const onPitch = positions.map(p => curSlots[p.id]).filter(Boolean);
-        const bench = names.filter(n => !onPitch.includes(n));
+        // Helper: get initials
+        const initials = n => n.split(' ').filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,3);
 
+        // P1 — show starting bench
         if (activePeriod === 0) {
-          // P1: just show bench strip
-          if (bench.length === 0) return null;
+          const bench = names.filter(n => !positions.some(p => curSlots[p.id] === n));
           return (
-            <div style={{ padding:'8px 10px 4px', background:'#0D0D0D', borderTop:'1px solid #1A1A1A' }}>
-              <div style={{ fontSize:9, fontWeight:800, color:'#A1A1A1', letterSpacing:1.5, textTransform:'uppercase', marginBottom:6 }}>BENCH</div>
-              <div style={{ display:'flex', gap:6, overflowX:'auto', paddingBottom:2 }}>
-                {bench.map(name => (
-                  <div key={name} style={{ textAlign:'center', flexShrink:0 }}>
-                    <div style={{ width:36, height:36, borderRadius:'50%', background:'#1A1A1A', border:'1px solid #2A2A2A', margin:'0 auto 3px', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                      <span style={{ fontSize:11, color:'#555', fontWeight:800 }}>{name.charAt(0)}</span>
-                    </div>
-                    <div style={{ fontSize:8, color:'#666', maxWidth:42, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name.split(' ')[0]}</div>
-                  </div>
-                ))}
+            <div style={{ padding:'8px 12px 6px', background:'#111111', borderTop:'1px solid #1A1A1A' }}>
+              <div style={{ fontSize:9, fontWeight:800, color:'#A1A1A1', letterSpacing:1.5, textTransform:'uppercase', marginBottom:6 }}>
+                STARTING BENCH {bench.length > 0 ? `(${bench.length})` : '— Full squad on'}
               </div>
+              {bench.length === 0 ? (
+                <div style={{ fontSize:10, color:'#333' }}>Everyone starts on the pitch</div>
+              ) : (
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                  {bench.map(name => (
+                    <div key={name} style={{ display:'flex', alignItems:'center', gap:5, background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:8, padding:'4px 8px' }}>
+                      <div style={{ width:24, height:24, borderRadius:'50%', background:'#2A2A2A', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                        <span style={{ fontSize:8, fontWeight:800, color:'#666' }}>{initials(name)}</span>
+                      </div>
+                      <span style={{ fontSize:10, color:'#888' }}>{name.split(' ')[0]}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         }
 
-        // P2+: show who is ON and who is OFF vs previous period
-        if (!prevSlots) return null;
-        const prevPitch = positions.map(p => prevSlots[p.id]).filter(Boolean);
-        const curPitch  = positions.map(p => curSlots[p.id]).filter(Boolean);
-        const comingOn  = curPitch.filter(n => !prevPitch.includes(n));
-        const goingOff  = prevPitch.filter(n => !curPitch.includes(n));
-        if (comingOn.length === 0 && goingOff.length === 0) return null;
+        // P2+ — compute swap pairs vs previous period
+        if (!prevPeriodSlots) return null;
+
+        // Build position→player maps
+        const prevMap = {}; // posId -> playerName
+        const curMap  = {}; // posId -> playerName
+        positions.forEach(p => {
+          if (prevPeriodSlots[p.id]) prevMap[p.id] = prevPeriodSlots[p.id];
+          if (curSlots[p.id])        curMap[p.id]  = curSlots[p.id];
+        });
+
+        // Find players who changed
+        const changedPositions = positions.filter(p => prevMap[p.id] !== curMap[p.id]);
+        const comingOn  = changedPositions.filter(p => curMap[p.id]  && curMap[p.id]  !== prevMap[p.id]);
+        const goingOff  = changedPositions.filter(p => prevMap[p.id] && prevMap[p.id] !== curMap[p.id]);
+
+        // Pair swaps: incoming player at pos X replaced outgoing player at pos X
+        const paired = [];
+        const usedOff = new Set();
+        comingOn.forEach(onPos => {
+          // Find the player who left this exact position
+          if (prevMap[onPos.id] && prevMap[onPos.id] !== curMap[onPos.id]) {
+            paired.push({
+              inPlayer: curMap[onPos.id],
+              outPlayer: prevMap[onPos.id],
+              pos: onPos.label,
+              posId: onPos.id,
+            });
+            usedOff.add(onPos.id);
+          } else {
+            // Player moving to an empty slot — match with any unmatched outgoing
+            const matchOff = goingOff.find(p => !usedOff.has(p.id));
+            paired.push({
+              inPlayer: curMap[onPos.id],
+              outPlayer: matchOff ? prevMap[matchOff.id] : null,
+              pos: onPos.label,
+              posId: onPos.id,
+              outPos: matchOff ? matchOff.label : null,
+            });
+            if (matchOff) usedOff.add(matchOff.id);
+          }
+        });
+
+        // Any remaining goingOff (moved to bench with no replacement)
+        goingOff.filter(p => !usedOff.has(p.id)).forEach(p => {
+          paired.push({ inPlayer: null, outPlayer: prevMap[p.id], pos: p.label, posId: p.id });
+        });
+
+        const label = `P${activePeriod} → P${activePeriod+1}`;
 
         return (
-          <div style={{ padding:'8px 10px 4px', background:'#0D0D0D', borderTop:'1px solid #1A1A1A' }}>
-            <div style={{ display:'flex', gap:8 }}>
-              {/* ON */}
-              <div style={{ flex:1, background:'#0a1f0a', border:'1px solid #1a3a1a', borderRadius:10, padding:'6px 8px' }}>
-                <div style={{ fontSize:9, fontWeight:800, color:'#22c55e', letterSpacing:1, textTransform:'uppercase', marginBottom:5 }}>↑ ON</div>
-                {comingOn.length === 0
-                  ? <div style={{ fontSize:9, color:'#2a2a2a' }}>—</div>
-                  : comingOn.map(name => {
-                    const posId = positions.find(p => curSlots[p.id] === name)?.id;
-                    return (
-                      <div key={name} style={{ display:'flex', alignItems:'center', gap:5, marginBottom:4 }}>
-                        <div style={{ width:26, height:26, borderRadius:'50%', background:'#1a3a1a', border:'1px solid #22c55e44', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                          <span style={{ fontSize:9, color:'#22c55e', fontWeight:800 }}>{name.charAt(0)}</span>
-                        </div>
-                        <div>
-                          <div style={{ fontSize:10, fontWeight:700, color:'#FFF', lineHeight:1.2 }}>{name.split(' ')[0]}</div>
-                          {posId && <div style={{ fontSize:8, color:'#22c55e' }}>{posLbl[posId] || posId}</div>}
-                        </div>
-                      </div>
-                    );
-                  })
-                }
-              </div>
-              {/* OFF */}
-              <div style={{ flex:1, background:'#1f0a0a', border:'1px solid #3a1a1a', borderRadius:10, padding:'6px 8px' }}>
-                <div style={{ fontSize:9, fontWeight:800, color:'#ef4444', letterSpacing:1, textTransform:'uppercase', marginBottom:5 }}>↓ OFF</div>
-                {goingOff.length === 0
-                  ? <div style={{ fontSize:9, color:'#2a2a2a' }}>—</div>
-                  : goingOff.map(name => {
-                    const posId = positions.find(p => prevSlots[p.id] === name)?.id;
-                    return (
-                      <div key={name} style={{ display:'flex', alignItems:'center', gap:5, marginBottom:4 }}>
-                        <div style={{ width:26, height:26, borderRadius:'50%', background:'#3a1a1a', border:'1px solid #ef444444', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                          <span style={{ fontSize:9, color:'#ef4444', fontWeight:800 }}>{name.charAt(0)}</span>
-                        </div>
-                        <div>
-                          <div style={{ fontSize:10, fontWeight:700, color:'#FFF', lineHeight:1.2 }}>{name.split(' ')[0]}</div>
-                          {posId && <div style={{ fontSize:8, color:'#ef4444' }}>{posLbl[posId] || posId}</div>}
-                        </div>
-                      </div>
-                    );
-                  })
-                }
-              </div>
+          <div style={{ padding:'8px 12px 6px', background:'#111111', borderTop:'1px solid #1A1A1A' }}>
+            <div style={{ fontSize:9, fontWeight:800, color:'#A1A1A1', letterSpacing:1.5, textTransform:'uppercase', marginBottom:6 }}>
+              CHANGES vs P{activePeriod}
+              {paired.length === 0 && <span style={{ color:'#333', fontWeight:400, marginLeft:6 }}>— Same lineup</span>}
             </div>
+            {paired.length === 0 ? (
+              <div style={{ fontSize:10, color:'#333', fontStyle:'italic' }}>No changes from Period {activePeriod}</div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                {paired.map((sw, i) => (
+                  <div key={i} style={{ display:'flex', alignItems:'center', gap:4, background:'#1A1A1A', borderRadius:10, padding:'5px 8px', border:'1px solid #2A2A2A' }}>
+                    {/* IN player */}
+                    {sw.inPlayer ? (
+                      <div style={{ display:'flex', alignItems:'center', gap:4, flex:1, minWidth:0 }}>
+                        <div style={{ width:28, height:28, borderRadius:'50%', background:'#0a2a0a', border:'1.5px solid #22c55e', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                          <span style={{ fontSize:8, fontWeight:800, color:'#22c55e' }}>{initials(sw.inPlayer)}</span>
+                        </div>
+                        <div style={{ minWidth:0 }}>
+                          <div style={{ fontSize:10, fontWeight:700, color:'#22c55e', lineHeight:1.2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{sw.inPlayer.split(' ')[0]}</div>
+                          <div style={{ fontSize:7, color:'#22c55e88' }}>↑ {sw.pos}</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ flex:1, minWidth:0 }} />
+                    )}
+                    {/* Arrow */}
+                    <div style={{ fontSize:12, color:'#333', flexShrink:0, padding:'0 2px' }}>⇄</div>
+                    {/* OUT player */}
+                    {sw.outPlayer ? (
+                      <div style={{ display:'flex', alignItems:'center', gap:4, flex:1, minWidth:0, justifyContent:'flex-end' }}>
+                        <div style={{ minWidth:0, textAlign:'right' }}>
+                          <div style={{ fontSize:10, fontWeight:700, color:'#ef4444', lineHeight:1.2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{sw.outPlayer.split(' ')[0]}</div>
+                          <div style={{ fontSize:7, color:'#ef444488' }}>{sw.outPos || sw.pos} ↓</div>
+                        </div>
+                        <div style={{ width:28, height:28, borderRadius:'50%', background:'#2a0a0a', border:'1.5px solid #ef4444', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                          <span style={{ fontSize:8, fontWeight:800, color:'#ef4444' }}>{initials(sw.outPlayer)}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ flex:1, minWidth:0 }} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         );
       })()}
+
 
 
       {/* Match Settings */}
@@ -3498,9 +3569,14 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
   function applyMove(slots,name,from,to){
     const s={}; posIds.forEach(id=>s[id]=slots[id]);
     let bench=[...slots.bench];
-    if(from==="bench")bench=bench.filter(n=>n!==name);else if(posIds.includes(from))s[from]="";
+    // Remove player from wherever they currently are
+    if(from==="bench")bench=bench.filter(n=>n!==name);
+    else if(posIds.includes(from))s[from]="";
+    // Also clear any OTHER slot that already has this player (prevents duplicates)
+    posIds.forEach(id=>{if(id!==from&&s[id]===name)s[id]="";});
+    bench=bench.filter(n=>n!==name);
     if(to==="bench"){if(!bench.includes(name))bench.push(name);}
-    else{const d=s[to];s[to]=name;if(d&&d!==name){if(from==="bench"){if(!bench.includes(d))bench.push(d);}else s[from]=d;}}
+    else{const d=s[to];s[to]=name;if(d&&d!==name){if(from==="bench"||from===to){if(!bench.includes(d))bench.push(d);}else s[from]=d;}}
     const onField=new Set(posIds.map(id=>s[id]).filter(Boolean));
     bench=[...new Set(bench.filter(n=>!onField.has(n)))];
     return{...s,bench};
@@ -3561,7 +3637,17 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
   const totalPeriodSecs=Math.round(periodMins*60);
   const pct=periodLeft/totalPeriodSecs;
   const ringColor=pct>0.4?"#F5C04A":pct>0.15?"#f59e0b":"#ef4444";
-  const swapEntries=PAIR_COLORS.map((c,i)=>{const players=Object.entries(swapPairs).filter(([,v])=>v===i).map(([k])=>k);return players.length===2?{color:c,a:players[0],b:players[1]}:null;}).filter(Boolean);
+  const swapEntries=PAIR_COLORS.map((c,i)=>{
+    const players=Object.entries(swapPairs).filter(([,v])=>v===i).map(([k])=>k);
+    if(players.length!==2)return null;
+    // Determine who came ON (in cur) vs went OFF (not in cur)
+    const inCur=players.filter(n=>posIds.some(id=>cur.slots[id]===n));
+    const offField=players.filter(n=>!inCur.includes(n));
+    const onPlayer=inCur[0]||players[0], offPlayer=offField[0]||players[1];
+    const onPos=posIds.find(id=>cur.slots[id]===onPlayer);
+    const offPos=prevSlots?posIds.find(id=>prevSlots[id]===offPlayer):null;
+    return {color:c,on:onPlayer,off:offPlayer,onPos:onPos?posLabel[onPos]||onPos:null,offPos:offPos?posLabel[offPos]||offPos:null};
+  }).filter(Boolean);
   const offCounts={};
   halves.forEach((h,hi)=>h.forEach((p,pi)=>{if(!p.slots)return;const future=hi>halfIdx||(hi===halfIdx&&pi>pidx);if(!future)(p.slots.bench||[]).forEach(n=>{offCounts[n]=(offCounts[n]||0)+1;});}));
   const offSummary=Object.entries(offCounts).sort((a,b)=>b[1]-a[1]);
@@ -3708,10 +3794,20 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
             {/* Swap legend */}
             {(swapEntries.length>0||selected)&&(
               <div style={{padding:'6px 12px',background:'#1A1400',borderBottom:'1px solid #2A2000',display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}}>
-                {swapEntries.map(({color,a,b})=>(
-                  <div key={a} style={{display:'flex',alignItems:'center',gap:4}}>
-                    <div style={{width:7,height:7,borderRadius:'50%',background:color}}/>
-                    <span style={{fontSize:10,color}}>{a} ↔ {b}</span>
+                {swapEntries.map(({color,on,off,onPos,offPos})=>(
+                  <div key={on} style={{display:'flex',alignItems:'center',gap:5,background:'#1A1400',borderRadius:6,padding:'3px 6px'}}>
+                    <div style={{width:7,height:7,borderRadius:'50%',background:color,flexShrink:0}}/>
+                    <div style={{display:'flex',alignItems:'center',gap:3}}>
+                      <span style={{fontSize:10,color:'#22c55e',fontWeight:700}}>↑</span>
+                      <span style={{fontSize:10,color:'#FFF',fontWeight:700}}>{on}</span>
+                      {onPos&&<span style={{fontSize:8,color:'#888',fontStyle:'italic'}}>({onPos})</span>}
+                    </div>
+                    <span style={{fontSize:10,color:'#555'}}>⇄</span>
+                    <div style={{display:'flex',alignItems:'center',gap:3}}>
+                      <span style={{fontSize:10,color:'#ef4444',fontWeight:700}}>↓</span>
+                      <span style={{fontSize:10,color:'#FFF',fontWeight:700}}>{off}</span>
+                      {offPos&&<span style={{fontSize:8,color:'#888',fontStyle:'italic'}}>({offPos})</span>}
+                    </div>
                   </div>
                 ))}
                 {selected&&<span style={{fontSize:10,color:'#c4b5fd'}}>Moving: {selected.name}</span>}
@@ -3745,7 +3841,7 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
                             background:name?'rgba(20,20,20,0.7)':'rgba(0,0,0,0.2)',
                             boxShadow:isSel?'0 0 0 3px rgba(124,58,237,0.4)':swapColor?`0 0 0 2px ${swapColor}55`:'0 2px 8px rgba(0,0,0,0.6)',
                             display:'flex',alignItems:'center',justifyContent:'center',transition:'border 0.15s,box-shadow 0.15s'}}>
-                            {name?<TeamBadge name={myTeam||'Team'} size={40}/>:<span style={{fontSize:14,opacity:0.35,color:'#fff'}}>+</span>}
+                            {name?<span style={{fontSize:13,fontWeight:800,color:'#FFF',letterSpacing:-0.5,textShadow:'0 1px 3px rgba(0,0,0,0.8)'}}>{name.split(' ').filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,3)}</span>:<span style={{fontSize:14,opacity:0.35,color:'#fff'}}>+</span>}
                           </div>
                           {name&&<div style={{position:'absolute',top:-3,left:-3,width:15,height:15,borderRadius:'50%',background:swapColor||'#1A1A1A',border:'1.5px solid rgba(255,255,255,0.5)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:6,fontWeight:800,color:'#FFF'}}>{pIdx+1}</div>}
                           {name&&<div style={{position:'absolute',bottom:0,right:0,width:10,height:10,borderRadius:'50%',background:'#22c55e',border:'1.5px solid #0D0D0D'}}/>}
@@ -3774,8 +3870,8 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
                         background:isSel?'#7c3aed22':'#1A1A1A',border:`1px solid ${isSel?'#7c3aed':swapColor||'#222'}`,
                         borderRadius:8,cursor:'pointer'}}
                         onClick={e=>{e.stopPropagation();handleTap(null,true,name);}}>
-                        <div style={{width:28,height:28,borderRadius:'50%',overflow:'hidden',background:'#111',flexShrink:0,border:swapColor?`2px solid ${swapColor}`:'1px solid #333'}}>
-                          <TeamBadge name={myTeam||'Team'} size={28}/>
+                        <div style={{width:28,height:28,borderRadius:'50%',flexShrink:0,background:swapColor?swapColor+'22':'#1A1A1A',border:swapColor?`2px solid ${swapColor}`:'1px solid #333',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                          <span style={{fontSize:9,fontWeight:800,color:swapColor||'#888'}}>{name.split(' ').filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,3)}</span>
                         </div>
                         <div style={{flex:1,minWidth:0}}>
                           <div style={{fontSize:10,fontWeight:700,color:isSel?'#c4b5fd':'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{name.split(' ')[0]}</div>
@@ -3812,10 +3908,10 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
                     return (
                       <div key={name} style={{textAlign:'center',flexShrink:0,cursor:'pointer'}}
                         onClick={e=>{e.stopPropagation();handleTap(null,true,name);}}>
-                        <div style={{width:42,height:42,borderRadius:'50%',overflow:'hidden',background:'#1A1A1A',
-                          border:isSel?'2px solid #7c3aed':selected?'2px solid #F5C04A55':'1px solid #333',
-                          margin:'0 auto 3px',transition:'border 0.15s'}}>
-                          <TeamBadge name={myTeam||'Team'} size={42}/>
+                        <div style={{width:42,height:42,borderRadius:'50%',background:isSel?'#7c3aed22':selected?'#F5C04A11':'#1A1A1A',
+                          border:isSel?'2px solid #7c3aed':selected?'2px solid #F5C04A':'1px solid #333',
+                          margin:'0 auto 3px',transition:'border 0.15s',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                          <span style={{fontSize:12,fontWeight:800,color:isSel?'#c4b5fd':selected?'#F5C04A':'#888'}}>{name.split(' ').filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,3)}</span>
                         </div>
                         <div style={{fontSize:8,fontWeight:700,color:isSel?'#c4b5fd':'#888',maxWidth:50,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{name.split(' ')[0]}</div>
                       </div>
