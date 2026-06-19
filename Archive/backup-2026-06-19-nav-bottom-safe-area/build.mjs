@@ -1,5 +1,5 @@
 /**
- * build.mjs — Khula PWA builder
+ * build.mjs — Soccer Coach PWA builder
  *
  * Run:   node build.mjs
  * Push:  see README — node build.mjs then git push
@@ -49,15 +49,15 @@ function escScript(s) {
 
 // ── 4. manifest.json — relative paths so it works on any host/subdirectory ─
 const manifest = {
-  name: "Khula",
-  short_name: "Khula",
+  name: "Soccer Coach",
+  short_name: "Coach",
   start_url: "./",
   display: "standalone",
   background_color: "#166534",
-  theme_color: "#E8A020",
+  theme_color: "#166534",
   orientation: "portrait",
   icons: [{
-    src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%230D0D0D'/%3E%3Ctext y='.9em' font-size='80'%3E%E2%9A%BD%3C/text%3E%3C/svg%3E",
+    src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23166534'/%3E%3Ctext y='.9em' font-size='80'%3E%E2%9A%BD%3C/text%3E%3C/svg%3E",
     sizes: "any",
     type: "image/svg+xml",
     purpose: "any maskable"
@@ -112,24 +112,21 @@ const htmlParts = [
   '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">',
   '<meta name="apple-mobile-web-app-capable" content="yes">',
   '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">',
-  '<meta name="theme-color" content="#F5C04A">',
-  '<meta name="apple-mobile-web-app-title" content="Khula">',
-  '<title>Khula</title>',
-  '<link rel="preconnect" href="https://fonts.googleapis.com">',
-  '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
-  '<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">',
+  '<meta name="theme-color" content="#166534">',
+  '<meta name="apple-mobile-web-app-title" content="Soccer Coach">',
+  '<title>Soccer Coach</title>',
   '<link rel="manifest" href="manifest.json">',
   '<style>',
   '*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}',
-  "body{margin:0;font-family:'Outfit',sans-serif;background:#0D0D0D;color:#FFFFFF;overflow-x:hidden}",
-  '#splash{position:fixed;inset:0;background:#0D0D0D;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-size:1.1rem;gap:16px;z-index:9999}',
+  "body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0fdf4;color:#1f2937;overflow-x:hidden}",
+  '#splash{position:fixed;inset:0;background:#166534;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-size:1.1rem;gap:16px;z-index:9999}',
   '.spin{width:36px;height:36px;border:4px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}',
   '@keyframes spin{to{transform:rotate(360deg)}}',
   '</style>',
   '</head>',
   '<body>',
   '<div id="splash">',
-  '  <div style="font-size:2rem;font-family:Outfit,sans-serif;font-weight:900;color:#F5C04A;letter-spacing:4px">KHULA</div>',
+  '  <div style="font-size:3rem">&#x26BD;</div>',
   '  <div class="spin"></div>',
   '  <div id="splashMsg">Starting&#x2026;</div>',
   '</div>',
