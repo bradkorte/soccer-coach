@@ -28,11 +28,3 @@ const server = createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': 'no-cache' });
   res.end(readFileSync(filePath));
 });
-
-server.listen(PORT, () => {
-  const url = `http://localhost:${PORT}`;
-  console.log(`✓ Preview server running at ${url}`);
-  console.log('  Edit soccer-coach.jsx and refresh the browser to see changes.');
-  console.log('  Ctrl+C to stop.\n');
-  exec(`start ${url}`); // opens browser on Windows
-});

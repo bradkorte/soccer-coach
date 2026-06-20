@@ -2706,13 +2706,22 @@ function PickerScreen({ onNext, onBack, onManageSquad, onViewOpponent }) {
   function updCfg(key, val) { const next={...config,[key]:val}; setConfig(next); saveConfig(next); }
 
   function assignToSlot(posId, playerName) {
-    updateActivePeriods(prev=>prev.map((p,i)=>{
-      if(i!==activePeriod) return p;
-      const next=cloneSlots(p);
-      Object.keys(next).forEach(k=>{if(next[k]===playerName)next[k]='';});
-      next[posId]=playerName;
-      return next;
-    }));
+    updateActivePeriods(prev=>{
+      // cascade: update current + future periods that still have the same player in this slot
+      const prevOccupant = prev[activePeriod]?.[posId];
+      return prev.map((p,i)=>{
+        if(i < activePeriod) return p;
+        // Only cascade to future periods if they still had the same occupant
+        if(i > activePeriod && p[posId] !== prevOccupant) return p;
+        const next=cloneSlots(p);
+        // Remove playerName from any other slot they occupy
+        Object.keys(next).forEach(k=>{if(k!==posId && next[k]===playerName)next[k]='';});
+        // Also remove the old occupant from bench if they're being placed on field
+        if(Array.isArray(next.bench)) next.bench=next.bench.filter(n=>n!==playerName);
+        next[posId]=playerName;
+        return next;
+      });
+    });
     setSelectedSlot(null);
   }
 
@@ -3002,6 +3011,10 @@ function PickerScreen({ onNext, onBack, onManageSquad, onViewOpponent }) {
               <div style={{ fontSize:10, color:'#333', fontStyle:'italic' }}>No changes from Period {activePeriod}</div>
             ) : (
               <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                <div style={{ display:'flex', paddingLeft:6, paddingRight:6 }}>
+                  <div style={{ flex:1, fontSize:8, fontWeight:800, color:'#22c55e', letterSpacing:1.5, textTransform:'uppercase' }}>↑ COMING ON</div>
+                  <div style={{ flex:1, fontSize:8, fontWeight:800, color:'#ef4444', letterSpacing:1.5, textTransform:'uppercase', textAlign:'right' }}>COMING OFF ↓</div>
+                </div>
                 {paired.map((sw, i) => (
                   <div key={i} style={{ display:'flex', alignItems:'center', gap:4, background:'#1A1A1A', borderRadius:10, padding:'5px 8px', border:'1px solid #2A2A2A' }}>
                     {/* IN player */}
@@ -3703,45 +3716,78 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
         </div>
       )}
 
-      {/* ── HEADER: teams + score + timer ── */}
-      <div style={{background:'#111111',borderBottom:'1px solid #1A1A1A',padding:'10px 12px 8px',flexShrink:0,position:'relative'}}>
-        <div style={{display:'flex',alignItems:'center',gap:6}}>
-          {/* Back / exit */}
-          <button onClick={onExit} style={{position:'absolute',left:10,top:10,background:'none',border:'none',color:'#A1A1A1',fontSize:20,cursor:'pointer',lineHeight:1,padding:4}}>←</button>
-          {/* My team */}
-          <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3,paddingLeft:28}}>
-            <TeamBadge name={myTeam||'Home'} size={44} radius={10}/>
-            <div style={{fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:0.5,textTransform:'uppercase',textAlign:'center',lineHeight:1.1,maxWidth:72,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{myTeam||'My Team'}</div>
+      {/* ── HEADER ── */}
+      <div style={{background:'#111111',borderBottom:'1px solid #1A1A1A',flexShrink:0}}>
+        {/* Top bar: back · venue+date · settings */}
+        <div style={{display:'flex',alignItems:'center',padding:'8px 12px 4px',gap:6}}>
+          <button onClick={onExit} style={{background:'none',border:'none',color:'#A1A1A1',fontSize:13,fontWeight:700,cursor:'pointer',padding:'4px 6px 4px 0',lineHeight:1,display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
+            <span style={{fontSize:16}}>←</span><span style={{letterSpacing:0.5}}>GAME</span>
+          </button>
+          <div style={{flex:1,textAlign:'center'}}>
+            {(()=>{const fix=linkedFixKey?FIXTURES.find(f=>fixtureKey(f)===linkedFixKey):null;
+              const venue=fix?.venue||config?.venue||'';
+              const dateStr=fix?`${fix.date} • ${fix.time}`:'';
+              return(<>
+                {venue&&<div style={{fontSize:11,fontWeight:700,color:'#FFF',lineHeight:1.2}}>📍 {venue}</div>}
+                {dateStr&&<div style={{fontSize:10,color:'#666',marginTop:1}}>{dateStr}</div>}
+              </>);
+            })()}
           </div>
-          {/* Score + timer center */}
-          <div style={{flex:'0 0 auto',textAlign:'center',minWidth:110}}>
-            <div style={{fontSize:9,fontWeight:800,color:'#F5C04A',letterSpacing:1.5,textTransform:'uppercase'}}>{halfIdx===0?'1ST HALF':'2ND HALF'}</div>
-            <div style={{fontSize:28,fontWeight:800,color:'#FFF',letterSpacing:4,lineHeight:1.1,fontVariantNumeric:'tabular-nums'}}>{usGoals.length}&nbsp;–&nbsp;{themGoals.length}</div>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6,marginTop:2}}>
-              <span style={{fontSize:13,fontWeight:800,fontVariantNumeric:'tabular-nums',color:alarmed?'#ef4444':'#A1A1A1'}}>{gMM}:{gSS}</span>
-              <button onClick={toggleRun} style={{width:26,height:26,borderRadius:'50%',background:running?'#ef4444':'#22c55e',border:'none',cursor:'pointer',fontSize:11,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#FFF',flexShrink:0,lineHeight:1}}>{running?'⏸':'▶'}</button>
-            </div>
-          </div>
-          {/* Opponent */}
-          <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3,paddingRight:28}}>
-            <TeamBadge name={opponent||'Away'} size={44} radius={10}/>
-            <div style={{fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:0.5,textTransform:'uppercase',textAlign:'center',lineHeight:1.1,maxWidth:72,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{opponent||'Opposition'}</div>
-          </div>
-          {/* Settings */}
-          <button onClick={()=>{if(voiceNotes.trim()){setVoiceReview(voiceNotes);setModal('voiceReview');}else setModal('save');}} style={{position:'absolute',right:10,top:10,background:'none',border:'none',color:'#A1A1A1',cursor:'pointer',fontSize:16,padding:4}}>⚙</button>
+          <button onClick={()=>{if(voiceNotes.trim()){setVoiceReview(voiceNotes);setModal('voiceReview');}else setModal('save');}} style={{background:'none',border:'none',color:'#A1A1A1',cursor:'pointer',fontSize:18,padding:'4px 0 4px 6px',lineHeight:1,flexShrink:0}}>⚙</button>
         </div>
-        {/* Goal scorers strip */}
-        {goals.length>0&&(
-          <div style={{display:'flex',marginTop:6,fontSize:9,gap:8}}>
-            <div style={{flex:1,textAlign:'right'}}>
-              {goals.filter(g=>g.team==='us').map((g,i)=><div key={i} style={{color:'#FDE68A'}}>⚽ {g.scorer} {g.timeStr}'</div>)}
-            </div>
-            <div style={{width:1,background:'#2A2A2A'}}/>
-            <div style={{flex:1}}>
-              {goals.filter(g=>g.team==='them').map((g,i)=><div key={i} style={{color:'#fca5a5'}}>⚽ {g.timeStr}'</div>)}
+        {/* Score row */}
+        <div style={{display:'flex',alignItems:'center',padding:'4px 10px 8px',gap:4}}>
+          {/* Home team */}
+          <div style={{flex:1,display:'flex',alignItems:'center',gap:6,minWidth:0}}>
+            <TeamBadge name={myTeam||'Home'} size={36} radius={8}/>
+            <div style={{minWidth:0}}>
+              <div style={{fontSize:9,fontWeight:800,color:'#666',textTransform:'uppercase',letterSpacing:0.5,lineHeight:1}}>
+                {fixIsHome===false?opponent||'Away':myTeam||'Home'}
+              </div>
+              <div style={{fontSize:11,fontWeight:800,color:'#FFF',lineHeight:1.3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                {fixIsHome===false?opponent?.split(' ').slice(-1)[0]||'':myTeam?.split(' ').slice(-1)[0]||''}
+              </div>
             </div>
           </div>
-        )}
+          {/* Score + half + timer */}
+          <div style={{textAlign:'center',flexShrink:0,padding:'0 6px'}}>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <span style={{fontSize:28,fontWeight:800,color:'#FFF',fontVariantNumeric:'tabular-nums',minWidth:28,textAlign:'right'}}>{fixIsHome===false?themGoals.length:usGoals.length}</span>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:8,fontWeight:800,color:'#F5C04A',letterSpacing:1,textTransform:'uppercase',lineHeight:1}}>{halfIdx===0?'1ST':'2ND'} HALF</div>
+                <div style={{display:'flex',alignItems:'center',gap:5,marginTop:2}}>
+                  <span style={{fontSize:14,fontWeight:800,fontVariantNumeric:'tabular-nums',color:alarmed?'#ef4444':'#A1A1A1'}}>{gMM}:{gSS}</span>
+                  <button onClick={toggleRun} style={{width:22,height:22,borderRadius:'50%',background:running?'#ef4444':'#22c55e',border:'none',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#FFF'}}>{running?'⏸':'▶'}</button>
+                </div>
+              </div>
+              <span style={{fontSize:28,fontWeight:800,color:'#FFF',fontVariantNumeric:'tabular-nums',minWidth:28,textAlign:'left'}}>{fixIsHome===false?usGoals.length:themGoals.length}</span>
+            </div>
+            {/* Goal scorers */}
+            {goals.length>0&&(
+              <div style={{display:'flex',gap:4,marginTop:3,fontSize:8,justifyContent:'center'}}>
+                <div style={{textAlign:'right'}}>
+                  {(fixIsHome===false?themGoals:usGoals).map((g,i)=><div key={i} style={{color:'#FDE68A'}}>{g.scorer||'Goal'} {g.timeStr}'</div>)}
+                </div>
+                {goals.length>0&&<div style={{width:1,background:'#333'}}/>}
+                <div>
+                  {(fixIsHome===false?usGoals:themGoals).map((g,i)=><div key={i} style={{color:'#fca5a5'}}>{g.timeStr}'</div>)}
+                </div>
+              </div>
+            )}
+          </div>
+          {/* Away team */}
+          <div style={{flex:1,display:'flex',alignItems:'center',gap:6,justifyContent:'flex-end',minWidth:0}}>
+            <div style={{minWidth:0,textAlign:'right'}}>
+              <div style={{fontSize:9,fontWeight:800,color:'#666',textTransform:'uppercase',letterSpacing:0.5,lineHeight:1}}>
+                {fixIsHome===false?myTeam||'Home':opponent||'Away'}
+              </div>
+              <div style={{fontSize:11,fontWeight:800,color:'#FFF',lineHeight:1.3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                {fixIsHome===false?myTeam?.split(' ').slice(-1)[0]||'':opponent?.split(' ').slice(-1)[0]||''}
+              </div>
+            </div>
+            <TeamBadge name={opponent||'Away'} size={36} radius={8}/>
+          </div>
+        </div>
       </div>
 
       {/* ── TAB BAR ── */}
@@ -3791,191 +3837,184 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
         {/* ──── LINEUP TAB ──── */}
         {activeMatchTab==='lineup'&&(
           <div>
-            {/* Swap legend */}
+            {/* Swap/selection legend */}
             {(swapEntries.length>0||selected)&&(
-              <div style={{padding:'6px 12px',background:'#1A1400',borderBottom:'1px solid #2A2000',display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}}>
+              <div style={{padding:'5px 12px',background:'#1A1400',borderBottom:'1px solid #2A2000',display:'flex',flexWrap:'wrap',gap:6,alignItems:'center'}}>
                 {swapEntries.map(({color,on,off,onPos,offPos})=>(
-                  <div key={on} style={{display:'flex',alignItems:'center',gap:5,background:'#1A1400',borderRadius:6,padding:'3px 6px'}}>
-                    <div style={{width:7,height:7,borderRadius:'50%',background:color,flexShrink:0}}/>
-                    <div style={{display:'flex',alignItems:'center',gap:3}}>
-                      <span style={{fontSize:10,color:'#22c55e',fontWeight:700}}>↑</span>
-                      <span style={{fontSize:10,color:'#FFF',fontWeight:700}}>{on}</span>
-                      {onPos&&<span style={{fontSize:8,color:'#888',fontStyle:'italic'}}>({onPos})</span>}
-                    </div>
-                    <span style={{fontSize:10,color:'#555'}}>⇄</span>
-                    <div style={{display:'flex',alignItems:'center',gap:3}}>
-                      <span style={{fontSize:10,color:'#ef4444',fontWeight:700}}>↓</span>
-                      <span style={{fontSize:10,color:'#FFF',fontWeight:700}}>{off}</span>
-                      {offPos&&<span style={{fontSize:8,color:'#888',fontStyle:'italic'}}>({offPos})</span>}
-                    </div>
+                  <div key={on} style={{display:'flex',alignItems:'center',gap:4,background:'rgba(0,0,0,0.3)',borderRadius:6,padding:'2px 6px'}}>
+                    <div style={{width:6,height:6,borderRadius:'50%',background:color}}/>
+                    <span style={{fontSize:9,color:'#22c55e',fontWeight:700}}>↑{on}</span>
+                    {onPos&&<span style={{fontSize:8,color:'#888'}}>({onPos})</span>}
+                    <span style={{fontSize:9,color:'#555'}}>⇄</span>
+                    <span style={{fontSize:9,color:'#ef4444',fontWeight:700}}>{off}↓</span>
+                    {offPos&&<span style={{fontSize:8,color:'#888'}}>({offPos})</span>}
                   </div>
                 ))}
-                {selected&&<span style={{fontSize:10,color:'#c4b5fd'}}>Moving: {selected.name}</span>}
+                {selected&&<span style={{fontSize:9,color:'#c4b5fd'}}>Moving: {selected.name}</span>}
               </div>
             )}
 
-            {/* Pitch + bench split */}
-            <div style={{display:'flex'}} onDragOver={e=>e.preventDefault()}>
-              {/* ── PITCH ── */}
-              <div style={{flex:'0 0 60%',padding:'8px 4px 8px 8px'}}>
-                <div style={{fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase',marginBottom:4}}>ON THE PITCH · {config.formation}</div>
-                <div style={{position:'relative',width:'100%',aspectRatio:'0.62',
+            {/* ── TWO-COLUMN: Pitch | Events+Subs ── */}
+            <div style={{display:'flex',height:'calc(100vw * 1.05)',maxHeight:480}} onDragOver={e=>e.preventDefault()}>
+
+              {/* ── LEFT: PITCH ── */}
+              <div style={{flex:'0 0 52%',padding:'6px 2px 6px 6px',display:'flex',flexDirection:'column',gap:4}}>
+                <div style={{fontSize:8,fontWeight:800,color:'#666',letterSpacing:1,textTransform:'uppercase',paddingLeft:2}}>ON THE PITCH</div>
+                <div style={{position:'relative',flex:1,
                   background:'linear-gradient(180deg,#1d5c1d 0%,#165216 25%,#1d5c1d 50%,#165216 75%,#1d5c1d 100%)',
-                  borderRadius:10,overflow:'hidden',boxShadow:'0 4px 20px rgba(0,0,0,0.5)'}}
+                  borderRadius:8,overflow:'hidden',boxShadow:'0 2px 12px rgba(0,0,0,0.5)'}}
                   onDragOver={e=>e.preventDefault()} onTouchStart={onPitchTouchStart} onTouchEnd={onPitchTouchEnd}>
                   {/* Pitch markings */}
                   {[{top:0,left:'10%',right:'10%',height:1},{bottom:0,left:'10%',right:'10%',height:1},{top:0,bottom:0,left:'10%',width:1},{top:0,bottom:0,right:'10%',width:1},{top:'50%',left:'10%',right:'10%',height:1},{top:'10%',left:'30%',right:'30%',height:1},{top:'10%',left:'30%',width:1,height:'10%'},{top:'10%',right:'30%',width:1,height:'10%'},{bottom:'10%',left:'30%',right:'30%',height:1},{bottom:'10%',left:'30%',width:1,height:'10%'},{bottom:'10%',right:'30%',width:1,height:'10%'}].map((s,i)=>(
-                    <div key={i} style={{position:'absolute',background:'rgba(255,255,255,0.18)',pointerEvents:'none',...s}}/>
+                    <div key={i} style={{position:'absolute',background:'rgba(255,255,255,0.15)',pointerEvents:'none',...s}}/>
                   ))}
-                  <div style={{position:'absolute',top:'50%',left:'50%',width:'20%',paddingBottom:'20%',transform:'translate(-50%,-50%)',border:'1px solid rgba(255,255,255,0.18)',borderRadius:'50%',pointerEvents:'none'}}/>
+                  <div style={{position:'absolute',top:'50%',left:'50%',width:'20%',paddingBottom:'20%',transform:'translate(-50%,-50%)',border:'1px solid rgba(255,255,255,0.15)',borderRadius:'50%',pointerEvents:'none'}}/>
                   {/* Player tokens */}
                   {positions.map((pos,pIdx)=>{
                     const name=cur.slots[pos.id];const isSel=selected?.from===pos.id;const swapColor=isSel?null:getTokenColor(name);
-                    return (
+                    const inits=name?name.split(' ').filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,3):'';
+                    return(
                       <div key={pos.id} style={{position:'absolute',left:pos.left,top:pos.top,transform:`translateX(${pos.tx})`,display:'flex',flexDirection:'column',alignItems:'center',gap:1,zIndex:isSel?10:2,cursor:'pointer'}}
                         onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();handleDrop(pos.id);}}
                         onClick={e=>{e.stopPropagation();handleTap(pos.id,false,null);}}>
                         <div style={{position:'relative'}}>
-                          <div style={{width:40,height:40,borderRadius:'50%',overflow:'hidden',
-                            border:isSel?'2.5px solid #7c3aed':swapColor?`2.5px solid ${swapColor}`:'2px solid rgba(255,255,255,0.5)',
-                            background:name?'rgba(20,20,20,0.7)':'rgba(0,0,0,0.2)',
-                            boxShadow:isSel?'0 0 0 3px rgba(124,58,237,0.4)':swapColor?`0 0 0 2px ${swapColor}55`:'0 2px 8px rgba(0,0,0,0.6)',
-                            display:'flex',alignItems:'center',justifyContent:'center',transition:'border 0.15s,box-shadow 0.15s'}}>
-                            {name?<span style={{fontSize:13,fontWeight:800,color:'#FFF',letterSpacing:-0.5,textShadow:'0 1px 3px rgba(0,0,0,0.8)'}}>{name.split(' ').filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,3)}</span>:<span style={{fontSize:14,opacity:0.35,color:'#fff'}}>+</span>}
+                          <div style={{width:34,height:34,borderRadius:'50%',
+                            border:isSel?'2px solid #7c3aed':swapColor?`2px solid ${swapColor}`:'1.5px solid rgba(255,255,255,0.5)',
+                            background:name?swapColor?swapColor+'33':'rgba(0,0,0,0.55)':'rgba(0,0,0,0.15)',
+                            boxShadow:isSel?'0 0 0 3px rgba(124,58,237,0.4)':'0 2px 6px rgba(0,0,0,0.6)',
+                            display:'flex',alignItems:'center',justifyContent:'center',transition:'border 0.15s'}}>
+                            {name?<span style={{fontSize:10,fontWeight:800,color:'#FFF',textShadow:'0 1px 2px rgba(0,0,0,0.9)'}}>{inits}</span>:<span style={{fontSize:12,opacity:0.25,color:'#fff'}}>+</span>}
                           </div>
-                          {name&&<div style={{position:'absolute',top:-3,left:-3,width:15,height:15,borderRadius:'50%',background:swapColor||'#1A1A1A',border:'1.5px solid rgba(255,255,255,0.5)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:6,fontWeight:800,color:'#FFF'}}>{pIdx+1}</div>}
-                          {name&&<div style={{position:'absolute',bottom:0,right:0,width:10,height:10,borderRadius:'50%',background:'#22c55e',border:'1.5px solid #0D0D0D'}}/>}
+                          {name&&<div style={{position:'absolute',top:-2,left:-2,width:12,height:12,borderRadius:'50%',background:swapColor||'#1A1A1A',border:'1px solid rgba(255,255,255,0.4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:6,fontWeight:800,color:'#FFF'}}>{pIdx+1}</div>}
+                          {name&&<div style={{position:'absolute',bottom:0,right:0,width:8,height:8,borderRadius:'50%',background:'#22c55e',border:'1px solid #0D0D0D'}}/>}
                         </div>
-                        <div style={{fontSize:7,fontWeight:800,color:name?'#FFF':'rgba(255,255,255,0.3)',textShadow:'0 1px 3px rgba(0,0,0,0.9)',textAlign:'center',maxWidth:46,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',lineHeight:1.2}}>
-                          {name?name.split(' ').slice(-1)[0].toUpperCase():pos.label}
+                        <div style={{fontSize:6,fontWeight:800,color:name?'#FFF':'rgba(255,255,255,0.25)',textShadow:'0 1px 2px rgba(0,0,0,0.9)',textAlign:'center',maxWidth:38,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                          {name?name.split(' ')[0].toUpperCase():pos.label}
                         </div>
-                        <div style={{fontSize:6,color:'rgba(255,255,255,0.45)',textTransform:'uppercase',letterSpacing:0.3,textShadow:'0 1px 2px rgba(0,0,0,0.9)'}}>{pos.label}</div>
                       </div>
                     );
                   })}
                 </div>
-              </div>
-
-              {/* ── BENCH ── */}
-              <div style={{flex:'0 0 40%',padding:'8px 8px 8px 4px',borderLeft:'1px solid #1A1A1A',display:'flex',flexDirection:'column',gap:4}}
-                onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();handleDrop('bench');}}
-                onClick={()=>{if(selected)handleTap(null,true,null);}}>
-                <div style={{fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase'}}>BENCH ({cur.slots.bench.length})</div>
-                <div style={{display:'flex',flexDirection:'column',gap:3}}>
-                  {cur.slots.bench.length===0&&<div style={{fontSize:10,color:'#2A2A2A',textAlign:'center',padding:'8px 0'}}>—</div>}
-                  {cur.slots.bench.map(name=>{
-                    const isSel=selected?.name===name&&selected?.from==='bench';const swapColor=isSel?null:getTokenColor(name);
-                    return (
-                      <div key={name} style={{display:'flex',alignItems:'center',gap:5,padding:'4px 6px',
-                        background:isSel?'#7c3aed22':'#1A1A1A',border:`1px solid ${isSel?'#7c3aed':swapColor||'#222'}`,
-                        borderRadius:8,cursor:'pointer'}}
-                        onClick={e=>{e.stopPropagation();handleTap(null,true,name);}}>
-                        <div style={{width:28,height:28,borderRadius:'50%',flexShrink:0,background:swapColor?swapColor+'22':'#1A1A1A',border:swapColor?`2px solid ${swapColor}`:'1px solid #333',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                          <span style={{fontSize:9,fontWeight:800,color:swapColor||'#888'}}>{name.split(' ').filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,3)}</span>
-                        </div>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:10,fontWeight:700,color:isSel?'#c4b5fd':'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{name.split(' ')[0]}</div>
-                          {(offCounts[name]||0)>0&&<div style={{fontSize:8,color:'#f59e0b'}}>{offCounts[name]}× rested</div>}
-                        </div>
-                        <div style={{width:8,height:8,borderRadius:'50%',background:'#333',flexShrink:0}}/>
-                      </div>
-                    );
-                  })}
-                </div>
-                {offSummary.length>0&&(
-                  <div style={{marginTop:6,borderTop:'1px solid #1A1A1A',paddingTop:6}}>
-                    <div style={{fontSize:8,fontWeight:800,color:'#444',letterSpacing:1,textTransform:'uppercase',marginBottom:4}}>TIMES RESTED</div>
-                    {offSummary.map(([n,c])=>(
-                      <div key={n} style={{display:'flex',justifyContent:'space-between',fontSize:9,color:'#666',padding:'1px 0'}}>
-                        <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.split(' ')[0]}</span>
-                        <span style={{color:c>=2?'#f59e0b':'#555',fontWeight:700}}>{c}×</span>
-                      </div>
-                    ))}
+                {/* Quick bench strip */}
+                {cur.slots.bench.length>0&&(
+                  <div>
+                    <div style={{fontSize:7,fontWeight:800,color:'#444',letterSpacing:1,textTransform:'uppercase',marginBottom:3}}>BENCH</div>
+                    <div style={{display:'flex',gap:4,overflowX:'auto'}}>
+                      {cur.slots.bench.map(name=>{
+                        const isSel=selected?.name===name&&selected?.from==='bench';
+                        const inits=name.split(' ').filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,3);
+                        return(
+                          <div key={name} style={{textAlign:'center',flexShrink:0,cursor:'pointer'}}
+                            onClick={e=>{e.stopPropagation();handleTap(null,true,name);}}>
+                            <div style={{width:30,height:30,borderRadius:'50%',background:isSel?'#7c3aed22':'#1A1A1A',border:isSel?'2px solid #7c3aed':'1px solid #2A2A2A',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 2px'}}>
+                              <span style={{fontSize:8,fontWeight:800,color:isSel?'#c4b5fd':'#666'}}>{inits}</span>
+                            </div>
+                            <div style={{fontSize:6,color:'#555',maxWidth:34,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{name.split(' ')[0]}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
-            </div>
 
-            {/* ── QUICK SUBS STRIP ── */}
-            {cur.slots.bench.length>0&&(
-              <div style={{background:'#111111',borderTop:'1px solid #1A1A1A',padding:'7px 10px'}}>
-                <div style={{fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase',marginBottom:6}}>
-                  QUICK SUBS {selected?`— tap to sub ${selected.name}`:'— tap pitch player first'}
-                </div>
-                <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:2}}>
-                  {cur.slots.bench.map(name=>{
-                    const isSel=selected?.name===name&&selected?.from==='bench';
-                    return (
-                      <div key={name} style={{textAlign:'center',flexShrink:0,cursor:'pointer'}}
-                        onClick={e=>{e.stopPropagation();handleTap(null,true,name);}}>
-                        <div style={{width:42,height:42,borderRadius:'50%',background:isSel?'#7c3aed22':selected?'#F5C04A11':'#1A1A1A',
-                          border:isSel?'2px solid #7c3aed':selected?'2px solid #F5C04A':'1px solid #333',
-                          margin:'0 auto 3px',transition:'border 0.15s',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                          <span style={{fontSize:12,fontWeight:800,color:isSel?'#c4b5fd':selected?'#F5C04A':'#888'}}>{name.split(' ').filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,3)}</span>
+              {/* ── RIGHT: EVENTS + SUBS ── */}
+              <div style={{flex:'0 0 48%',padding:'6px 6px 6px 4px',display:'flex',flexDirection:'column',gap:6,overflowY:'auto',borderLeft:'1px solid #1A1A1A'}}>
+
+                {/* Match Events */}
+                <div style={{flex:1,minHeight:0}}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
+                    <div style={{fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:1,textTransform:'uppercase'}}>MATCH EVENTS</div>
+                    <button onClick={()=>setEventsView(true)} style={{background:'none',border:'none',color:'#F5C04A',fontSize:9,fontWeight:700,cursor:'pointer',padding:0}}>All →</button>
+                  </div>
+                  {goals.length===0&&matchEvents.length===0&&(
+                    <div style={{fontSize:10,color:'#2A2A2A',textAlign:'center',padding:'12px 0',fontStyle:'italic'}}>No events yet</div>
+                  )}
+                  {/* HT marker */}
+                  {halfIdx===1&&(
+                    <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
+                      <div style={{flex:1,height:1,background:'#2A2A2A'}}/>
+                      <span style={{fontSize:8,color:'#555',fontWeight:700}}>HT</span>
+                      <div style={{flex:1,height:1,background:'#2A2A2A'}}/>
+                    </div>
+                  )}
+                  {/* Combined events sorted by time */}
+                  {[...goals.map(g=>({t:g.secs,type:'goal',data:g})),...matchEvents.map(e=>({t:(e.minute||0)*60,type:'event',data:e}))].sort((a,b)=>a.t-b.t).map((item,i)=>{
+                    if(item.type==='goal'){const g=item.data;return(
+                      <div key={'g'+i} style={{display:'flex',alignItems:'flex-start',gap:5,padding:'3px 0',borderBottom:'1px solid #111'}}>
+                        <span style={{fontSize:9,color:'#555',minWidth:18,fontWeight:700,flexShrink:0}}>{g.timeStr}'</span>
+                        <span style={{fontSize:11,flexShrink:0}}>⚽</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:9,fontWeight:700,color:g.team==='us'?'#FFF':'#fca5a5',lineHeight:1.2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{g.team==='us'?g.scorer:'Opponent'}</div>
+                          {g.team==='us'&&g.position&&<div style={{fontSize:7,color:'#555'}}>{g.position}</div>}
                         </div>
-                        <div style={{fontSize:8,fontWeight:700,color:isSel?'#c4b5fd':'#888',maxWidth:50,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{name.split(' ')[0]}</div>
+                        <button onClick={()=>removeGoal(goals.indexOf(g))} style={{background:'none',border:'none',color:'#222',cursor:'pointer',fontSize:11,padding:0,lineHeight:1,flexShrink:0}}>✕</button>
+                      </div>
+                    );}
+                    const e=item.data;const icon=e.type==='Yellow Card'?'🟨':e.type==='Red Card'?'🟥':e.type==='Sub'?'🔄':'📝';
+                    return(
+                      <div key={'e'+i} style={{display:'flex',alignItems:'flex-start',gap:5,padding:'3px 0',borderBottom:'1px solid #111'}}>
+                        <span style={{fontSize:9,color:'#555',minWidth:18,fontWeight:700,flexShrink:0}}>{e.minute||'?'}'</span>
+                        <span style={{fontSize:11,flexShrink:0}}>{icon}</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:9,fontWeight:700,color:'#FFF',lineHeight:1.2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{e.player||e.type}</div>
+                          {e.type==='Sub'&&e.detail&&(
+                            <div style={{fontSize:8,color:'#ef4444',lineHeight:1.2}}>↓ {e.detail}</div>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
-                </div>
-              </div>
-            )}
-
-            {/* ── MATCH EVENTS FEED ── */}
-            <div style={{background:'#111111',borderTop:'1px solid #1A1A1A',padding:'8px 12px'}}>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
-                <div style={{fontSize:11,fontWeight:800,color:'#FFF',letterSpacing:0.5}}>MATCH EVENTS</div>
-                <button onClick={()=>setEventsView(true)} style={{background:'none',border:'none',color:'#F5C04A',fontSize:11,fontWeight:700,cursor:'pointer'}}>View All {matchEvents.length>0?`(${matchEvents.length})`:''}</button>
-              </div>
-              {/* Goals */}
-              {goals.length===0&&matchEvents.length===0&&<div style={{fontSize:11,color:'#333',textAlign:'center',padding:'8px 0'}}>No events yet</div>}
-              {goals.map((g,i)=>(
-                <div key={'g'+i} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 0',borderBottom:'1px solid #1A1A1A'}}>
-                  <span style={{fontSize:10,color:'#A1A1A1',minWidth:24,fontWeight:700}}>{g.timeStr}'</span>
-                  <span style={{fontSize:14}}>⚽</span>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:11,fontWeight:700,color:g.team==='us'?'#FFF':'#fca5a5'}}>{g.team==='us'?g.scorer:'Opponent'}</div>
-                    {g.team==='us'&&g.position&&<div style={{fontSize:9,color:'#A1A1A1'}}>{g.position}</div>}
-                  </div>
-                  <button onClick={()=>removeGoal(i)} style={{background:'none',border:'none',color:'#333',cursor:'pointer',fontSize:14,padding:0,lineHeight:1}}>✕</button>
-                </div>
-              ))}
-              {/* Other match events (last 3) */}
-              {matchEvents.slice(-3).reverse().map((ev,i)=>(
-                <div key={'ev'+i} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 0',borderBottom:'1px solid #111'}}>
-                  <span style={{fontSize:10,color:'#A1A1A1',minWidth:24,fontWeight:700}}>{ev.minute}'</span>
-                  <span style={{fontSize:14}}>{ev.type==='Yellow Card'?'🟨':ev.type==='Red Card'?'🟥':ev.type==='Sub'?'🔄':'📝'}</span>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:11,fontWeight:700,color:'#FFF'}}>{ev.player||ev.type}</div>
-                    {ev.detail&&<div style={{fontSize:9,color:'#A1A1A1'}}>{ev.detail}</div>}
+                  {/* Add goal buttons */}
+                  <div style={{display:'flex',gap:4,marginTop:6}}>
+                    <button onClick={()=>setModal('goal')} style={{flex:1,background:'#16a34a22',border:'1px solid #16a34a55',borderRadius:6,padding:'6px 4px',color:'#22c55e',fontSize:9,fontWeight:800,cursor:'pointer'}}>⚽ Our Goal</button>
+                    <button onClick={logThemGoal} style={{flex:1,background:'#7f1d1d22',border:'1px solid #7f1d1d55',borderRadius:6,padding:'6px 4px',color:'#fca5a5',fontSize:9,fontWeight:800,cursor:'pointer'}}>+ Theirs</button>
                   </div>
                 </div>
-              ))}
-              {/* Score row + add goal buttons */}
-              <div style={{display:'flex',alignItems:'center',gap:8,paddingTop:8}}>
-                <div style={{display:'flex',alignItems:'center',gap:6,flex:1}}>
-                  <span style={{fontSize:11,color:'#A1A1A1'}}>Score:</span>
-                  <span style={{fontSize:18,fontWeight:800,color:'#FFF',fontVariantNumeric:'tabular-nums'}}>{usGoals.length}–{themGoals.length}</span>
-                </div>
-                <button onClick={()=>setModal('goal')} style={{background:'#16a34a',border:'none',borderRadius:8,padding:'7px 10px',color:'#FFF',fontSize:11,fontWeight:800,cursor:'pointer'}}>⚽ Ours</button>
-                <button onClick={logThemGoal} style={{background:'#7f1d1d',border:'none',borderRadius:8,padding:'7px 10px',color:'#FFF',fontSize:11,fontWeight:800,cursor:'pointer'}}>+ Theirs</button>
-              </div>
-            </div>
 
-            {/* ── VOICE NOTE ── */}
-            <div style={{padding:'8px 12px 4px',background:'#0D0D0D'}}>
-              <button onClick={toggleVoice} style={{width:'100%',padding:'12px 16px',
-                background:isVoiceRec?(voicePulse?'#7f1d1d':'#450a0a'):'#1A1A1A',
-                border:isVoiceRec?'2px solid #ef4444':'1px solid #2A2A2A',
-                borderRadius:12,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:10,transition:'background 0.3s'}}>
-                <span style={{fontSize:20}}>{isVoiceRec?'🔴':'🎙️'}</span>
-                <div style={{textAlign:'left'}}>
-                  <div style={{fontSize:13,fontWeight:700,color:isVoiceRec?'#fca5a5':'#FFF',lineHeight:1.2}}>{isVoiceRec?'Stop Recording':'Voice Note'}</div>
-                  <div style={{fontSize:10,color:isVoiceRec?'#f87171':'#A1A1A1'}}>{isVoiceRec?'Tap to stop':'Tap to start'}</div>
-                </div>
-                {!isVoiceRec&&voiceNotes&&<span style={{marginLeft:'auto',fontSize:10,color:'#F5C04A',fontWeight:700}}>● saved</span>}
-                {isVoiceRec&&<span style={{marginLeft:'auto',fontSize:10,color:'#ef4444',fontWeight:700,opacity:voicePulse?1:0.4,transition:'opacity 0.3s'}}>● REC</span>}
-              </button>
+                {/* ── SUBSTITUTIONS (from plan) ── */}
+                {(()=>{
+                  const curP=halves[halfIdx]?.[pidx];const prevP=pidx>0?halves[halfIdx]?.[pidx-1]:halfIdx>0?halves[halfIdx-1]?.[halves[halfIdx-1].length-1]:null;
+                  if(!curP?.slots||!prevP?.slots)return null;
+                  const subs=[];
+                  posIds.forEach(id=>{
+                    const was=prevP.slots[id],now=curP.slots[id];
+                    if(was&&now&&was!==now)subs.push({on:now,off:was,pos:posLabel[id]||id});
+                  });
+                  if(subs.length===0)return null;
+                  return(
+                    <div style={{borderTop:'1px solid #1A1A1A',paddingTop:6}}>
+                      <div style={{fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:1,textTransform:'uppercase',marginBottom:4}}>PLANNED SUBS</div>
+                      {subs.map((s,i)=>(
+                        <div key={i} style={{display:'flex',flexDirection:'column',gap:1,padding:'3px 0',borderBottom:'1px solid #111'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:4}}>
+                            <span style={{color:'#22c55e',fontSize:9,fontWeight:800,minWidth:10}}>→</span>
+                            <span style={{fontSize:9,fontWeight:700,color:'#22c55e',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.on}</span>
+                            <span style={{fontSize:8,color:'#555'}}>{s.pos}</span>
+                          </div>
+                          <div style={{display:'flex',alignItems:'center',gap:4}}>
+                            <span style={{color:'#ef4444',fontSize:9,fontWeight:800,minWidth:10}}>←</span>
+                            <span style={{fontSize:9,fontWeight:700,color:'#ef4444',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.off}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                {/* Voice note */}
+                <button onClick={toggleVoice} style={{flexShrink:0,padding:'7px 8px',
+                  background:isVoiceRec?(voicePulse?'#7f1d1d':'#450a0a'):'#1A1A1A',
+                  border:isVoiceRec?'1px solid #ef4444':'1px solid #2A2A2A',
+                  borderRadius:8,cursor:'pointer',display:'flex',alignItems:'center',gap:6,transition:'background 0.3s'}}>
+                  <span style={{fontSize:16}}>{isVoiceRec?'🔴':'🎙️'}</span>
+                  <div style={{textAlign:'left',flex:1}}>
+                    <div style={{fontSize:10,fontWeight:700,color:isVoiceRec?'#fca5a5':'#FFF',lineHeight:1.2}}>{isVoiceRec?'Stop Recording':'Voice Note'}</div>
+                    <div style={{fontSize:8,color:isVoiceRec?'#f87171':'#666'}}>{isVoiceRec?'Tap to stop':'Tap to start'}</div>
+                  </div>
+                  {!isVoiceRec&&voiceNotes&&<span style={{fontSize:9,color:'#F5C04A',fontWeight:700}}>●</span>}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -4012,13 +4051,14 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
       </div>
 
       {/* ── BOTTOM ACTION BAR ── */}
-      <div style={{display:'flex',gap:6,padding:'8px 10px',paddingBottom:'max(10px,env(safe-area-inset-bottom))',background:'#111111',borderTop:'1px solid #1A1A1A',flexShrink:0}}>
+      <div style={{display:'flex',gap:6,padding:'8px 10px',paddingBottom:'max(10px,env(safe-area-inset-bottom))',marginBottom:70,background:'#111111',borderTop:'1px solid #1A1A1A',flexShrink:0}}>
         <button onClick={()=>goals.length>0&&removeGoal(goals.length-1)} style={{flex:'0 0 auto',padding:'11px 10px',background:'#1A1A1A',border:'1px solid #2A2A2A',borderRadius:10,color:goals.length===0?'#333':'#A1A1A1',fontSize:11,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>↩ Undo</button>
         <button onClick={()=>setModal('goal')} style={{flex:1,padding:'11px 10px',background:'#ef4444',border:'none',borderRadius:10,color:'#FFF',fontSize:12,fontWeight:800,cursor:'pointer',whiteSpace:'nowrap'}}>+ Add Event</button>
         <button onClick={()=>{if(voiceNotes.trim()){setVoiceReview(voiceNotes);setModal('voiceReview');}else setModal('save');}} style={{flex:'0 0 auto',padding:'11px 10px',background:'#F5C04A',border:'none',borderRadius:10,color:'#000',fontSize:11,fontWeight:800,cursor:'pointer',whiteSpace:'nowrap',lineHeight:1.1}}>🏁 End</button>
         <button onClick={goNextPeriod} style={{flex:'0 0 auto',padding:'11px 10px',background:'#1A1A1A',border:'1px solid #2A2A2A',borderRadius:10,color:'#A1A1A1',fontSize:10,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>+Time</button>
       </div>
 
+      <BottomNav activeTab="match" onTab={(t)=>{ if(t!=="match") onExit(); }} />
       <style>{`@keyframes pulse{from{opacity:1}to{opacity:0.3}}`}</style>
     </div>
   );
