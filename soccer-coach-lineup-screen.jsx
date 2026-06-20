@@ -2626,7 +2626,7 @@ function SquadScreen({ mode, onNext, onBack, onViewOpponent }) {
 // ════════════════════════════════════════════════════════════════════════════════
 //  SCREEN: LINEUP PICKER  (self-contained — Match tab)
 // ════════════════════════════════════════════════════════════════════════════════
-function PickerScreen({ onNext, onBack, onManageSquad, onViewOpponent, onViewStats, onViewPlayerStats }) {
+function PickerScreen({ onNext, onBack, onManageSquad, onViewOpponent, onViewStats }) {
   const myTeam = localStorage.getItem('soccerCoach_fixtureTeam') || '';
 
   const [squad,  setSquad]  = useState(()=>loadSquad());
@@ -2651,28 +2651,10 @@ function PickerScreen({ onNext, onBack, onManageSquad, onViewOpponent, onViewSta
     const base = autoFillSlots(sq, pos);
     return Array.from({length: n}, () => cloneSlots(base));
   };
-
-  // ── Persist picker draft so lineup survives navigation ──────────────────────
-  const DRAFT_KEY = 'soccerCoach_pickerDraft';
-  const loadDraft = () => { try { return JSON.parse(localStorage.getItem(DRAFT_KEY)||'{}'); } catch { return {}; } };
-  const saveDraft = (patch) => {
-    try {
-      const prev = loadDraft();
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({...prev, ...patch}));
-    } catch {}
-  };
-  const clearDraft = () => { try { localStorage.removeItem(DRAFT_KEY); } catch {} };
-
-  const [h1Periods, setH1Periods] = useState(()=>{
-    const d = loadDraft();
-    return (d.h1Periods && d.h1Periods.length) ? d.h1Periods : makePeriods(squad, positions, config.numPeriods||3);
-  });
-  const [h2Periods, setH2Periods] = useState(()=>{
-    const d = loadDraft();
-    return (d.h2Periods && d.h2Periods.length) ? d.h2Periods : makePeriods(squad, positions, config.numPeriods||3);
-  });
-  const [activeHalf,   setActiveHalf]   = useState(()=>{ const d=loadDraft(); return d.activeHalf||0; });
-  const [activePeriod, setActivePeriod] = useState(()=>{ const d=loadDraft(); return d.activePeriod||0; });
+  const [h1Periods, setH1Periods] = useState(()=>makePeriods(squad, positions, config.numPeriods||3));
+  const [h2Periods, setH2Periods] = useState(()=>makePeriods(squad, positions, config.numPeriods||3));
+  const [activeHalf,   setActiveHalf]   = useState(0);
+  const [activePeriod, setActivePeriod] = useState(0);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [selectedBench, setSelectedBench] = useState(null);
   const [pickerTab,    setPickerTab]    = useState('squad');
@@ -2682,10 +2664,6 @@ function PickerScreen({ onNext, onBack, onManageSquad, onViewOpponent, onViewSta
     if (activeHalf === 0) setH1Periods(updater);
     else setH2Periods(updater);
   }
-
-  // ── Auto-save draft on every lineup change ──────────────────────────────────
-  useEffect(() => { saveDraft({ h1Periods, h2Periods, activeHalf, activePeriod, opponent }); },
-    [h1Periods, h2Periods, activeHalf, activePeriod, opponent]);
 
   const prevFormation = useRef(formation);
   useEffect(() => {
@@ -2884,7 +2862,6 @@ function PickerScreen({ onNext, onBack, onManageSquad, onViewOpponent, onViewSta
         {[
           { id:'squad',    label:'Squad',    icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
           { id:'stats',    label:'Analysis', icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> },
-          { id:'player-stats', label:'Stats', icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
           { id:'scout',    label:'Scout',    icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> },
           { id:'settings', label:'Settings', icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> },
         ].map(t=>{
@@ -2935,11 +2912,10 @@ function PickerScreen({ onNext, onBack, onManageSquad, onViewOpponent, onViewSta
           </div>
 
           {/* Pitch + Field Players — same height, side by side */}
-          <div style={{ display:'flex', flexShrink:0, alignItems:'stretch' }}>
+          <div style={{ display:'flex', flexShrink:0 }}>
 
-            {/* LEFT — pitch SVG + quick subs + substitutions (52%) */}
-            <div style={{ flex:'0 0 52%', minWidth:0, display:'flex', flexDirection:'column' }}>
-              <div ref={leftColRef} style={{ flex:'0 0 52%', minWidth:0 }}>
+            {/* LEFT — pitch SVG (determines height) */}
+            <div ref={leftColRef} style={{ flex:'0 0 52%', minWidth:0 }}>
               <svg viewBox="0 0 200 280" xmlns="http://www.w3.org/2000/svg" style={{ width:'100%', display:'block' }}>
                 {[0,1,2,3,4,5,6].map(i=>(
                   <rect key={i} x="0" y={i*40} width="200" height="40" fill={i%2===0?'#1e421e':'#1a3a1a'}/>
@@ -2991,44 +2967,87 @@ function PickerScreen({ onNext, onBack, onManageSquad, onViewOpponent, onViewSta
               </svg>
             </div>
 
-              {/* Quick Subs SVG cards */}
-              <div style={{ borderTop:'1px solid #1A1A1A', background:'#0D0D0D', padding:'5px 10px 6px', flexShrink:0 }}>
-                <div style={{ fontSize:7,fontWeight:800,color:'#666',letterSpacing:1.5,textTransform:'uppercase',marginBottom:2 }}>
-                  {selectedSlot?'↑ TAP BENCH PLAYER TO SWAP IN':selectedBench?'↑ TAP FIELD POSITION TO SWAP':'QUICK SUBSTITUTIONS'}
-                </div>
-                {!selectedSlot && !selectedBench && (
-                  <div style={{ fontSize:9,color:'#444',marginBottom:4,fontStyle:'italic' }}>Tap a bench player then a pitch player to substitute</div>
-                )}
-                <div style={{ display:'flex', gap:4, overflowX:'auto' }}>
-                  {bench.length===0 && <span style={{ fontSize:10,color:'#444',fontStyle:'italic',padding:'8px 0' }}>All players on field</span>}
-                  {bench.map((n,bidx)=>{
-                    const isBSel=selectedBench===n;
-                    const init=n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-                    const shortN=n.split(' ').length>1?(n.split(' ')[0][0]+'. '+n.split(' ').slice(-1)[0]).slice(0,9):n.slice(0,9);
-                    return (
-                      <div key={n} onClick={()=>{
-                        if(selectedSlot){assignToSlot(selectedSlot,n);setSelectedSlot(null);setSelectedBench(null);}
-                        else{setSelectedBench(isBSel?null:n);setSelectedSlot(null);}
-                      }} style={{ flexShrink:0, cursor:'pointer', width:'10vw', maxWidth:46, minWidth:28 }}>
-                        <svg viewBox="0 0 30 38" width="100%" style={{ display:'block' }}>
-                          <rect x="0" y="0" width="30" height="38" rx="4"
-                            fill={isBSel?'rgba(245,192,74,0.18)':subPairColors[n]?(subPairColors[n]+'18'):'rgba(18,18,18,0.92)'}
-                            stroke={isBSel?'#F5C04A':subPairColors[n]||'#3a3a3a'}
-                            strokeWidth={isBSel?1.8:subPairColors[n]?2:1}/>
-                          <text x="15" y="13" textAnchor="middle" fontSize="11" fontWeight="600" fill={isBSel?'#F5C04A':'#FFF'} fontFamily="Outfit,sans-serif">{init}</text>
-                          <text x="15" y="28" textAnchor="middle" fontSize="4.8" fontWeight="600" fill="rgba(255,255,255,0.75)" fontFamily="Outfit,sans-serif">{shortN}</text>
-                          <text x="15" y="35" textAnchor="middle" fontSize="4" fill={isBSel?'rgba(245,192,74,0.6)':'rgba(255,255,255,0.35)'} fontFamily="Outfit,sans-serif">BENCH</text>
-                          <circle cx="25" cy="5" r="2.5" fill="#22c55e"/>
-                          <text x="4" y="9" fontSize="5.5" fontWeight="700" fill={isBSel?'#F5C04A':'rgba(255,255,255,0.45)'} fontFamily="Outfit,sans-serif">{bidx+1}</text>
-                        </svg>
-                      </div>
-                    );
-                  })}
-                </div>
+            {/* RIGHT — On-field players list, same height as pitch */}
+            <div style={{ flex:'0 0 48%', minWidth:0, height:colH||300, display:'flex', flexDirection:'column', background:'#0D0D0D', borderLeft:'1px solid #1A1A1A', overflow:'hidden' }}>
+              <div style={{ padding:'6px 10px 4px', borderBottom:'1px solid #1A1A1A', flexShrink:0 }}>
+                <div style={{ fontSize:13, fontWeight:800, color:'#FFF', lineHeight:1 }}>Players</div>
+                <div style={{ fontSize:10, color:'#A1A1A1', marginTop:1 }}>{assigned.length} of {positions.length} on field</div>
               </div>
+              <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column' }}>
+                {positions.map((pos,pidx)=>{
+                  const name=curSlots[pos.id]||'';
+                  const isSel=selectedSlot===pos.id;
+                  const initials2=name?name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase():'?';
+                  const p=squad.find(s=>s.name===name);
+                  const posDisplay=p?[p.pos,p.pos2,p.pos3].filter(Boolean).join(' / '):'';
+                  return (
+                    <div key={pos.id} onClick={()=>{
+                      if(selectedBench&&name){assignToSlot(pos.id,selectedBench);setSelectedBench(null);setSelectedSlot(null);}
+                      else if(selectedBench&&!name){assignToSlot(pos.id,selectedBench);setSelectedBench(null);}
+                      else if(selectedSlot&&selectedSlot!==pos.id){swapPitchSlots(selectedSlot,pos.id);}
+                      else{setSelectedSlot(isSel?null:pos.id);setSelectedBench(null);}
+                    }} style={{
+                      flex:1,display:'flex',alignItems:'center',gap:7,padding:'0 10px',
+                      borderBottom:'1px solid #111',cursor:'pointer',
+                      background:isSel?'rgba(245,192,74,0.08)':selectedBench&&name?'rgba(34,197,94,0.05)':name&&subPairColors[name]?(subPairColors[name]+'11'):'transparent',
+                      borderLeft:name&&subPairColors[name]?`3px solid ${subPairColors[name]}`:'3px solid transparent',
+                    }}>
+                      <span style={{ fontSize:10,color:'#555',fontWeight:700,minWidth:16,textAlign:'right' }}>{pidx+1}</span>
+                      <div style={{ width:28,height:28,borderRadius:'50%',background:name?'#1A1A1A':'#0a0a0a',border:`1px solid ${isSel?'#F5C04A':'#2A2A2A'}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0 }}>
+                        <span style={{ fontSize:8,fontWeight:600,color:name?'#FFF':'#333' }}>{initials2}</span>
+                      </div>
+                      <div style={{ flex:1,minWidth:0 }}>
+                        <div style={{ fontSize:11,fontWeight:700,color:name?'#FFF':'#444',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{name||posLbl[pos.id]||pos.id}</div>
+                        <div style={{ fontSize:9,color:'#555' }}>{posLbl[pos.id]||pos.id}</div>
+                      </div>
+                      <div style={{ display:'flex',alignItems:'center',gap:4,flexShrink:0 }}>
+                        <div style={{ width:7,height:7,borderRadius:'50%',background:name?'#22c55e':'#2A2A2A' }}/>
+                        {name&&<button onClick={e=>{e.stopPropagation();onViewStats(name);}} style={{ background:'none',border:'none',cursor:'pointer',padding:'2px 4px',color:'#555',fontSize:14,lineHeight:1,display:'flex',alignItems:'center' }}>›</button>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
 
-              {/* Substitutions */}
-              {/* ── SUBSTITUTIONS (current period vs previous) ── */}
+                              {/* Bench + Subs — no scroll, fixed height */}
+          <div style={{ flexShrink:0, borderTop:'1px solid #1A1A1A', overflow:'hidden' }}>
+
+            {/* ── BENCH ── */}
+            <div style={{ background:'#0D0D0D', padding:'5px 10px 6px' }}>
+              <div style={{ fontSize:7,fontWeight:800,color:'#666',letterSpacing:1.5,textTransform:'uppercase',marginBottom:5 }}>
+                {selectedSlot?'↑ TAP BENCH PLAYER TO SWAP IN':selectedBench?'↑ TAP FIELD POSITION TO SWAP':'BENCH'}
+              </div>
+              <div style={{ display:'flex', gap:4, overflowX:'auto' }}>
+                {bench.length===0 && <span style={{ fontSize:10,color:'#444',fontStyle:'italic',padding:'8px 0' }}>All players on field</span>}
+                {bench.map((n,bidx)=>{
+                  const isBSel=selectedBench===n;
+                  const init=n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+                  const shortN=n.split(' ').length>1?(n.split(' ')[0][0]+'. '+n.split(' ').slice(-1)[0]).slice(0,9):n.slice(0,9);
+                  return (
+                    <div key={n} onClick={()=>{
+                      if(selectedSlot){assignToSlot(selectedSlot,n);setSelectedSlot(null);setSelectedBench(null);}
+                      else{setSelectedBench(isBSel?null:n);setSelectedSlot(null);}
+                    }} style={{ flexShrink:0, cursor:'pointer', width:'10vw', maxWidth:46, minWidth:28 }}>
+                      <svg viewBox="0 0 30 38" width="100%" style={{ display:'block' }}>
+                        <rect x="0" y="0" width="30" height="38" rx="4"
+                          fill={isBSel?'rgba(245,192,74,0.18)':subPairColors[n]?(subPairColors[n]+'18'):'rgba(18,18,18,0.92)'}
+                          stroke={isBSel?'#F5C04A':subPairColors[n]||'#3a3a3a'}
+                          strokeWidth={isBSel?1.8:subPairColors[n]?2:1}/>
+                        <text x="15" y="13" textAnchor="middle" fontSize="11" fontWeight="600" fill={isBSel?'#F5C04A':'#FFF'} fontFamily="Outfit,sans-serif">{init}</text>
+                        <text x="15" y="28" textAnchor="middle" fontSize="4.8" fontWeight="600" fill="rgba(255,255,255,0.75)" fontFamily="Outfit,sans-serif">{shortN}</text>
+                        <text x="15" y="35" textAnchor="middle" fontSize="4" fill={isBSel?'rgba(245,192,74,0.6)':'rgba(255,255,255,0.35)'} fontFamily="Outfit,sans-serif">BENCH</text>
+                        <circle cx="25" cy="5" r="2.5" fill="#22c55e"/>
+                        <text x="4" y="9" fontSize="5.5" fontWeight="700" fill={isBSel?'#F5C04A':'rgba(255,255,255,0.45)'} fontFamily="Outfit,sans-serif">{bidx+1}</text>
+                      </svg>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ── SUBSTITUTIONS (current period vs previous) ── */}
             {(()=>{
               if(activePeriod === 0) {
                 return (
@@ -3138,167 +3157,11 @@ function PickerScreen({ onNext, onBack, onManageSquad, onViewOpponent, onViewSta
               );
             })()}
 
-            </div>
-
-            {/* RIGHT — Pitch players + Bench merged, scrollable */}
-            <div style={{ flex:'0 0 48%', minWidth:0, display:'flex', flexDirection:'column', background:'#0D0D0D', borderLeft:'1px solid #1A1A1A', overflowY:'auto' }}>
-              {/* Pitch section header */}
-              <div style={{ padding:'5px 10px 4px', borderBottom:'1px solid #111', background:'#080808', flexShrink:0 }}>
-                <div style={{ fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase' }}>PITCH · {assigned.length}/{positions.length}</div>
-              </div>
-              {/* Merged scrollable list */}
-              <div style={{ flex:1, overflowY:'auto' }}>
-                {/* ── Pitch rows ── */}
-                {positions.map((pos,pidx)=>{
-                  const name=curSlots[pos.id]||'';
-                  const isSel=selectedSlot===pos.id;
-                  const initials2=name?name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase():'?';
-                  const p=squad.find(s=>s.name===name);
-                  return (
-                    <div key={pos.id} onClick={()=>{
-                      if(selectedBench&&name){assignToSlot(pos.id,selectedBench);setSelectedBench(null);setSelectedSlot(null);}
-                      else if(selectedBench&&!name){assignToSlot(pos.id,selectedBench);setSelectedBench(null);}
-                      else if(selectedSlot&&selectedSlot!==pos.id){swapPitchSlots(selectedSlot,pos.id);}
-                      else{setSelectedSlot(isSel?null:pos.id);setSelectedBench(null);}
-                    }} style={{
-                      display:'flex',alignItems:'center',gap:7,padding:'0 10px',height:34,
-                      borderBottom:'1px solid #111',cursor:'pointer',
-                      background:isSel?'rgba(245,192,74,0.08)':selectedBench&&name?'rgba(34,197,94,0.05)':name&&subPairColors[name]?(subPairColors[name]+'11'):'transparent',
-                      borderLeft:name&&subPairColors[name]?`3px solid ${subPairColors[name]}`:'3px solid transparent',
-                    }}>
-                      <span style={{ fontSize:10,color:'#555',fontWeight:700,minWidth:16,textAlign:'right' }}>{pidx+1}</span>
-                      <div style={{ width:28,height:28,borderRadius:'50%',background:name?'#1A1A1A':'#0a0a0a',border:`1px solid ${isSel?'#F5C04A':'#2A2A2A'}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0 }}>
-                        <span style={{ fontSize:8,fontWeight:600,color:name?'#FFF':'#333' }}>{initials2}</span>
-                      </div>
-                      <div style={{ flex:1,minWidth:0 }}>
-                        <div style={{ fontSize:11,fontWeight:700,color:name?'#FFF':'#444',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{name||posLbl[pos.id]||pos.id}</div>
-                        <div style={{ fontSize:9,color:'#555' }}>{posLbl[pos.id]||pos.id}</div>
-                      </div>
-                      {(()=>{
-                        if(!name) return <div style={{width:7,height:7,borderRadius:'50%',background:'#2A2A2A',flexShrink:0}}/>;
-                        const _h1On=h1Periods.map((s,i)=>posIds.some(id=>s[id]===name)?i:-1).filter(i=>i>=0);
-                        const _h2On=h2Periods.map((s,i)=>posIds.some(id=>s[id]===name)?i:-1).filter(i=>i>=0);
-                        const _bar=(onIdx,periods)=>periods.map((_,i)=>{const on=onIdx.includes(i);const sub=on&&!onIdx.includes(i-1)&&i>0;return <div key={i} style={{width:9,height:9,borderRadius:2,background:!on?'#1A1A1A':sub?'#3b82f6':'#22c55e'}}/>;});
-                        return (<div style={{display:'flex',gap:4,alignItems:'flex-end',flexShrink:0}}>
-                          <div><div style={{fontSize:6,color:'#555',fontWeight:700,marginBottom:2,textAlign:'center'}}>1H</div><div style={{display:'flex',gap:1.5}}>{_bar(_h1On,h1Periods)}</div></div>
-                          <div><div style={{fontSize:6,color:'#555',fontWeight:700,marginBottom:2,textAlign:'center'}}>2H</div><div style={{display:'flex',gap:1.5}}>{_bar(_h2On,h2Periods)}</div></div>
-                          <button onClick={e=>{e.stopPropagation();onViewStats(name);}} style={{background:'none',border:'none',cursor:'pointer',padding:'2px 4px',color:'#555',fontSize:14,lineHeight:1,display:'flex',alignItems:'center'}}>›</button>
-                        </div>);
-                      })()}
-                    </div>
-                  );
-                })}
-                {/* ── Bench heading (same format as Pitch) ── */}
-                <div style={{ padding:'5px 10px 4px', borderBottom:'1px solid #111', borderTop:'1px solid #1A1A1A', background:'#080808', flexShrink:0 }}>
-                  <div style={{ fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase' }}>BENCH · {bench.length}</div>
-                </div>
-                {/* ── Bench rows ── */}
-                {bench.length===0
-                  ? <div style={{ padding:'8px 10px',fontSize:10,color:'#444',fontStyle:'italic' }}>All players on field</div>
-                  : bench.map((n,bidx)=>{
-                      const isBSel=selectedBench===n;
-                      const init=n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-                      const pb=squad.find(s=>s.name===n);
-                      const posDisplay=pb?[pb.pos,pb.pos2,pb.pos3].filter(Boolean).join(' / '):'';
-                      return (
-                        <div key={n} onClick={()=>{
-                          if(selectedSlot){assignToSlot(selectedSlot,n);setSelectedSlot(null);setSelectedBench(null);}
-                          else{setSelectedBench(isBSel?null:n);setSelectedSlot(null);}
-                        }} style={{
-                          display:'flex',alignItems:'center',gap:7,padding:'0 10px',height:34,
-                          borderBottom:'1px solid #111',cursor:'pointer',
-                          background:isBSel?'rgba(245,192,74,0.08)':subPairColors[n]?(subPairColors[n]+'11'):'transparent',
-                          borderLeft:subPairColors[n]?`3px solid ${subPairColors[n]}`:'3px solid transparent',
-                        }}>
-                          <span style={{ fontSize:10,color:'#555',fontWeight:700,minWidth:16,textAlign:'right' }}>{bidx+1}</span>
-                          <div style={{ width:28,height:28,borderRadius:'50%',background:'#1A1A1A',border:`1px solid ${isBSel?'#F5C04A':'#2A2A2A'}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0 }}>
-                            <span style={{ fontSize:8,fontWeight:600,color:isBSel?'#F5C04A':'#FFF' }}>{init}</span>
-                          </div>
-                          <div style={{ flex:1,minWidth:0 }}>
-                            <div style={{ fontSize:11,fontWeight:700,color:isBSel?'#F5C04A':'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{n}</div>
-                            {posDisplay&&<div style={{ fontSize:9,color:'#555',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{posDisplay}</div>}
-                          </div>
-                          {(()=>{
-                            const _h1On=h1Periods.map((s,i)=>posIds.some(id=>s[id]===n)?i:-1).filter(i=>i>=0);
-                            const _h2On=h2Periods.map((s,i)=>posIds.some(id=>s[id]===n)?i:-1).filter(i=>i>=0);
-                            const _bar=(onIdx,periods)=>periods.map((_,i)=>{const on=onIdx.includes(i);const sub=on&&!onIdx.includes(i-1)&&i>0;return <div key={i} style={{width:9,height:9,borderRadius:2,background:!on?'#1A1A1A':sub?'#3b82f6':'#22c55e'}}/>;});
-                            return (<div style={{display:'flex',gap:4,alignItems:'flex-end',flexShrink:0}}>
-                              <div><div style={{fontSize:6,color:'#555',fontWeight:700,marginBottom:2,textAlign:'center'}}>1H</div><div style={{display:'flex',gap:1.5}}>{_bar(_h1On,h1Periods)}</div></div>
-                              <div><div style={{fontSize:6,color:'#555',fontWeight:700,marginBottom:2,textAlign:'center'}}>2H</div><div style={{display:'flex',gap:1.5}}>{_bar(_h2On,h2Periods)}</div></div>
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2.5" style={{flexShrink:0}}><polyline points="9 18 15 12 9 6"/></svg>
-                            </div>);
-                          })()}
-                        </div>
-                      );
-                    })
-                }
-              </div>
-            </div>
-          </div>
+          </div>{/* end bench+subs */}
         </div>
       )}
 
       {/* ── SCOUT TAB ── */}
-        {/* ── PLAYER STATS TAB ── */}
-        {pickerTab === 'player-stats' && (() => {
-          const games = (() => { try { return JSON.parse(localStorage.getItem('soccerCoach_games')||'[]'); } catch { return []; } })();
-          return (
-            <div style={{ flex:1, overflowY:'auto', padding:'14px' }}>
-              <div style={{ fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:2,textTransform:'uppercase',marginBottom:12 }}>SELECT PLAYER</div>
-              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                {squad.map(p => {
-                  const initials = p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-                  const stats = (() => {
-                    let apps=0, goals=0, mins=0;
-                    games.forEach(g => {
-                      if(!g.halves) return;
-                      const allSlots = [...(g.halves.half1||[]), ...(g.halves.half2||[])];
-                      const onCount = allSlots.filter(s=>Object.values(s).includes(p.name)).length;
-                      if(onCount>0){ apps++; mins+=onCount*(g.config?.periodMins||15); }
-                      (g.events||[]).forEach(e=>{ if(e.type==='goal'&&e.player===p.name) goals++; });
-                    });
-                    return { apps, goals, mins };
-                  })();
-                  return (
-                    <div key={p.name} onClick={()=>onViewPlayerStats&&onViewPlayerStats(p.name)}
-                      style={{ display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'#111111',borderRadius:12,border:'1px solid #1A1A1A',cursor:'pointer',WebkitTapHighlightColor:'transparent' }}>
-                      <div style={{ width:40,height:40,borderRadius:10,background:'#1A1A1A',border:'1.5px solid #2A2A2A',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0 }}>
-                        <span style={{ fontSize:13,fontWeight:800,color:'#F5C04A' }}>{initials}</span>
-                      </div>
-                      <div style={{ flex:1,minWidth:0 }}>
-                        <div style={{ fontSize:13,fontWeight:700,color:'#FFF',marginBottom:2 }}>{p.name}</div>
-                        <div style={{ fontSize:10,color:'#A1A1A1' }}>{[p.pos,p.pos2,p.pos3].filter(Boolean).join(' · ')||'No position set'}</div>
-                      </div>
-                      <div style={{ display:'flex',gap:16,flexShrink:0 }}>
-                        <div style={{ textAlign:'center' }}>
-                          <div style={{ fontSize:14,fontWeight:800,color:'#F5C04A' }}>{stats.apps}</div>
-                          <div style={{ fontSize:8,color:'#555',fontWeight:600 }}>APPS</div>
-                        </div>
-                        <div style={{ textAlign:'center' }}>
-                          <div style={{ fontSize:14,fontWeight:800,color:'#FFF' }}>{stats.goals}</div>
-                          <div style={{ fontSize:8,color:'#555',fontWeight:600 }}>GLS</div>
-                        </div>
-                        <div style={{ textAlign:'center' }}>
-                          <div style={{ fontSize:14,fontWeight:800,color:'#FFF' }}>{stats.mins}'</div>
-                          <div style={{ fontSize:8,color:'#555',fontWeight:600 }}>MINS</div>
-                        </div>
-                      </div>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
-                    </div>
-                  );
-                })}
-                {squad.length===0 && (
-                  <div style={{ textAlign:'center',padding:'40px 20px',color:'#555' }}>
-                    <div style={{ fontSize:13,marginBottom:8 }}>No players in squad</div>
-                    <div style={{ fontSize:11 }}>Add players in the Squad tab</div>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })()}
-
-
       {pickerTab === 'scout' && (
         <div style={{ flex:1, overflowY:'auto', padding:'14px' }}>
           <div style={{ background:'#111111', borderRadius:12, padding:'16px', border:'1px solid #1A1A1A', marginBottom:14 }}>
@@ -3411,278 +3274,86 @@ function PickerScreen({ onNext, onBack, onManageSquad, onViewOpponent, onViewSta
         </div>
       )}
 
-      {/* ── STATS TAB (Analysis) ── */}
+      {/* ── STATS TAB ── */}
       {pickerTab === 'stats' && (()=>{
-        const halfMins   = config.halfMins   || 24;
-        const numP       = config.numPeriods || 3;
+        const numP = config.numPeriods || 3;
         const periodMins = getPeriodMins(config);
-        const gameTotal  = halfMins * 2; // total game minutes
-
-        // Target band: 75–85 %
-        const TARGET_LO = 0.75, TARGET_HI = 0.85;
-
-        // Per-player stats
-        const playerRows = squad.map(p => {
-          // Which periods in H1 / H2 is this player on the pitch?
-          const h1On = h1Periods.map((slots,i) => posIds.some(id => slots[id]===p.name) ? i : -1).filter(i=>i>=0);
-          const h2On = h2Periods.map((slots,i) => posIds.some(id => slots[id]===p.name) ? i : -1).filter(i=>i>=0);
-          const totalMins  = (h1On.length + h2On.length) * periodMins;
-          const pctGame    = gameTotal > 0 ? totalMins / gameTotal : 0;
-          const isStarter  = h1On.includes(0);
-          const subIn      = !isStarter && (h1On.length > 0 || h2On.length > 0);
-          // Determine status
-          let status = 'dnp'; // did not play
-          if(totalMins > 0) {
-            if(pctGame > TARGET_HI + 0.01)      status = 'over';
-            else if(pctGame < TARGET_LO - 0.01) status = 'under';
-            else                                  status = 'ok';
-          }
-          // Position from squad or formation slot
-          const posLabel = [p.pos, p.pos2, p.pos3].filter(Boolean)[0] || '—';
-          // Positions actually played in this lineup (formation slot IDs, uppercased)
-          const playedPosIds = [...new Set([
-            ...h1Periods.flatMap(slots => posIds.filter(id => slots[id]===p.name)),
-            ...h2Periods.flatMap(slots => posIds.filter(id => slots[id]===p.name)),
-          ])];
-          const playedPosAbbr = playedPosIds.map(id => id.toUpperCase()).join('/');
-          return { ...p, h1On, h2On, totalMins: Math.round(totalMins), pctGame, isStarter, subIn, status, posLabel, playedPosAbbr,
-            initials: p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase() };
+        const allPeriods = [
+          ...h1Periods.map((slots,i)=>({half:1,period:i,slots})),
+          ...h2Periods.map((slots,i)=>({half:2,period:i,slots})),
+        ];
+        const totalPeriods = allPeriods.length;
+        // For each player count periods on pitch
+        const playerStats = squad.map(p=>{
+          const onInH1 = h1Periods.map((slots,i)=>posIds.some(id=>slots[id]===p.name)?i:-1).filter(i=>i>=0);
+          const onInH2 = h2Periods.map((slots,i)=>posIds.some(id=>slots[id]===p.name)?i:-1).filter(i=>i>=0);
+          const totalOn = onInH1.length + onInH2.length;
+          const estMins = Math.round(totalOn * periodMins);
+          return { name:p.name, onInH1, onInH2, totalOn, estMins, initials:p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase() };
         });
-
-        const played    = playerRows.filter(p=>p.totalMins>0);
-        const dnp       = playerRows.filter(p=>p.totalMins===0);
-        const overplayed  = played.filter(p=>p.status==='over').length;
-        const underplayed = played.filter(p=>p.status==='under').length;
-        const totalPlayerMins = playerRows.reduce((s,p)=>s+p.totalMins,0);
-        const avgPct = played.length > 0 ? played.reduce((s,p)=>s+p.pctGame,0)/played.length : 0;
-
-        // Sort: starters first (by totalMins desc), then subs, then DNP
-        const sortedPlayed = [...played].sort((a,b)=>b.totalMins-a.totalMins||b.isStarter-a.isStarter);
-
-        // Gauge circle params
-        const R=28, CIRC=2*Math.PI*R;
-        const gaugePct = Math.min(avgPct, 1);
-
-        // Insight flags
-        const onTarget = played.filter(p=>p.status==='ok').length;
-        const insights = [];
-        // Always show all three status categories
-        insights.push({ color:'#22c55e', icon:'✓', title:'On Target',
-          body: onTarget > 0
-            ? `${onTarget} player${onTarget!==1?'s are':' is'} within the ${Math.round(TARGET_LO*100)}–${Math.round(TARGET_HI*100)}% target range.`
-            : `No players are within the ${Math.round(TARGET_LO*100)}–${Math.round(TARGET_HI*100)}% target range yet.` });
-        insights.push({ color:'#ef4444', icon:'↓', title:'Overplayed',
-          body: overplayed > 0
-            ? `${overplayed} player${overplayed>1?'s have':' has'} played over ${Math.round(TARGET_HI*100)}% of the game — consider rotating them out.`
-            : 'No players have exceeded the maximum playing time.' });
-        insights.push({ color:'#f59e0b', icon:'!', title:'Underplayed',
-          body: underplayed > 0
-            ? `${underplayed} player${underplayed>1?'s have':' has'} played less than ${Math.round(TARGET_LO*100)}% of the game — try to get them more time.`
-            : 'All active players have met the minimum playing time.' });
-        if(dnp.length>0)
-          insights.push({ color:'#6b7280', icon:'–', title:'Players Unused', body:`${dnp.length} player${dnp.length>1?'s':''} did not feature in the planned lineup.` });
-
-        // Bar segment helper: returns array of {width%, color, label} for a half
-        const halfBar = (onPeriods, half) => {
-          const periods = half===0 ? h1Periods : h2Periods;
-          return periods.map((_, i) => {
-            const on = onPeriods.includes(i);
-            let color = '#2A2A2A';
-            if(on) color = i===0 && half===0 ? '#22c55e' : '#22c55e'; // starter always green
-            // sub-in: first period on after a gap
-            const subIn = on && !onPeriods.includes(i-1) && i>0;
-            if(subIn) color = '#3b82f6';
-            return { on, color, subIn, mins: Math.round(periodMins) };
-          });
-        };
-
-        const statusIcon = (status) => {
-          if(status==='ok')    return { icon:'✓', color:'#22c55e' };
-          if(status==='over')  return { icon:'↓', color:'#ef4444', bg:'#2d0a0a' };
-          if(status==='under') return { icon:'!', color:'#f59e0b', bg:'#2d1a00' };
-          return { icon:'–', color:'#6b7280' };
-        };
-
-        const PlayerRow = ({p, idx}) => {
-          const h1segs = halfBar(p.h1On, 0);
-          const h2segs = halfBar(p.h2On, 1);
-          const si = statusIcon(p.status);
-          const pctTxt = Math.round(p.pctGame*100)+'%';
-          const isOver  = p.status==='over';
-          const isUnder = p.status==='under';
-          return (
-            <div style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 10px',
-              borderTop: idx>0?'1px solid #111':'none',
-              background: idx%2===0?'transparent':'rgba(255,255,255,0.01)' }}>
-              {/* # */}
-              <div style={{ width:18, fontSize:9, fontWeight:700, color:'#555', textAlign:'right', flexShrink:0 }}>{idx+1}</div>
-              {/* Avatar */}
-              <div style={{ width:28,height:28,borderRadius:8,background:'#1A1A1A',border:'1px solid #2A2A2A',
-                display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0 }}>
-                <span style={{ fontSize:9,fontWeight:700,color:'#FFF' }}>{p.initials}</span>
-              </div>
-              {/* Name + pos */}
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:11,fontWeight:700,color:'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{p.name}</div>
-              </div>
-              {/* Pos badge */}
-              <div style={{ fontSize:8,fontWeight:700,color:'#A1A1A1',width:24,flexShrink:0,textAlign:'center',lineHeight:1.2 }}>{p.playedPosAbbr||p.posLabel}</div>
-              {/* H1 bar */}
-              <div style={{ width:60, display:'flex', gap:1, flexShrink:0, alignItems:'center' }}>
-                {h1segs.length===0 ? <div style={{ flex:1, height:10, borderRadius:3, background:'#1A1A1A' }}/> :
-                  h1segs.map((seg,si2)=>(
-                    <div key={si2} style={{ flex:1, height:10, borderRadius:2,
-                      background: seg.on ? (seg.subIn?'#3b82f6':'#22c55e') : '#1A1A1A' }}>
-                    </div>
-                  ))
-                }
-              </div>
-              {/* H2 bar */}
-              <div style={{ width:60, display:'flex', gap:1, flexShrink:0, alignItems:'center' }}>
-                {h2segs.length===0 ? <div style={{ flex:1, height:10, borderRadius:3, background:'#1A1A1A' }}/> :
-                  h2segs.map((seg,si2)=>(
-                    <div key={si2} style={{ flex:1, height:10, borderRadius:2,
-                      background: seg.on ? (seg.subIn?'#3b82f6':'#22c55e') : '#1A1A1A' }}>
-                    </div>
-                  ))
-                }
-              </div>
-              {/* Total */}
-              <div style={{ width:28, fontSize:10, fontWeight:700, color:'#FFF', textAlign:'right', flexShrink:0 }}>{p.totalMins}'</div>
-              {/* % */}
-              <div style={{ width:32, fontSize:10, fontWeight:700, flexShrink:0, textAlign:'right',
-                color: isOver?'#ef4444':isUnder?'#f59e0b':'#A1A1A1' }}>{pctTxt}</div>
-              {/* Status icon */}
-              <div style={{ width:18, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                {p.status==='dnp' ? <div style={{ width:10,height:10,borderRadius:'50%',background:'#2A2A2A' }}/> :
-                  <div style={{ width:18,height:18,borderRadius:'50%',
-                    background:si.bg||si.color+'22',
-                    border:`1.5px solid ${si.color}`,
-                    display:'flex',alignItems:'center',justifyContent:'center' }}>
-                    <span style={{ fontSize:8,fontWeight:800,color:si.color }}>{si.icon}</span>
-                  </div>
-                }
-              </div>
-            </div>
-          );
-        };
-
+        const maxOn = Math.max(...playerStats.map(p=>p.totalOn), 1);
+        const avgOn = playerStats.reduce((s,p)=>s+p.totalOn,0) / (playerStats.length||1);
+        const lowThreshold = avgOn * 0.65;
         return (
-          <div style={{ flex:1, overflowY:'auto', background:'#0D0D0D' }}>
-
-            {/* ── TEAM OVERVIEW ── */}
-            <div style={{ margin:'10px 10px 0', background:'#111111', borderRadius:12, border:'1px solid #1A1A1A', padding:'12px 10px' }}>
-              <div style={{ fontSize:8,fontWeight:800,color:'#A1A1A1',letterSpacing:2,textTransform:'uppercase',marginBottom:10 }}>TEAM OVERVIEW</div>
-              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                {/* Gauge */}
-                <div style={{ flexShrink:0, position:'relative', width:56, height:56, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <svg width="56" height="56" viewBox="0 0 70 70">
-                    <circle cx="35" cy="35" r={R} fill="none" stroke="#1A1A1A" strokeWidth="6"/>
-                    <circle cx="35" cy="35" r={R} fill="none" stroke="#22c55e" strokeWidth="6"
-                      strokeDasharray={CIRC} strokeDashoffset={CIRC*(1-gaugePct)}
-                      strokeLinecap="round" transform="rotate(-90 35 35)"/>
-                  </svg>
-                  <div style={{ position:'absolute', textAlign:'center' }}>
-                    <div style={{ fontSize:11,fontWeight:800,color:'#FFF',lineHeight:1 }}>{Math.round(avgPct*100)}%</div>
+          <div style={{ flex:1, overflowY:'auto', padding:'12px' }}>
+            <div style={{ fontSize:9, fontWeight:800, color:'#A1A1A1', letterSpacing:1.5, textTransform:'uppercase', marginBottom:10 }}>
+              Player Time — {totalPeriods} periods × {Math.round(periodMins)} min
+            </div>
+            {playerStats.sort((a,b)=>b.totalOn-a.totalOn).map(p=>{
+              const low = p.totalOn < lowThreshold && totalPeriods > 0;
+              const pct = maxOn > 0 ? p.totalOn / maxOn : 0;
+              return (
+                <div key={p.name} style={{ background: low?'rgba(239,68,68,0.08)':'#111111', border:`1px solid ${low?'rgba(239,68,68,0.3)':'#1A1A1A'}`, borderRadius:10, padding:'10px 12px', marginBottom:8 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
+                    {/* Avatar */}
+                    <div style={{ width:32,height:32,borderRadius:8,background:'#1a0808',border:'1px solid #8B0000',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0 }}>
+                      <span style={{ fontSize:11,fontWeight:900,color:'#FFF' }}>{p.initials}</span>
+                    </div>
+                    <div style={{ flex:1,minWidth:0 }}>
+                      <div style={{ fontSize:13,fontWeight:700,color:'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{p.name}</div>
+                      <div style={{ fontSize:10,color: low?'#ef4444':'#A1A1A1',fontWeight:600 }}>
+                        {p.totalOn} period{p.totalOn!==1?'s':''} · ~{p.estMins} min
+                        {low && ' ⚠️ Less game time'}
+                      </div>
+                    </div>
+                    <div style={{ fontSize:12,fontWeight:800,color: low?'#ef4444':p.totalOn===maxOn?'#F5C04A':'#A1A1A1',flexShrink:0 }}>
+                      {p.estMins}m
+                    </div>
+                  </div>
+                  {/* Period grid */}
+                  <div style={{ display:'flex', gap:3 }}>
+                    {[0,1].map(half=>{
+                      const perInHalf = half===0?h1Periods:h2Periods;
+                      return perInHalf.map((_,i)=>{
+                        const onField = posIds.some(id=>(half===0?h1Periods:h2Periods)[i][id]===p.name);
+                        const col = PAIR_COLORS[i%PAIR_COLORS.length];
+                        return (
+                          <div key={`${half}-${i}`} style={{
+                            flex:1, height:6, borderRadius:3,
+                            background: onField ? (i===0&&half===0?'#22c55e':col) : 'rgba(255,255,255,0.08)',
+                            border: onField ? 'none' : '1px solid rgba(255,255,255,0.06)',
+                          }} title={`H${half+1} P${i+1}: ${onField?'ON':'OFF'}`}/>
+                        );
+                      });
+                    })}
+                  </div>
+                  {/* Bar */}
+                  <div style={{ marginTop:5, height:3, background:'rgba(255,255,255,0.06)', borderRadius:2 }}>
+                    <div style={{ height:3, width:`${pct*100}%`, background: low?'#ef4444':p.totalOn===maxOn?'#F5C04A':'#22c55e', borderRadius:2, transition:'width 0.3s' }}/>
                   </div>
                 </div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:10,fontWeight:700,color:'#FFF' }}>Avg. Playing Time</div>
-                  <div style={{ fontSize:8,color:'#A1A1A1' }}>Target: {Math.round(TARGET_LO*100)}–{Math.round(TARGET_HI*100)}%</div>
-                </div>
-                {/* KPI tiles */}
-                <div style={{ display:'flex', gap:6 }}>
-                  {[
-                    { val:`${played.length}/${squad.length}`, lbl:'Players\nUsed', col:'#FFF' },
-                    { val:overplayed,  lbl:'Overplayed',  col: overplayed>0?'#ef4444':'#FFF' },
-                    { val:underplayed, lbl:'Underplayed', col: underplayed>0?'#f59e0b':'#FFF' },
-                    { val:totalPlayerMins, lbl:'Total Mins', col:'#FFF' },
-                  ].map((k,ki)=>(
-                    <div key={ki} style={{ background:'#0D0D0D', borderRadius:8, padding:'6px 8px', textAlign:'center', border:'1px solid #1A1A1A', minWidth:38 }}>
-                      <div style={{ fontSize:14,fontWeight:800,color:k.col,lineHeight:1 }}>{k.val}</div>
-                      <div style={{ fontSize:7,color:'#555',lineHeight:1.2,marginTop:2,whiteSpace:'pre-line' }}>{k.lbl}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* ── PLAYER MINUTES ── */}
-            <div style={{ margin:'8px 10px 0', background:'#111111', borderRadius:12, border:'1px solid #1A1A1A', overflow:'hidden' }}>
-              {/* Table header */}
-              <div style={{ padding:'8px 10px 4px', borderBottom:'1px solid #1A1A1A' }}>
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
-                  <span style={{ fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:2,textTransform:'uppercase' }}>PLAYER MINUTES</span>
-                  <span style={{ fontSize:7,color:'#555' }}>Target {Math.round(TARGET_LO*100)}–{Math.round(TARGET_HI*100)}%</span>
-                </div>
-                {/* Legend */}
-                <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                  {[['#22c55e','Starter'],['#3b82f6','Sub In'],['#1A1A1A','Did Not Play']].map(([c,l])=>(
-                    <div key={l} style={{ display:'flex', alignItems:'center', gap:3 }}>
-                      <div style={{ width:10,height:6,borderRadius:2,background:c,border:c==='#1A1A1A'?'1px solid #333':'none' }}/>
-                      <span style={{ fontSize:7,color:'#A1A1A1' }}>{l}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* Column headers */}
-              <div style={{ display:'flex', alignItems:'center', gap:6, padding:'4px 10px', background:'#0D0D0D' }}>
-                <div style={{ width:18 }}/>
-                <div style={{ width:28 }}/>
-                <div style={{ flex:1, fontSize:7,fontWeight:700,color:'#555',textTransform:'uppercase' }}>Player</div>
-                <div style={{ width:24, fontSize:7,fontWeight:700,color:'#555',textAlign:'center' }}>Pos</div>
-                <div style={{ width:60, fontSize:7,fontWeight:700,color:'#555',textAlign:'center' }}>1st Half</div>
-                <div style={{ width:60, fontSize:7,fontWeight:700,color:'#555',textAlign:'center' }}>2nd Half</div>
-                <div style={{ width:28, fontSize:7,fontWeight:700,color:'#555',textAlign:'right' }}>Total</div>
-                <div style={{ width:32, fontSize:7,fontWeight:700,color:'#555',textAlign:'right' }}>%</div>
-                <div style={{ width:18 }}/>
-              </div>
-              {/* Player rows */}
-              {sortedPlayed.length===0 ? (
-                <div style={{ padding:'20px', textAlign:'center', color:'#333', fontSize:11, fontStyle:'italic' }}>
-                  Assign players to periods to see analysis
-                </div>
-              ) : sortedPlayed.map((p,i)=><PlayerRow key={p.name} p={p} idx={i}/>)}
-            </div>
-
-            {/* ── DID NOT PLAY ── */}
-            {dnp.length > 0 && (
-              <div style={{ margin:'8px 10px 0', background:'#111111', borderRadius:12, border:'1px solid #1A1A1A', overflow:'hidden' }}>
-                <div style={{ padding:'8px 10px 4px', borderBottom:'1px solid #1A1A1A' }}>
-                  <span style={{ fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:2,textTransform:'uppercase' }}>DID NOT PLAY</span>
-                </div>
-                {dnp.map((p,i)=><PlayerRow key={p.name} p={p} idx={i}/>)}
-              </div>
+              );
+            })}
+            {totalPeriods === 0 && (
+              <div style={{ textAlign:'center', color:'#555', padding:40, fontSize:12 }}>Assign players to periods to see stats</div>
             )}
-
-            {/* ── INSIGHTS ── */}
-            {insights.length > 0 && (
-              <div style={{ margin:'8px 10px 10px', background:'#111111', borderRadius:12, border:'1px solid #1A1A1A', padding:'10px' }}>
-                <div style={{ fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:2,textTransform:'uppercase',marginBottom:8 }}>INSIGHTS</div>
-                <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                  {insights.map((ins,ii)=>(
-                    <div key={ii} style={{ display:'flex', alignItems:'flex-start', gap:8, background:'#0D0D0D', borderRadius:8, padding:'8px 10px', border:`1px solid ${ins.color}33` }}>
-                      <div style={{ width:22,height:22,borderRadius:'50%',background:ins.color+'22',border:`1.5px solid ${ins.color}`,
-                        display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:1 }}>
-                        <span style={{ fontSize:10,fontWeight:800,color:ins.color }}>{ins.icon}</span>
-                      </div>
-                      <div>
-                        <div style={{ fontSize:11,fontWeight:700,color:ins.color,marginBottom:2 }}>{ins.title}</div>
-                        <div style={{ fontSize:10,color:'#A1A1A1',lineHeight:1.4 }}>{ins.body}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
           </div>
         );
       })()}
 
       {/* ── START MATCH footer ── */}
       <div style={{ padding:'10px 12px', paddingBottom:'calc(68px + max(env(safe-area-inset-bottom), 0px))', background:'#111111', borderTop:'1px solid #1A1A1A', flexShrink:0 }}>
-        <button disabled={!canStart()} onClick={()=>{clearDraft();onNext(buildHalves(),config,opponent,linkedFix?fixtureKey(linkedFix):null,linkedFix?linkedFix.home===myTeam:null);}}
+        <button disabled={!canStart()} onClick={()=>onNext(buildHalves(),config,opponent,linkedFix?fixtureKey(linkedFix):null,linkedFix?linkedFix.home===myTeam:null)}
           style={{ width:'100%', padding:'15px', border:'none', borderRadius:12, fontSize:14, fontWeight:800, letterSpacing:0.3, cursor:canStart()?'pointer':'default',
             background:canStart()?'#F5C04A':'#1A1A1A', color:canStart()?'#000':'#444', transition:'background 0.2s' }}>
           {canStart() ? 'Start Match →' : `Assign all positions to continue`}
@@ -5817,7 +5488,7 @@ export default function App() {
     if(screen==="opponentStats") return <OpponentStatsScreen opponent={scoutTeam} onBack={()=>setScreen(squadBackTo==="picker"?"picker":"squad")} />;
     if(screen==="squad")        return <SquadScreen mode={squadMode} onNext={(s,c,opp,lfk,fih)=>{setSquad(s);setConfig(c);setOpponent(opp);setLinkedFixKey(lfk);setFixIsHome(fih);setScreen("picker");}} onBack={()=>setScreen(squadBackTo||"teamScreen")} onViewOpponent={t=>{setScoutTeam(t);setScreen("opponentStats");}} />;
     if(screen==="playerStats") return <PlayerStatsScreen playerName={playerStatsName} onBack={()=>setScreen("picker")} games={games} squad={squad} />;
-    if(screen==="picker")       return <PickerScreen onNext={(halves,cfg,opp,lfk,fih)=>{setConfig(cfg);setSquad(loadSquad());setOpponent(opp);setLinkedFixKey(lfk);setFixIsHome(fih);setHalf1(halves.half1);setHalf2(halves.half2);setScreen("match");}} onBack={()=>goTab("home")} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("picker");setScreen("squad");}} onViewOpponent={t=>{setScoutTeam(t);setScreen("opponentStats");}} onViewStats={(name)=>{setPlayerStatsName(name);setScreen("playerStats");}} onViewPlayerStats={(name)=>{setPlayerStatsName(name);setScreen("playerStats");}} />;
+    if(screen==="picker")       return <PickerScreen onNext={(halves,cfg,opp,lfk,fih)=>{setConfig(cfg);setSquad(loadSquad());setOpponent(opp);setLinkedFixKey(lfk);setFixIsHome(fih);setHalf1(halves.half1);setHalf2(halves.half2);setScreen("match");}} onBack={()=>goTab("home")} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("picker");setScreen("squad");}} onViewOpponent={t=>{setScoutTeam(t);setScreen("opponentStats");}} onViewStats={(name)=>{setPlayerStatsName(name);setScreen("playerStats");}} />;
     if(screen==="match")        return <MatchScreen half1={half1} half2={half2} config={config} squad={squad} opponent={opponent} linkedFixKey={linkedFixKey} fixIsHome={fixIsHome} onSaveGame={saveGame} onExit={()=>{ setActiveTab("home"); setScreen("home"); }} />;
     return null;
   }
