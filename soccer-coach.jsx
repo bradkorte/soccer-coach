@@ -5036,7 +5036,7 @@ function ImportExportScreen({ onBack }) {
 
       <div style={{ flex:1, overflowY:'auto', padding:'16px' }}>
       {status&&<div style={{background:statusOk?'#110D00':'#3a0b0b',border:'1px solid '+(statusOk?'#F5C04A44':'#ef444444'),borderRadius:9,padding:'10px 14px',marginBottom:14,fontSize:13,color:statusOk?'#FCD34D':'#fca5a5',fontWeight:600,flexShrink:0}}>{status}</div>}
-        <Section icon="👥" title="Team" subtitle="Squad, positions and settings" type="team" defaultName={'team-'+today} />
+        <Section icon="👥" title="Squad" subtitle="Player names & positions (CSV)" type="team" defaultName={'squad-'+today} />
         <Section icon="📊" title="Scores" subtitle="Game results and match events" type="scores" defaultName={'scores-'+today} />
         <Section icon="📅" title="Fixtures" subtitle="Fixture results and team" type="fixtures" defaultName={'fixtures-'+today} />
         <Section icon="📦" title="Everything" subtitle="Full JSON backup — all data" type="all" defaultName={'soccer-backup-'+today} />
@@ -5333,7 +5333,208 @@ function MatchPlayersScreen({ contextKey, onBack }) {
   );
 }
 
-function MatchDayScreen({ settings, onStartMatch, onLineup, onScout, onSettings, onPlayers, onBack }) {
+function QuickPlayScreen({ opponent, linkedFixKey, fixIsHome, settings, onBack, onSaved }) {
+  const myTeam = localStorage.getItem('soccerCoach_fixtureTeam') || settings?.teamName || 'My Team';
+  const squad  = React.useMemo(()=>{ try{return JSON.parse(localStorage.getItem('soccerCoach_squad')||'[]');}catch{return[];} },[]);
+  const [scoreUs,   setScoreUs]   = React.useState(0);
+  const [scoreThem, setScoreThem] = React.useState(0);
+  const [scorers,   setScorers]   = React.useState({}); // {name: count}
+  const [potm,      setPotm]      = React.useState('');  // player of the match name
+  const [notes,     setNotes]     = React.useState('');
+  const [saved,     setSaved]     = React.useState(false);
+
+  function adjUs(d)   { setScoreUs(s=>Math.max(0,s+d)); }
+  function adjThem(d) { setScoreThem(s=>Math.max(0,s+d)); }
+
+  // keep scorers in sync if scoreUs drops below total
+  React.useEffect(()=>{
+    const total = Object.values(scorers).reduce((a,b)=>a+b,0);
+    if(total > scoreUs){
+      setScorers(prev=>{
+        const next={...prev}; let excess=total-scoreUs;
+        for(const n of Object.keys(next).reverse()){
+          if(excess<=0)break;
+          const dec=Math.min(next[n],excess);
+          next[n]-=dec; excess-=dec;
+          if(next[n]<=0)delete next[n];
+        }
+        return next;
+      });
+    }
+  },[scoreUs]);
+
+  function doSave() {
+    const goals = [];
+    Object.entries(scorers).forEach(([name,count])=>{
+      for(let i=0;i<count;i++) goals.push({team:'us',scorer:name,minute:null});
+    });
+    const game = {
+      id: 'g_'+Date.now(),
+      date: Date.now(),
+      opponent: opponent||'Unknown',
+      scoreUs, scoreThem,
+      goals,
+      potm: potm ? [potm] : [],
+      matchEvents: [],
+      halves: [],
+      config: { teamName: myTeam, periods:2, periodMins:40 },
+      voiceNotes: '',
+      report: notes.trim(),
+      quickPlay: true,
+      ...(linkedFixKey ? { linkedFixtureKey: linkedFixKey, fixtureIsHome: fixIsHome } : {})
+    };
+    const games = JSON.parse(localStorage.getItem('soccerCoach_games')||'[]');
+    games.push(game);
+    localStorage.setItem('soccerCoach_games', JSON.stringify(games));
+    if(linkedFixKey) {
+      const fxSc = JSON.parse(localStorage.getItem('soccerCoach_fixtureScores')||'{}');
+      fxSc[linkedFixKey] = fixIsHome ? { home: scoreUs, away: scoreThem } : { home: scoreThem, away: scoreUs };
+      localStorage.setItem('soccerCoach_fixtureScores', JSON.stringify(fxSc));
+    }
+    setSaved(true);
+    setTimeout(()=>onSaved(game), 900);
+  }
+
+  const scorerTotal = Object.values(scorers).reduce((a,b)=>a+b,0);
+  const unaccounted = scoreUs - scorerTotal;
+  const result = scoreUs > scoreThem ? 'W' : scoreUs < scoreThem ? 'L' : scoreUs===0&&scoreThem===0 ? '' : 'D';
+  const resultColor = result==='W'?'#22c55e':result==='L'?'#ef4444':'#A1A1A1';
+
+  const SectionTitle = ({label})=>(
+    <div style={{fontSize:9,fontWeight:700,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase',marginBottom:12}}>{label}</div>
+  );
+
+  const ScoreBtn = ({label,onClick})=>(
+    <button onClick={onClick} style={{width:40,height:40,borderRadius:10,border:'1px solid #2A2A2A',background:'#1A1A1A',color:'#A1A1A1',fontSize:20,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,lineHeight:1}}>
+      {label}
+    </button>
+  );
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',height:'100dvh',background:'#0D0D0D'}}>
+      {/* Header */}
+      <div style={{padding:'54px 16px 14px',background:'#111111',borderBottom:'1px solid #1A1A1A',flexShrink:0}}>
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',color:'#A1A1A1',fontSize:22,padding:0,lineHeight:1}}>←</button>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,fontWeight:700,color:'#A1A1A1',letterSpacing:2,textTransform:'uppercase'}}>Quick Play</div>
+            {opponent&&<div style={{fontSize:15,fontWeight:700,color:'#FFF',marginTop:2}}>vs {opponent}</div>}
+          </div>
+          {result&&<div style={{fontSize:22,fontWeight:700,color:resultColor,letterSpacing:1}}>{result}</div>}
+        </div>
+      </div>
+
+      <div style={{flex:1,overflowY:'auto',padding:'16px',paddingBottom:'calc(env(safe-area-inset-bottom) + 90px)',display:'flex',flexDirection:'column',gap:12}}>
+
+        {/* Score */}
+        <div style={{background:'#111111',borderRadius:14,border:'1px solid #1A1A1A',padding:'18px 20px'}}>
+          <SectionTitle label="Score"/>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            {/* Us */}
+            <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
+              <div style={{fontSize:10,fontWeight:600,color:'#777',textTransform:'uppercase',letterSpacing:1,textAlign:'center',maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{myTeam}</div>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <ScoreBtn label="−" onClick={()=>adjUs(-1)}/>
+                <div style={{fontSize:52,fontWeight:600,color:'#FFFFFF',minWidth:48,textAlign:'center',lineHeight:1}}>{scoreUs}</div>
+                <ScoreBtn label="+" onClick={()=>adjUs(1)}/>
+              </div>
+            </div>
+            <div style={{fontSize:22,fontWeight:300,color:'#333',marginTop:14}}>:</div>
+            {/* Them */}
+            <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
+              <div style={{fontSize:10,fontWeight:600,color:'#777',textTransform:'uppercase',letterSpacing:1,textAlign:'center',maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{opponent||'Opposition'}</div>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <ScoreBtn label="−" onClick={()=>adjThem(-1)}/>
+                <div style={{fontSize:52,fontWeight:600,color:'#FFFFFF',minWidth:48,textAlign:'center',lineHeight:1}}>{scoreThem}</div>
+                <ScoreBtn label="+" onClick={()=>adjThem(1)}/>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Goal scorers — only shown when we scored */}
+        {squad.length > 0 && scoreUs > 0 && (
+          <div style={{background:'#111111',borderRadius:14,border:'1px solid #1A1A1A',padding:'16px'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+              <SectionTitle label="Goal Scorers"/>
+              {unaccounted > 0 && <div style={{fontSize:10,color:'#F5C04A',fontWeight:600,marginTop:-12}}>{unaccounted} unassigned</div>}
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:4}}>
+              {squad.map(p=>{
+                const count = scorers[p.name]||0;
+                const canAdd = scorerTotal < scoreUs;
+                const initials = p.name.split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
+                return (
+                  <div key={p.name} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 10px',borderRadius:9,background:count>0?'rgba(255,255,255,0.04)':'transparent',border:'1px solid',borderColor:count>0?'#2A2A2A':'transparent',transition:'all 0.15s'}}>
+                    <div style={{width:28,height:28,borderRadius:'50%',background:count>0?'#2A2A2A':'#1A1A1A',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:count>0?'#FFF':'#555',flexShrink:0}}>{initials}</div>
+                    <div style={{flex:1,fontSize:13,fontWeight:500,color:count>0?'#FFF':'#777'}}>{p.name}</div>
+                    {count>0&&(
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        <button onClick={()=>setScorers(prev=>{const n={...prev};n[p.name]=(count-1);if(!n[p.name])delete n[p.name];return n;})}
+                          style={{width:26,height:26,borderRadius:6,border:'1px solid #2A2A2A',background:'#1A1A1A',color:'#A1A1A1',fontSize:14,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1}}>−</button>
+                        <div style={{fontSize:14,fontWeight:600,color:'#FFF',minWidth:14,textAlign:'center'}}>{count}</div>
+                      </div>
+                    )}
+                    <button onClick={()=>{ if(canAdd){setScorers(prev=>({...prev,[p.name]:(prev[p.name]||0)+1}));} }}
+                      disabled={!canAdd}
+                      style={{width:26,height:26,borderRadius:6,border:'1px solid',borderColor:canAdd?'#2A2A2A':'transparent',background:canAdd?'#1A1A1A':'transparent',color:canAdd?'#A1A1A1':'#333',fontSize:14,fontWeight:500,cursor:canAdd?'pointer':'default',display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1}}>+</button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Player of the Match */}
+        {squad.length > 0 && (
+          <div style={{background:'#111111',borderRadius:14,border:'1px solid #1A1A1A',padding:'16px'}}>
+            <SectionTitle label="Player of the Match"/>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+              {squad.map(p=>{
+                const sel = potm===p.name;
+                const initials = p.name.split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
+                return (
+                  <button key={p.name} onClick={()=>setPotm(sel?'':p.name)}
+                    style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px 5px 5px',borderRadius:20,border:'1px solid',borderColor:sel?'#F5C04A':'#1A1A1A',background:sel?'rgba(245,192,74,0.08)':'#0D0D0D',cursor:'pointer',transition:'all 0.15s'}}>
+                    <div style={{width:24,height:24,borderRadius:'50%',background:sel?'#F5C04A22':'#1A1A1A',display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,fontWeight:700,color:sel?'#F5C04A':'#555',flexShrink:0}}>{initials}</div>
+                    <div style={{fontSize:12,fontWeight:sel?600:500,color:sel?'#F5C04A':'#777',whiteSpace:'nowrap'}}>{p.name.split(' ')[0]}</div>
+                    {sel&&<div style={{fontSize:10}}>⭐</div>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Match notes */}
+        <div style={{background:'#111111',borderRadius:14,border:'1px solid #1A1A1A',padding:'16px'}}>
+          <SectionTitle label="Coach Notes"/>
+          <textarea value={notes} onChange={e=>setNotes(e.target.value)}
+            placeholder="Key moments, tactical notes, things to work on…"
+            rows={4}
+            style={{width:'100%',background:'#0D0D0D',border:'1px solid #1A1A1A',borderRadius:9,padding:'10px 12px',color:'#FFF',fontSize:13,fontFamily:'inherit',lineHeight:1.6,resize:'vertical',outline:'none',boxSizing:'border-box',fontWeight:400}}/>
+        </div>
+
+        {saved && (
+          <div style={{background:'rgba(34,197,94,0.08)',border:'1px solid #22c55e33',borderRadius:10,padding:'12px',textAlign:'center',fontSize:13,fontWeight:600,color:'#22c55e'}}>
+            ✓ Match saved
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div style={{position:'fixed',bottom:0,left:0,right:0,padding:'12px 16px',paddingBottom:'calc(env(safe-area-inset-bottom) + 76px)',background:'linear-gradient(transparent,#0D0D0D 40%)',zIndex:50}}>
+        <button onClick={doSave} disabled={saved}
+          style={{width:'100%',padding:'16px',border:'none',borderRadius:14,fontSize:15,fontWeight:800,letterSpacing:0.5,cursor:saved?'default':'pointer',background:saved?'#1A1A1A':'#F5C04A',color:saved?'#555':'#000',transition:'background 0.2s'}}>
+          {saved ? '✓ Saved' : 'Save Match'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+function MatchDayScreen({ settings, onStartMatch, onLineup, onScout, onSettings, onPlayers, onQuickPlay, onBack }) {
   const myTeam  = localStorage.getItem('soccerCoach_fixtureTeam') || settings?.teamName || 'My Team';
   const allTeams = [...new Set(FIXTURES.flatMap(f=>[f.home,f.away]).filter(Boolean))].filter(t=>t!==myTeam).sort();
   const nextFix = FIXTURES.find(f => isUpcoming(f) && (f.home===myTeam||f.away===myTeam));
@@ -5388,6 +5589,11 @@ function MatchDayScreen({ settings, onStartMatch, onLineup, onScout, onSettings,
             {!mdOpponent&&<span style={{fontSize:11,color:'#555',fontStyle:'italic'}}>Select opposition above</span>}
           </div>
         </div>
+        <button onClick={()=>onQuickPlay&&onQuickPlay(mdOpponent,ctxKey,isHome)}
+          style={{width:'100%',padding:'16px',border:'none',borderRadius:14,fontSize:15,fontWeight:800,letterSpacing:0.5,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:10,background:'#1A1A1A',color:'#A1A1A1',transition:'background 0.2s'}}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A1A1A1" strokeWidth="2"><polygon points="5,3 19,12 5,21"/><line x1="19" y1="3" x2="19" y2="21"/></svg>
+          QUICK PLAY
+        </button>
         <button disabled={!lineupReady} onClick={()=>onStartMatch(savedLineup,mdOpponent)}
           style={{width:'100%',padding:'16px',border:'none',borderRadius:14,fontSize:15,fontWeight:800,letterSpacing:0.5,cursor:lineupReady?'pointer':'default',display:'flex',alignItems:'center',justifyContent:'center',gap:10,background:lineupReady?'#22c55e':'#1A1A1A',color:lineupReady?'#000':'#444',transition:'background 0.2s'}}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill={lineupReady?'#000':'#444'}><polygon points="5,3 19,12 5,21"/></svg>
@@ -6649,6 +6855,7 @@ export default function App() {
   const [playerStatsName, setPlayerStatsName] = useState(null);
   const [pickerInitialTab, setPickerInitialTab] = useState('squad');
   const [postMatchGame,    setPostMatchGame]    = useState(null);
+  const [quickPlayData,    setQuickPlayData]    = useState({ opponent:'', linkedFixKey:null, fixIsHome:true });
   const [matchContextKey, setMatchContextKey] = useState('');
 
   // Hide bottom nav during active match recording
@@ -6713,9 +6920,16 @@ export default function App() {
       onLineup={ck=>{setMatchContextKey(ck||'');setPickerInitialTab('squad');setScreen("picker");}}
       onScout={t=>{setScoutTeam(t);setSquadBackTo("matchDay");setScreen("opponentStats");}}
       onSettings={ck=>{setMatchContextKey(ck||'');setPickerInitialTab('settings');setScreen("picker");}}
+      onQuickPlay={(opp,ck,ih)=>{
+        const myTeam=localStorage.getItem('soccerCoach_fixtureTeam')||settings?.teamName||'';
+        const lf=FIXTURES.find(f=>isUpcoming(f)&&((f.home===myTeam&&f.away===opp)||(f.away===myTeam&&f.home===opp)));
+        setQuickPlayData({opponent:opp,linkedFixKey:lf?fixtureKey(lf):null,fixIsHome:lf?lf.home===myTeam:true});
+        setScreen("quickPlay");
+      }}
       onBack={goTab}
     />;
     if(screen==="playersScreen") return <MatchPlayersScreen contextKey={matchContextKey} onBack={()=>setScreen("matchDay")} />;
+    if(screen==="quickPlay")    return <QuickPlayScreen opponent={quickPlayData.opponent} linkedFixKey={quickPlayData.linkedFixKey} fixIsHome={quickPlayData.fixIsHome} settings={settings} onBack={()=>setScreen("matchDay")} onSaved={()=>{setActiveTab("season");setScreen("season");}} />;
     if(screen==="picker")       return <PickerScreen onNext={null} onBack={()=>setScreen("matchDay")} onSave={()=>{setPickerInitialTab('squad');setScreen("matchDay");}} initialTab={pickerInitialTab} contextKey={matchContextKey} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("picker");setScreen("squad");}} onViewOpponent={t=>{setScoutTeam(t);setScreen("opponentStats");}} onViewStats={(name)=>{setPlayerStatsName(name);setScreen("playerStats");}} onViewPlayerStats={(name)=>{setPlayerStatsName(name);setScreen("playerStats");}} />;
     if(screen==="match")        return <MatchScreen half1={half1} half2={half2} config={config} squad={squad} opponent={opponent} linkedFixKey={linkedFixKey} fixIsHome={fixIsHome} onSaveGame={saveGame} onPostMatch={g=>{setPostMatchGame(g);setScreen("postMatchReview");}} onExit={()=>{ setActiveTab("home"); setScreen("home"); }} />;
     if(screen==="postMatchReview") return <PostMatchReviewScreen game={postMatchGame||{scoreUs:0,scoreThem:0}} squad={squad} opponent={opponent} config={config} onDone={()=>{ setActiveTab("home"); setScreen("home"); }} />;
