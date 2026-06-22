@@ -1,5 +1,5 @@
-const CACHE = 'soccer-coach-v2';
-const PRECACHE = ['./','./index.html','./manifest.json','https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js','https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js'];
+const CACHE = 'soccer-coach-v3';
+const PRECACHE = ['./','./index.html','./manifest.json','./apple-touch-icon.png','https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js','https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js'];
 
 self.addEventListener('install', e => {
   self.skipWaiting();

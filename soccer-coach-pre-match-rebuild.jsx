@@ -148,13 +148,6 @@ const KHULA_LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAyAAAAEKCAIAAA
 let _pendingSeasonSub = null;
 
 const FIXTURES_KEY = 'soccerCoach_fixtures';
-const SAVED_LINEUP_KEY = 'soccerCoach_savedLineup';
-function loadSavedLineup() { try { return JSON.parse(localStorage.getItem(SAVED_LINEUP_KEY)||'null'); } catch { return null; } }
-function saveSavedLineup(data) { try { localStorage.setItem(SAVED_LINEUP_KEY, JSON.stringify(data)); } catch {} }
-const CONTEXTS_KEY = 'soccerCoach_contexts';
-function loadContextData(key) { if(!key) return {}; try { return (JSON.parse(localStorage.getItem(CONTEXTS_KEY)||'{}')||{})[key]||{}; } catch { return {}; } }
-function saveContextData(key, patch) { if(!key) return; try { const all=JSON.parse(localStorage.getItem(CONTEXTS_KEY)||'{}')||{}; all[key]={...(all[key]||{}),...patch}; localStorage.setItem(CONTEXTS_KEY,JSON.stringify(all)); } catch {} }
-function makeContextKey(fixOrNull, opponent) { return fixOrNull ? fixtureKey(fixOrNull) : (opponent ? 'friendly_'+opponent : ''); }
 function loadFixtures() {
   try { const v=JSON.parse(localStorage.getItem(FIXTURES_KEY)); if(Array.isArray(v)&&v.length>0) return v; } catch{}
   return null; // falls back to HARDCODED_FIXTURES
@@ -550,9 +543,6 @@ const HARDCODED_FX_SCORES = {
   "Round 7|||UQFC Rubies|||UQFC Emeralds": {"home":4,"away":1},
   "Round 7|||Ipswich Koalas|||UQFC Sapphires": {"home":0,"away":5},
   "Round 7|||UQFC Diamonds|||Springfield United Emeralds": {"home":1,"away":3},
-  "Round 8|||Bardon Bandits|||UQFC Diamonds": {"home":0,"away":2},
-  "Round 8|||UQFC Emeralds|||Ipswich Koalas": {"home":8,"away":1},
-  "Round 8|||Springfield United Emeralds|||UQFC Rubies": {"home":3,"away":6},
 };
 
 // Load from localStorage if user has imported a schedule, else use hardcoded
@@ -2406,7 +2396,7 @@ function GameDetailScreen({ game, onBack, onUpdateGame }) {
 // ════════════════════════════════════════════════════════════════════════════════
 function SquadScreen({ mode, onNext, onBack, onViewOpponent }) {
   const [squad, setSquad]   = useState(()=>loadSquad());
-  const [config, setConfig] = useState(()=>{ const cx=loadContextData(contextKey); return cx.config || loadConfig(); });
+  const [config, setConfig] = useState(()=>loadConfig());
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
@@ -2636,27 +2626,13 @@ function SquadScreen({ mode, onNext, onBack, onViewOpponent }) {
 // ════════════════════════════════════════════════════════════════════════════════
 //  SCREEN: LINEUP PICKER  (self-contained — Match tab)
 // ════════════════════════════════════════════════════════════════════════════════
-function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, onViewStats, onViewPlayerStats, initialTab, contextKey }) {
+function PickerScreen({ onNext, onBack, onManageSquad, onViewOpponent, onViewStats, onViewPlayerStats }) {
   const myTeam = localStorage.getItem('soccerCoach_fixtureTeam') || '';
 
-  const [squad,  setSquad]  = useState(()=>{
-    if(contextKey){
-      const cx=loadContextData(contextKey);
-      const mp=cx.matchPlayers;
-      if(mp){
-        const base=loadSquad();
-        const sts=mp.statuses||{};
-        const guests=(mp.guests||[]).map(g=>typeof g==='string'?{name:g,pos:'',age:''}:{name:g.name||'',pos:g.pos||'',age:''});
-        return [...base.filter(p=>(sts[p.name]||'not_set')!=='unavailable'),...guests];
-      }
-    }
-    return loadSquad();
-  });
+  const [squad,  setSquad]  = useState(()=>loadSquad());
   const [config, setConfig] = useState(()=>loadConfig());
 
   const initOpp = () => {
-    const cx=loadContextData(contextKey);
-    if(cx.lineup?.opponent) return cx.lineup.opponent;
     const nf = FIXTURES.find(f=>(f.home===myTeam||f.away===myTeam)&&isUpcoming(f));
     return nf ? (nf.home===myTeam ? nf.away : nf.home) : '';
   };
@@ -2677,7 +2653,7 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
   };
 
   // ── Persist picker draft so lineup survives navigation ──────────────────────
-  const DRAFT_KEY = 'soccerCoach_pickerDraft_'+(contextKey||'default');
+  const DRAFT_KEY = 'soccerCoach_pickerDraft';
   const loadDraft = () => { try { return JSON.parse(localStorage.getItem(DRAFT_KEY)||'{}'); } catch { return {}; } };
   const saveDraft = (patch) => {
     try {
@@ -2688,14 +2664,10 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
   const clearDraft = () => { try { localStorage.removeItem(DRAFT_KEY); } catch {} };
 
   const [h1Periods, setH1Periods] = useState(()=>{
-    const cx=loadContextData(contextKey).lineup;
-    if(cx?.h1Periods?.length) return cx.h1Periods;
     const d = loadDraft();
     return (d.h1Periods && d.h1Periods.length) ? d.h1Periods : makePeriods(squad, positions, config.numPeriods||3);
   });
   const [h2Periods, setH2Periods] = useState(()=>{
-    const cx=loadContextData(contextKey).lineup;
-    if(cx?.h2Periods?.length) return cx.h2Periods;
     const d = loadDraft();
     return (d.h2Periods && d.h2Periods.length) ? d.h2Periods : makePeriods(squad, positions, config.numPeriods||3);
   });
@@ -2703,7 +2675,7 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
   const [activePeriod, setActivePeriod] = useState(()=>{ const d=loadDraft(); return d.activePeriod||0; });
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [selectedBench, setSelectedBench] = useState(null);
-  const [pickerTab,    setPickerTab]    = useState(initialTab||'squad');
+  const [pickerTab,    setPickerTab]    = useState('squad');
 
   const activePeriods = activeHalf === 0 ? h1Periods : h2Periods;
   function updateActivePeriods(updater) {
@@ -2755,7 +2727,7 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
   const assigned = Object.values(curSlots).filter(Boolean);
   const bench    = names.filter(n=>!assigned.includes(n));
 
-  function updCfg(key, val) { const next={...config,[key]:val}; setConfig(next); saveContextData(contextKey,{config:next}); }
+  function updCfg(key, val) { const next={...config,[key]:val}; setConfig(next); saveConfig(next); }
 
   function assignToSlot(posId, playerName) {
     updateActivePeriods(prev=>{
@@ -2910,8 +2882,11 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
       {/* ── TAB BAR ── */}
       <div style={{ display:'flex', background:'#111111', borderBottom:'1px solid #1A1A1A', flexShrink:0 }}>
         {[
-          { id:'squad', label:'Line-up', icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
-          { id:'stats', label:'Analysis', icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> },
+          { id:'squad',    label:'Squad',    icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
+          { id:'stats',    label:'Analysis', icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> },
+          { id:'player-stats', label:'Stats', icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
+          { id:'scout',    label:'Scout',    icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> },
+          { id:'settings', label:'Settings', icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> },
         ].map(t=>{
           const active = pickerTab === t.id;
           return (
@@ -3354,7 +3329,7 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
             )}
           </div>
           {(()=>{
-            const upcoming = FIXTURES.filter(f=>(f.home===myTeam||f.away===myTeam)&&isUpcoming(f)).slice(0,3);
+            const upcoming = FIXTURES.filter(f=>(f.home===myTeam||f.away===myTeam)&&isUpcoming(f)).slice(0,5);
             if(!upcoming.length) return null;
             return (
               <div style={{ background:'#111111', borderRadius:12, padding:'14px', border:'1px solid #1A1A1A' }}>
@@ -3385,7 +3360,26 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
           <div style={{ background:'#111111', borderRadius:12, padding:'14px', border:'1px solid #1A1A1A' }}>
             <div style={{ fontSize:9, fontWeight:800, color:'#A1A1A1', letterSpacing:1.5, textTransform:'uppercase', marginBottom:12 }}>⚙️ MATCH SETTINGS</div>
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-
+              {/* Opposition */}
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+                <span style={{ fontSize:13, color:'#A1A1A1', minWidth:100 }}>Opposition</span>
+                <div style={{ flex:1, display:'flex', gap:6, alignItems:'center' }}>
+                  {!customOpp ? (
+                    <select value={oppInList?opponent:'__custom__'} onChange={e=>{
+                      if(e.target.value==='__custom__'){setCustomOpp(true);setOpponent('');}
+                      else setOpponent(e.target.value);
+                    }} style={{...selStyle,flex:1,fontSize:12}}>
+                      <option value="" disabled>— Select —</option>
+                      {(()=>{const nf=FIXTURES.find(f=>(f.home===myTeam||f.away===myTeam)&&isUpcoming(f));const sug=nf?(nf.home===myTeam?nf.away:nf.home):'';return sug?<option value={sug}>📅 {sug}</option>:null;})()}
+                      <option value="__custom__">✏️ Custom…</option>
+                      {allTeams.map(t=><option key={t} value={t}>{t}</option>)}
+                    </select>
+                  ) : (
+                    <input autoFocus style={{...selStyle,flex:1,fontSize:12,outline:'none'}} placeholder="Opponent name…" value={opponent} onChange={e=>setOpponent(e.target.value)} />
+                  )}
+                  {customOpp&&<button onClick={()=>setCustomOpp(false)} style={{ background:'#2A2A2A',border:'none',borderRadius:8,color:'#A1A1A1',padding:'6px 10px',cursor:'pointer',fontSize:11,flexShrink:0 }}>List</button>}
+                </div>
+              </div>
               {/* Formation */}
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
                 <span style={{ fontSize:13, color:'#A1A1A1', minWidth:100 }}>Formation</span>
@@ -3686,19 +3680,12 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
         );
       })()}
 
-      {/* ── SAVE LINE-UP footer ── */}
+      {/* ── START MATCH footer ── */}
       <div style={{ padding:'10px 12px', paddingBottom:'calc(68px + max(env(safe-area-inset-bottom), 0px))', background:'#111111', borderTop:'1px solid #1A1A1A', flexShrink:0 }}>
-        <button disabled={!canStart()} onClick={()=>{
-          const _lfk=linkedFix?fixtureKey(linkedFix):null;
-          const _fih=linkedFix?linkedFix.home===myTeam:null;
-          const _ld={h1Periods,h2Periods,config,opponent,linkedFixKey:_lfk,fixIsHome:_fih,savedAt:Date.now()};
-          saveSavedLineup(_ld);
-          saveContextData(contextKey,{lineup:_ld});
-          if(onSave) onSave(); else if(onBack) onBack();
-        }}
+        <button disabled={!canStart()} onClick={()=>{clearDraft();onNext(buildHalves(),config,opponent,linkedFix?fixtureKey(linkedFix):null,linkedFix?linkedFix.home===myTeam:null);}}
           style={{ width:'100%', padding:'15px', border:'none', borderRadius:12, fontSize:14, fontWeight:800, letterSpacing:0.3, cursor:canStart()?'pointer':'default',
-            background:canStart()?'#22c55e':'#1A1A1A', color:canStart()?'#000':'#444', transition:'background 0.2s' }}>
-          {canStart() ? '✓ Save Line-up' : 'Assign all positions to save'}
+            background:canStart()?'#F5C04A':'#1A1A1A', color:canStart()?'#000':'#444', transition:'background 0.2s' }}>
+          {canStart() ? 'Start Match →' : `Assign all positions to continue`}
         </button>
       </div>
     </div>
@@ -3734,7 +3721,9 @@ function GoalModal({ squad, slots, posIds, posLabel, onLog, onClose }) {
           <button style={{...S.btnGreen,flex:1,opacity:scorer?1:0.4}} disabled={!scorer} onClick={()=>{onLog(scorer,posOf(scorer));onClose();}}>Log Goal</button>
           <button style={S.btnCancel} onClick={onClose}>Cancel</button>
         </div>
-
+        <div style={{borderTop:"1px solid #1E1400",paddingTop:10,marginTop:4}}>
+          <button style={S.btnGhost} onClick={onBack}>← Back</button>
+        </div>
       </div>
     </div>
   );
@@ -4033,7 +4022,7 @@ function EventsPage({ halfElapsed, goals, matchEvents, setMatchEvents, onBack, o
   );
 }
 
-function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixIsHome, onSaveGame, onPostMatch, onExit }) {
+function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixIsHome, onSaveGame, onExit }) {
   const positions = getPositions(config.formation);
   const posIds    = getPosIds(positions);
   const posLabel  = getPosLabel(positions);
@@ -4060,7 +4049,6 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
   const [isVoiceRec, setIsVoiceRec]   = useState(false);
   const [voicePulse, setVoicePulse]   = useState(false);
   const [activeMatchTab, setActiveMatchTab] = useState('lineup');
-  const [goalScorer, setGoalScorer] = useState('');
   const timerRef = useRef(null);
   const recognitionRef = useRef(null);
   const pulseRef = useRef(null);
@@ -4245,7 +4233,7 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
     setReportLoading(false);
   }
   function saveAndExit(){
-    const game=currentGameObj();game.id="g_"+Date.now();game.report=report||buildLocalReport(game);onSaveGame(game);if(onPostMatch)onPostMatch(game);else onExit();
+    const game=currentGameObj();game.id="g_"+Date.now();game.report=report||buildLocalReport(game);onSaveGame(game);
   }
 
   const pMM=String(Math.floor(periodLeft/60)).padStart(2,"0");
@@ -4272,16 +4260,13 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
   const myTeam = config?.teamName || 'My Team';
 
 
-  if(!cur.slots) return <div style={{minHeight:'100vh',background:'#0D0D0D',display:'flex',alignItems:'center',justifyContent:'center'}}><p style={{color:'#A1A1A1'}}>Loading…</p></div>;
+  if(!cur.slots)return<div style={{minHeight:'100vh',background:'#0D0D0D',display:'flex',alignItems:'center',justifyContent:'center'}}><p style={{color:'#A1A1A1'}}>Loading…</p></div>;
 
-  // SVG pitch helpers
-  const svgX = (pct) => parseFloat(pct) / 100 * 200;
-  const svgY = (pct) => parseFloat(pct) / 100 * 280;
+  if(eventsView) return <EventsPage halfElapsed={halfElapsed} goals={goals} matchEvents={matchEvents} setMatchEvents={setMatchEvents} onBack={()=>setEventsView(false)} opponentName={opponent||'Opposition'} ourName={config?.teamName||'My Team'} usGoalsLen={goals.filter(g=>g.team==='us').length} themGoalsLen={goals.filter(g=>g.team==='them').length} />;
 
   return (
-    <div style={{height:'100dvh',background:'#0D0D0D',display:'flex',flexDirection:'column',paddingTop:'max(env(safe-area-inset-top),0px)',overflow:'hidden'}}>
+    <div style={{minHeight:'100vh',background:'#0D0D0D',display:'flex',flexDirection:'column',paddingTop:'max(env(safe-area-inset-top),0px)'}}>
 
-      {/* ── MODALS ── */}
       {modal==='goal'&&<GoalModal squad={squad} slots={cur.slots} posIds={posIds} posLabel={posLabel} onLog={logGoal} onClose={()=>setModal(null)}/>}
 
       {modal==='report'&&(
@@ -4298,19 +4283,13 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
       )}
 
       {modal==='save'&&(
-        <div style={{position:'fixed',inset:0,zIndex:999,display:'flex',alignItems:'flex-end',justifyContent:'center',background:'rgba(0,0,0,0.7)',backdropFilter:'blur(4px)'}} onClick={()=>setModal(null)}>
-          <div style={{width:'100%',maxWidth:480,background:'#1A1A1A',borderRadius:'20px 20px 0 0',padding:'24px 20px',paddingBottom:'max(24px,env(safe-area-inset-bottom))',boxShadow:'0 -8px 40px rgba(0,0,0,0.6)'}} onClick={e=>e.stopPropagation()}>
-            {/* Handle bar */}
-            <div style={{width:40,height:4,background:'#333',borderRadius:2,margin:'0 auto 20px'}}/>
-            <div style={{fontSize:18,fontWeight:800,color:'#FFF',textAlign:'center',marginBottom:6}}>End Match?</div>
-            <div style={{fontSize:13,color:'#666',textAlign:'center',marginBottom:20}}>
-              {(myTeam||'Us')} <span style={{color:'#FFF',fontWeight:700}}>{usGoals.length}</span>
-              <span style={{color:'#444',margin:'0 8px'}}>–</span>
-              <span style={{fontWeight:700,color:'#FFF'}}>{themGoals.length}</span> {opponent||'Opposition'}
-            </div>
-            <div style={{display:'flex',gap:10,flexDirection:'column'}}>
-              <button style={{width:'100%',padding:'15px',background:'#22c55e',border:'none',borderRadius:12,color:'#FFF',fontSize:15,fontWeight:800,cursor:'pointer'}} onClick={saveAndExit}>Save Game ✓</button>
-              <button style={{width:'100%',padding:'13px',background:'transparent',border:'1px solid #2A2A2A',borderRadius:12,color:'#A1A1A1',fontSize:13,fontWeight:700,cursor:'pointer'}} onClick={()=>setModal(null)}>Keep Playing</button>
+        <div style={S.modalBack} onClick={()=>setModal(null)}>
+          <div style={S.modalBox} onClick={e=>e.stopPropagation()}>
+            <div style={S.modalTitle}>End &amp; Save Game?</div>
+            <p style={S.sub}>Final score vs {opponent||'Opposition'}: {usGoals.length}–{themGoals.length}.</p>
+            <div style={{display:'flex',gap:8}}>
+              <button style={{...S.btnGreen,flex:1}} onClick={saveAndExit}>Save</button>
+              <button style={S.btnCancel} onClick={()=>setModal(null)}>Cancel</button>
             </div>
           </div>
         </div>
@@ -4319,11 +4298,12 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
       {modal==='voiceReview'&&(
         <div style={S.modalBack} onClick={()=>{}}>
           <div style={{...S.modalBox,maxWidth:460,maxHeight:'85vh',display:'flex',flexDirection:'column'}} onClick={e=>e.stopPropagation()}>
-            <div style={S.modalHeader}><span style={S.modalTitle}>🎙️ Voice Notes</span><button style={S.btnX} onClick={()=>setModal('save')}>✕</button></div>
-            <textarea value={voiceReview} onChange={e=>setVoiceReview(e.target.value)} rows={10} style={{...S.sel,fontFamily:'inherit',lineHeight:1.6,resize:'vertical',flex:1,whiteSpace:'pre-wrap'}} placeholder="Your voice notes will appear here…"/>
+            <div style={S.modalHeader}><span style={S.modalTitle}>🎙️ Review Voice Notes</span><button style={S.btnX} onClick={()=>setModal('save')}>✕</button></div>
+            <p style={{...S.sub,margin:'0 0 10px',fontSize:12}}>Edit your notes before saving.</p>
+            <textarea value={voiceReview} onChange={e=>setVoiceReview(e.target.value)} rows={10} style={{...S.sel,fontFamily:'inherit',lineHeight:1.6,resize:'vertical',flex:1,whiteSpace:'pre-wrap'}} placeholder="Your voice notes will appear here…" />
             <div style={{display:'flex',gap:8,marginTop:12}}>
               <button style={{...S.btnGreen,flex:2}} onClick={()=>{const game=currentGameObj();game.voiceNotes=voiceReview.trim();game.report=voiceReview.trim()||report||buildLocalReport(game);game.id='g_'+Date.now();onSaveGame(game);}}>✓ Approve &amp; Save</button>
-              <button style={{...S.btnDark,flex:1}} onClick={()=>{const game=currentGameObj();game.id='g_'+Date.now();game.report=report||buildLocalReport(game);onSaveGame(game);}}>Skip Notes</button>
+              <button style={{...S.btnDark,flex:1}} onClick={()=>{const game=currentGameObj();game.id='g_'+Date.now();game.report=report||buildLocalReport(game);onSaveGame(game);}}>Save without Notes</button>
             </div>
           </div>
         </div>
@@ -4331,377 +4311,328 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
 
       {/* ── HEADER ── */}
       <div style={{background:'#111111',borderBottom:'1px solid #1A1A1A',flexShrink:0}}>
-
-        {/* Row 1: back | venue + date | settings */}
-        <div style={{display:'flex',alignItems:'center',padding:'6px 10px 4px',gap:6,borderBottom:'1px solid #1A1A1A'}}>
-          <button onClick={onExit} style={{background:'none',border:'none',color:'#A1A1A1',fontSize:10,fontWeight:800,cursor:'pointer',padding:'2px 4px 2px 0',display:'flex',alignItems:'center',gap:2,flexShrink:0}}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-            <span style={{letterSpacing:0.5}}>GAME</span>
+        {/* Top bar: back · venue+date · settings */}
+        <div style={{display:'flex',alignItems:'center',padding:'8px 12px 4px',gap:6}}>
+          <button onClick={onExit} style={{background:'none',border:'none',color:'#A1A1A1',fontSize:13,fontWeight:700,cursor:'pointer',padding:'4px 6px 4px 0',lineHeight:1,display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
+            <span style={{fontSize:16}}>←</span><span style={{letterSpacing:0.5}}>GAME</span>
           </button>
           <div style={{flex:1,textAlign:'center'}}>
-            {(()=>{
-              const fix=linkedFixKey?FIXTURES.find(f=>fixtureKey(f)===linkedFixKey):null;
+            {(()=>{const fix=linkedFixKey?FIXTURES.find(f=>fixtureKey(f)===linkedFixKey):null;
               const venue=fix?.venue||config?.venue||'';
-              const dateStr=fix?`${fix.date} · ${fix.time}`:'';
+              const dateStr=fix?`${fix.date} • ${fix.time}`:'';
               return(<>
                 {venue&&<div style={{fontSize:11,fontWeight:700,color:'#FFF',lineHeight:1.2}}>📍 {venue}</div>}
-                {dateStr&&<div style={{fontSize:9,color:'#666',marginTop:1}}>{dateStr}</div>}
-                {!venue&&!dateStr&&<div style={{fontSize:10,color:'#444'}}>Friendly</div>}
+                {dateStr&&<div style={{fontSize:10,color:'#666',marginTop:1}}>{dateStr}</div>}
               </>);
             })()}
           </div>
-          <button onClick={()=>{if(voiceNotes.trim()){setVoiceReview(voiceNotes);setModal('voiceReview');}else setModal('save');}} style={{background:'none',border:'none',color:'#A1A1A1',cursor:'pointer',padding:'2px 0 2px 4px',lineHeight:1,flexShrink:0}}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          </button>
+          <button onClick={()=>{if(voiceNotes.trim()){setVoiceReview(voiceNotes);setModal('voiceReview');}else setModal('save');}} style={{background:'none',border:'none',color:'#A1A1A1',cursor:'pointer',fontSize:18,padding:'4px 0 4px 6px',lineHeight:1,flexShrink:0}}>⚙</button>
         </div>
-
-        {/* Row 2: left-team icon+name | score + game clock | right-team icon+name */}
-        <div style={{display:'flex',alignItems:'center',padding:'8px 12px 10px',gap:8}}>
-
-          {/* Left team */}
-          <div style={{flex:1,display:'flex',alignItems:'center',gap:8,minWidth:0}}>
-            <TeamBadge name={fixIsHome===false?opponent||'Away':myTeam||'Home'} size={68} radius={10}/>
+        {/* Score row */}
+        <div style={{display:'flex',alignItems:'center',padding:'4px 10px 8px',gap:4}}>
+          {/* Home team */}
+          <div style={{flex:1,display:'flex',alignItems:'center',gap:6,minWidth:0}}>
+            <TeamBadge name={myTeam||'Home'} size={36} radius={8}/>
             <div style={{minWidth:0}}>
-              <div style={{fontSize:7,fontWeight:700,color:'#555',textTransform:'uppercase',letterSpacing:0.5,lineHeight:1}}>
-                {fixIsHome===false?'AWAY':'HOME'}
+              <div style={{fontSize:9,fontWeight:800,color:'#666',textTransform:'uppercase',letterSpacing:0.5,lineHeight:1}}>
+                {fixIsHome===false?opponent||'Away':myTeam||'Home'}
               </div>
-              <div style={{fontSize:13,fontWeight:600,color:'#FFF',lineHeight:1.3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                {fixIsHome===false?(opponent||'Opposition'):(myTeam||'My Team')}
+              <div style={{fontSize:11,fontWeight:800,color:'#FFF',lineHeight:1.3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                {fixIsHome===false?opponent?.split(' ').slice(-1)[0]||'':myTeam?.split(' ').slice(-1)[0]||''}
               </div>
             </div>
           </div>
-
-          {/* Centre: score + half label + big clock */}
-          <div style={{flexShrink:0,textAlign:'center',padding:'0 4px'}}>
-            <div style={{display:'flex',alignItems:'center',gap:8,justifyContent:'center'}}>
-              <span style={{fontSize:32,fontWeight:600,color:'#FFF',fontVariantNumeric:'tabular-nums',minWidth:30,textAlign:'right',lineHeight:1}}>
-                {fixIsHome===false?themGoals.length:usGoals.length}
-              </span>
-              <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:1}}>
-                <div style={{fontSize:8,fontWeight:800,color:'#F5C04A',letterSpacing:1.5,textTransform:'uppercase'}}>{halfIdx===0?'1ST':'2ND'} HALF</div>
-                <div style={{fontSize:20,fontWeight:700,color:alarmed?'#ef4444':'#A1A1A1',fontVariantNumeric:'tabular-nums',lineHeight:1}}>{gMM}:{gSS}</div>
+          {/* Score + half + timer */}
+          <div style={{textAlign:'center',flexShrink:0,padding:'0 6px'}}>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <span style={{fontSize:28,fontWeight:800,color:'#FFF',fontVariantNumeric:'tabular-nums',minWidth:28,textAlign:'right'}}>{fixIsHome===false?themGoals.length:usGoals.length}</span>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:8,fontWeight:800,color:'#F5C04A',letterSpacing:1,textTransform:'uppercase',lineHeight:1}}>{halfIdx===0?'1ST':'2ND'} HALF</div>
+                <div style={{display:'flex',alignItems:'center',gap:5,marginTop:2}}>
+                  <span style={{fontSize:14,fontWeight:800,fontVariantNumeric:'tabular-nums',color:alarmed?'#ef4444':'#A1A1A1'}}>{gMM}:{gSS}</span>
+                  <button onClick={toggleRun} style={{width:22,height:22,borderRadius:'50%',background:running?'#ef4444':'#22c55e',border:'none',cursor:'pointer',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#FFF'}}>{running?'⏸':'▶'}</button>
+                </div>
               </div>
-              <span style={{fontSize:32,fontWeight:600,color:'#FFF',fontVariantNumeric:'tabular-nums',minWidth:30,textAlign:'left',lineHeight:1}}>
-                {fixIsHome===false?usGoals.length:themGoals.length}
-              </span>
+              <span style={{fontSize:28,fontWeight:800,color:'#FFF',fontVariantNumeric:'tabular-nums',minWidth:28,textAlign:'left'}}>{fixIsHome===false?usGoals.length:themGoals.length}</span>
             </div>
+            {/* Goal scorers */}
+            {goals.length>0&&(
+              <div style={{display:'flex',gap:4,marginTop:3,fontSize:8,justifyContent:'center'}}>
+                <div style={{textAlign:'right'}}>
+                  {(fixIsHome===false?themGoals:usGoals).map((g,i)=><div key={i} style={{color:'#FDE68A'}}>{g.scorer||'Goal'} {g.timeStr}'</div>)}
+                </div>
+                {goals.length>0&&<div style={{width:1,background:'#333'}}/>}
+                <div>
+                  {(fixIsHome===false?usGoals:themGoals).map((g,i)=><div key={i} style={{color:'#fca5a5'}}>{g.timeStr}'</div>)}
+                </div>
+              </div>
+            )}
           </div>
-
-          {/* Right team */}
-          <div style={{flex:1,display:'flex',alignItems:'center',gap:8,justifyContent:'flex-end',minWidth:0}}>
+          {/* Away team */}
+          <div style={{flex:1,display:'flex',alignItems:'center',gap:6,justifyContent:'flex-end',minWidth:0}}>
             <div style={{minWidth:0,textAlign:'right'}}>
-              <div style={{fontSize:7,fontWeight:700,color:'#555',textTransform:'uppercase',letterSpacing:0.5,lineHeight:1}}>
-                {fixIsHome===false?'HOME':'AWAY'}
+              <div style={{fontSize:9,fontWeight:800,color:'#666',textTransform:'uppercase',letterSpacing:0.5,lineHeight:1}}>
+                {fixIsHome===false?myTeam||'Home':opponent||'Away'}
               </div>
-              <div style={{fontSize:13,fontWeight:600,color:'#FFF',lineHeight:1.3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                {fixIsHome===false?(myTeam||'My Team'):(opponent||'Opposition')}
+              <div style={{fontSize:11,fontWeight:800,color:'#FFF',lineHeight:1.3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                {fixIsHome===false?myTeam?.split(' ').slice(-1)[0]||'':opponent?.split(' ').slice(-1)[0]||''}
               </div>
             </div>
-            <TeamBadge name={fixIsHome===false?myTeam||'Home':opponent||'Away'} size={68} radius={10}/>
+            <TeamBadge name={opponent||'Away'} size={36} radius={8}/>
           </div>
         </div>
       </div>
 
       {/* ── TAB BAR ── */}
       <div style={{display:'flex',background:'#111111',borderBottom:'1px solid #1A1A1A',flexShrink:0,alignItems:'stretch'}}>
-        {/* Lineup tab */}
-        <button onClick={()=>setActiveMatchTab('lineup')} style={{flex:1,padding:'8px 4px',background:'none',border:'none',borderBottom:activeMatchTab==='lineup'?'2.5px solid #F5C04A':'2.5px solid transparent',cursor:'pointer',color:activeMatchTab==='lineup'?'#F5C04A':'#555',display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          <span style={{fontSize:9,fontWeight:700}}>Overview</span>
-        </button>
-        {/* Events tab */}
-        <button onClick={()=>setActiveMatchTab('events')} style={{flex:1,padding:'8px 4px',background:'none',border:'none',borderBottom:activeMatchTab==='events'?'2.5px solid #F5C04A':'2.5px solid transparent',cursor:'pointer',color:activeMatchTab==='events'?'#F5C04A':'#555',display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <span style={{fontSize:9,fontWeight:700}}>Events</span>
-        </button>
-
-        {/* Centre: period countdown + play/pause */}
-        <button onClick={toggleRun} style={{flex:2,display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'center',padding:'4px 8px',background:'#0D0D0D',border:'none',borderLeft:'1px solid #1A1A1A',borderRight:'1px solid #1A1A1A',gap:8,cursor:'pointer'}}>
-          <div style={{display:'flex',flexDirection:'column',alignItems:'flex-start',gap:1}}>
-            <div style={{fontSize:8,fontWeight:800,color:'#F5C04A',letterSpacing:1.5,textTransform:'uppercase'}}>P{pidx+1}</div>
-            <div style={{fontSize:20,fontWeight:700,color:alarmed?'#ef4444':'#A1A1A1',fontVariantNumeric:'tabular-nums',lineHeight:1}}>{pMM}:{pSS}</div>
-          </div>
-          <div style={{width:28,height:28,borderRadius:'50%',background:running?'rgba(239,68,68,0.15)':'rgba(34,197,94,0.15)',border:running?'1.5px solid #ef4444':'1.5px solid #22c55e',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-            {running
-              ? <svg width="10" height="10" viewBox="0 0 24 24" fill="#ef4444"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-              : <svg width="10" height="10" viewBox="0 0 24 24" fill="#22c55e"><polygon points="5,3 19,12 5,21"/></svg>
-            }
-          </div>
-        </button>
-
-        {/* Stats tab */}
-        <button onClick={()=>setActiveMatchTab('stats')} style={{flex:1,padding:'8px 4px',background:'none',border:'none',borderBottom:activeMatchTab==='stats'?'2.5px solid #F5C04A':'2.5px solid transparent',cursor:'pointer',color:activeMatchTab==='stats'?'#F5C04A':'#555',display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-          <span style={{fontSize:9,fontWeight:700}}>Stats</span>
-        </button>
-        {/* Half toggle (replaces Voice) */}
-        <button onClick={()=>switchHalf(halfIdx===0?1:0)} style={{flex:1,padding:'8px 4px',background:'none',border:'none',borderBottom:'2.5px solid transparent',cursor:'pointer',color:'#555',display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-          <span style={{fontSize:9,fontWeight:700}}>{halfIdx===0?'→ H2':'← H1'}</span>
-        </button>
-      </div>
-
-      {/* ── PERIOD TABS ── */}
-      <div style={{display:'flex',background:'#0D0D0D',borderBottom:'1px solid #1A1A1A',flexShrink:0}}>
-        {periods.map((_,i)=>(
-          <button key={i} onClick={()=>switchPeriod(i)} style={{flex:1,padding:'5px 4px',background:'none',border:'none',borderBottom:i===pidx?'2px solid #F5C04A':'2px solid transparent',cursor:'pointer',color:i===pidx?'#F5C04A':'#444',fontSize:11,fontWeight:800,textAlign:'center'}}>
-            P{i+1}
+        {[['lineup','👥','Lineup'],['events','📊','Events'],['stats','📈','Stats']].map(([id,icon,lbl])=>(
+          <button key={id} onClick={()=>{if(id==='events')setEventsView(true);else setActiveMatchTab(id);}} style={{flex:1,padding:'9px 4px',background:'none',border:'none',borderBottom:activeMatchTab===id&&id!=='events'?'2.5px solid #F5C04A':'2.5px solid transparent',cursor:'pointer',color:activeMatchTab===id&&id!=='events'?'#F5C04A':'#666',fontSize:10,fontWeight:700}}>
+            <div>{icon}</div><div style={{marginTop:1}}>{lbl}</div>
           </button>
         ))}
+        {/* Period ring */}
+        <div style={{display:'flex',alignItems:'center',gap:4,padding:'4px 8px 4px 4px',borderLeft:'1px solid #1A1A1A'}}>
+          <div style={{position:'relative',width:38,height:38,flexShrink:0}}>
+            <svg width="38" height="38" style={{position:'absolute',transform:'rotate(-90deg)'}}>
+              <circle cx="19" cy="19" r="15" fill="none" stroke="#1A1A1A" strokeWidth="3.5"/>
+              <circle cx="19" cy="19" r="15" fill="none" stroke={ringColor} strokeWidth="3.5"
+                strokeDasharray={`${2*Math.PI*15}`} strokeDashoffset={`${2*Math.PI*15*(1-pct)}`}
+                strokeLinecap="round" style={{transition:'stroke-dashoffset 1s linear,stroke 0.5s'}}/>
+            </svg>
+            <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,fontWeight:800,color:alarmed?'#ef4444':'#FFF',fontVariantNumeric:'tabular-nums'}}>{pMM}:{pSS}</div>
+          </div>
+        </div>
       </div>
 
-      {alarmed&&<div style={{background:'#7c2d12',padding:'6px 14px',fontSize:11,color:'#FFF',textAlign:'center',fontWeight:700,flexShrink:0}}>🔔 Period over — tap Next P → above or log subs</div>}
+      {/* ── PERIOD TABS + HALF SWITCHER ── */}
+      <div style={{display:'flex',background:'#0D0D0D',borderBottom:'1px solid #1A1A1A',flexShrink:0,alignItems:'center'}}>
+        <div style={{display:'flex',overflowX:'auto',flex:1}}>
+          {periods.map((_,i)=>{
+            const col=PAIR_COLORS[i%PAIR_COLORS.length];
+            return (
+              <button key={i} onClick={()=>switchPeriod(i)} style={{flex:'0 0 auto',padding:'6px 16px',background:'none',border:'none',borderBottom:i===pidx?`2px solid ${col}`:'2px solid transparent',cursor:'pointer',color:i===pidx?col:'#444',fontSize:11,fontWeight:800}}>
+                P{i+1}
+              </button>
+            );
+          })}
+        </div>
+        {alarmed&&<button onClick={goNextPeriod} style={{margin:'3px 6px',padding:'4px 10px',background:'#F5C04A',border:'none',borderRadius:6,color:'#000',fontSize:10,fontWeight:800,cursor:'pointer',flexShrink:0}}>Next P→</button>}
+        <button onClick={()=>switchHalf(halfIdx===0?1:0)} style={{margin:'3px 6px',padding:'4px 10px',background:'#1A1A1A',border:'1px solid #2A2A2A',borderRadius:6,color:'#A1A1A1',fontSize:10,fontWeight:700,cursor:'pointer',flexShrink:0}}>
+          {halfIdx===0?'→ H2':'← H1'}
+        </button>
+      </div>
 
-      {/* ── MAIN CONTENT ── */}
-      <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+      {alarmed&&<div style={{background:'#7c2d12',padding:'8px 14px',fontSize:11,color:'#FFF',textAlign:'center',fontWeight:700,flexShrink:0}}>🔔 Period over! Make subs, then tap Next P →</div>}
+
+      {/* ── MAIN SCROLLABLE CONTENT ── */}
+      <div style={{flex:1,overflowY:'auto'}} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
 
         {/* ──── LINEUP TAB ──── */}
         {activeMatchTab==='lineup'&&(
-          <div style={{flex:1,display:'flex',overflow:'hidden'}} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-
-            {/* LEFT: Picker-style pitch */}
-            <div style={{flex:'0 0 52%',display:'flex',flexDirection:'column',borderRight:'1px solid #1A1A1A',overflow:'hidden'}}>
-              <div style={{padding:'5px 10px 3px',flexShrink:0}}>
-                <div style={{fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                  <span>ON THE PITCH</span>
-                  <span style={{color:'#555',fontWeight:600,fontSize:8}}>{config.formation||'4-3-3'}</span>
-                </div>
+          <div>
+            {/* Swap/selection legend */}
+            {(swapEntries.length>0||selected)&&(
+              <div style={{padding:'5px 12px',background:'#1A1400',borderBottom:'1px solid #2A2000',display:'flex',flexWrap:'wrap',gap:6,alignItems:'center'}}>
+                {swapEntries.map(({color,on,off,onPos,offPos})=>(
+                  <div key={on} style={{display:'flex',alignItems:'center',gap:4,background:'rgba(0,0,0,0.3)',borderRadius:6,padding:'2px 6px'}}>
+                    <div style={{width:6,height:6,borderRadius:'50%',background:color}}/>
+                    <span style={{fontSize:9,color:'#22c55e',fontWeight:700}}>↑{on}</span>
+                    {onPos&&<span style={{fontSize:8,color:'#888'}}>({onPos})</span>}
+                    <span style={{fontSize:9,color:'#555'}}>⇄</span>
+                    <span style={{fontSize:9,color:'#ef4444',fontWeight:700}}>{off}↓</span>
+                    {offPos&&<span style={{fontSize:8,color:'#888'}}>({offPos})</span>}
+                  </div>
+                ))}
+                {selected&&<span style={{fontSize:9,color:'#c4b5fd'}}>Moving: {selected.name}</span>}
               </div>
+            )}
 
-              {/* SVG Pitch */}
-              <div style={{flex:1,padding:'0 4px 4px',minHeight:0}} onTouchStart={onPitchTouchStart} onTouchEnd={onPitchTouchEnd}>
-                <svg viewBox="0 0 200 280" xmlns="http://www.w3.org/2000/svg" style={{width:'100%',height:'100%',display:'block'}}
-                  onDragOver={e=>e.preventDefault()}>
-                  {/* Green stripes */}
-                  {[0,1,2,3,4,5,6].map(i=>(
-                    <rect key={i} x="0" y={i*40} width="200" height="40"
-                      fill={i%2===0?'#1a5c1a':'#1d6b1d'}/>
+            {/* ── TWO-COLUMN: Pitch | Events+Subs ── */}
+            <div style={{display:'flex',height:'calc(100vw * 1.05)',maxHeight:480}} onDragOver={e=>e.preventDefault()}>
+
+              {/* ── LEFT: PITCH ── */}
+              <div style={{flex:'0 0 52%',padding:'6px 2px 6px 6px',display:'flex',flexDirection:'column',gap:4}}>
+                <div style={{fontSize:8,fontWeight:800,color:'#666',letterSpacing:1,textTransform:'uppercase',paddingLeft:2}}>ON THE PITCH</div>
+                <div style={{position:'relative',flex:1,
+                  background:'linear-gradient(180deg,#1d5c1d 0%,#165216 25%,#1d5c1d 50%,#165216 75%,#1d5c1d 100%)',
+                  borderRadius:8,overflow:'hidden',boxShadow:'0 2px 12px rgba(0,0,0,0.5)'}}
+                  onDragOver={e=>e.preventDefault()} onTouchStart={onPitchTouchStart} onTouchEnd={onPitchTouchEnd}>
+                  {/* Pitch markings */}
+                  {[{top:0,left:'10%',right:'10%',height:1},{bottom:0,left:'10%',right:'10%',height:1},{top:0,bottom:0,left:'10%',width:1},{top:0,bottom:0,right:'10%',width:1},{top:'50%',left:'10%',right:'10%',height:1},{top:'10%',left:'30%',right:'30%',height:1},{top:'10%',left:'30%',width:1,height:'10%'},{top:'10%',right:'30%',width:1,height:'10%'},{bottom:'10%',left:'30%',right:'30%',height:1},{bottom:'10%',left:'30%',width:1,height:'10%'},{bottom:'10%',right:'30%',width:1,height:'10%'}].map((s,i)=>(
+                    <div key={i} style={{position:'absolute',background:'rgba(255,255,255,0.15)',pointerEvents:'none',...s}}/>
                   ))}
-                  {/* Pitch lines */}
-                  <rect x="10" y="8" width="180" height="264" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5"/>
-                  <line x1="10" y1="140" x2="190" y2="140" stroke="rgba(255,255,255,0.2)" strokeWidth="1"/>
-                  <circle cx="100" cy="140" r="22" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1"/>
-                  <circle cx="100" cy="140" r="2" fill="rgba(255,255,255,0.3)"/>
-                  <rect x="60" y="8" width="80" height="32" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1"/>
-                  <rect x="60" y="240" width="80" height="32" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1"/>
-                  <rect x="80" y="8" width="40" height="14" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1"/>
-                  <rect x="80" y="258" width="40" height="14" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1"/>
-
+                  <div style={{position:'absolute',top:'50%',left:'50%',width:'20%',paddingBottom:'20%',transform:'translate(-50%,-50%)',border:'1px solid rgba(255,255,255,0.15)',borderRadius:'50%',pointerEvents:'none'}}/>
                   {/* Player tokens */}
                   {positions.map((pos,pIdx)=>{
-                    const name=cur.slots[pos.id]||'';
-                    const isSel=selected?.from===pos.id;
-                    const swapColor=isSel?null:getTokenColor(name);
-                    const init=name?name.split(' ').filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,2):'';
-                    const shortN=name.split(' ').length>1?(name.split(' ')[0][0]+'. '+name.split(' ').slice(-1)[0]).slice(0,9):name.slice(0,9);
-                    const cx=svgX(pos.left), cy=svgY(pos.top);
-                    const fillCol=isSel?'rgba(245,192,74,0.25)':swapColor?(swapColor+'22'):'rgba(18,18,18,0.92)';
-                    const strokeCol=isSel?'#F5C04A':swapColor||'rgba(255,255,255,0.3)';
-                    const sw=isSel?2:swapColor?1.8:1;
-                    return (
-                      <g key={pos.id} style={{cursor:'pointer'}}
-                        onClick={e=>{e.stopPropagation();handleTap(pos.id,false,null);}}
-                        onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();handleDrop(pos.id);}}>
-                        <rect x={cx-15} y={cy-19} width="30" height="38" rx="4" fill={fillCol} stroke={strokeCol} strokeWidth={sw}/>
-                        {name
-                          ? <>
-                              <text x={cx} y={cy-7} textAnchor="middle" fontSize="11" fontWeight="800" fill={isSel?'#F5C04A':'#FFF'} fontFamily="Outfit,sans-serif">{init}</text>
-                              <text x={cx} y={cy+8} textAnchor="middle" fontSize="4.8" fontWeight="600" fill="rgba(255,255,255,0.8)" fontFamily="Outfit,sans-serif">{shortN}</text>
-                              <text x={cx} y={cy+15} textAnchor="middle" fontSize="4" fill={isSel?'rgba(245,192,74,0.7)':'rgba(255,255,255,0.35)'} fontFamily="Outfit,sans-serif">{posLabel[pos.id]||pos.id}</text>
-                              <circle cx={cx+12} cy={cy-16} r="2.5" fill="#22c55e"/>
-                              <text x={cx-12} y={cy-12} fontSize="5.5" fontWeight="700" fill={isSel?'#F5C04A':'rgba(255,255,255,0.4)'} fontFamily="Outfit,sans-serif">{pIdx+1}</text>
-                            </>
-                          : <text x={cx} y={cy+2} textAnchor="middle" fontSize="14" fill="rgba(255,255,255,0.15)" fontFamily="Outfit,sans-serif">+</text>
-                        }
-                        {isSel&&<rect x={cx-15} y={cy-19} width="30" height="38" rx="4" fill="none" stroke="rgba(245,192,74,0.5)" strokeWidth="4"/>}
-                      </g>
+                    const name=cur.slots[pos.id];const isSel=selected?.from===pos.id;const swapColor=isSel?null:getTokenColor(name);
+                    const inits=name?name.split(' ').filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,3):'';
+                    return(
+                      <div key={pos.id} style={{position:'absolute',left:pos.left,top:pos.top,transform:`translateX(${pos.tx})`,display:'flex',flexDirection:'column',alignItems:'center',gap:1,zIndex:isSel?10:2,cursor:'pointer'}}
+                        onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();handleDrop(pos.id);}}
+                        onClick={e=>{e.stopPropagation();handleTap(pos.id,false,null);}}>
+                        <div style={{position:'relative'}}>
+                          <div style={{width:34,height:34,borderRadius:'50%',
+                            border:isSel?'2px solid #7c3aed':swapColor?`2px solid ${swapColor}`:'1.5px solid rgba(255,255,255,0.5)',
+                            background:name?swapColor?swapColor+'33':'rgba(0,0,0,0.55)':'rgba(0,0,0,0.15)',
+                            boxShadow:isSel?'0 0 0 3px rgba(124,58,237,0.4)':'0 2px 6px rgba(0,0,0,0.6)',
+                            display:'flex',alignItems:'center',justifyContent:'center',transition:'border 0.15s'}}>
+                            {name?<span style={{fontSize:10,fontWeight:800,color:'#FFF',textShadow:'0 1px 2px rgba(0,0,0,0.9)'}}>{inits}</span>:<span style={{fontSize:12,opacity:0.25,color:'#fff'}}>+</span>}
+                          </div>
+                          {name&&<div style={{position:'absolute',top:-2,left:-2,width:12,height:12,borderRadius:'50%',background:swapColor||'#1A1A1A',border:'1px solid rgba(255,255,255,0.4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:6,fontWeight:800,color:'#FFF'}}>{pIdx+1}</div>}
+                          {name&&<div style={{position:'absolute',bottom:0,right:0,width:8,height:8,borderRadius:'50%',background:'#22c55e',border:'1px solid #0D0D0D'}}/>}
+                        </div>
+                        <div style={{fontSize:6,fontWeight:800,color:name?'#FFF':'rgba(255,255,255,0.25)',textShadow:'0 1px 2px rgba(0,0,0,0.9)',textAlign:'center',maxWidth:38,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                          {name?name.split(' ')[0].toUpperCase():pos.label}
+                        </div>
+                      </div>
                     );
                   })}
-                </svg>
+                </div>
+                {/* Quick bench strip */}
+                {cur.slots.bench.length>0&&(
+                  <div>
+                    <div style={{fontSize:7,fontWeight:800,color:'#444',letterSpacing:1,textTransform:'uppercase',marginBottom:3}}>BENCH</div>
+                    <div style={{display:'flex',gap:4,overflowX:'auto'}}>
+                      {cur.slots.bench.map(name=>{
+                        const isSel=selected?.name===name&&selected?.from==='bench';
+                        const inits=name.split(' ').filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,3);
+                        return(
+                          <div key={name} style={{textAlign:'center',flexShrink:0,cursor:'pointer'}}
+                            onClick={e=>{e.stopPropagation();handleTap(null,true,name);}}>
+                            <div style={{width:30,height:30,borderRadius:'50%',background:isSel?'#7c3aed22':'#1A1A1A',border:isSel?'2px solid #7c3aed':'1px solid #2A2A2A',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 2px'}}>
+                              <span style={{fontSize:8,fontWeight:800,color:isSel?'#c4b5fd':'#666'}}>{inits}</span>
+                            </div>
+                            <div style={{fontSize:6,color:'#555',maxWidth:34,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{name.split(' ')[0]}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Bench strip */}
-              {cur.slots.bench&&cur.slots.bench.length>0&&(
-                <div style={{padding:'4px 8px 6px',flexShrink:0,borderTop:'1px solid #1A1A1A'}}>
-                  <div style={{fontSize:7,fontWeight:800,color:'#444',letterSpacing:1.5,textTransform:'uppercase',marginBottom:3}}>QUICK SUBS · tap pitch player then substitute</div>
-                  <div style={{display:'flex',gap:4,overflowX:'auto'}}>
-                    {cur.slots.bench.map((name,bidx)=>{
-                      const isSel=selected?.name===name&&selected?.from==='bench';
-                      const init=name.split(' ').filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,2);
-                      const shortN=name.split(' ').length>1?(name.split(' ')[0][0]+'. '+name.split(' ').slice(-1)[0]).slice(0,9):name.slice(0,9);
-                      return (
-                        <div key={name} style={{flexShrink:0,cursor:'pointer',width:'10vw',maxWidth:46,minWidth:28}}
-                          onClick={e=>{e.stopPropagation();handleTap(null,true,name);}}>
-                          <svg viewBox="0 0 30 38" width="100%" style={{display:'block'}}>
-                            <rect x="0" y="0" width="30" height="38" rx="4" fill={isSel?'rgba(124,58,237,0.2)':'rgba(18,18,18,0.92)'} stroke={isSel?'#7c3aed':'#3a3a3a'} strokeWidth={isSel?1.8:1}/>
-                            <text x="15" y="13" textAnchor="middle" fontSize="11" fontWeight="600" fill={isSel?'#c4b5fd':'#FFF'} fontFamily="Outfit,sans-serif">{init}</text>
-                            <text x="15" y="28" textAnchor="middle" fontSize="4.8" fontWeight="600" fill="rgba(255,255,255,0.75)" fontFamily="Outfit,sans-serif">{shortN}</text>
-                            <text x="15" y="35" textAnchor="middle" fontSize="4" fill="rgba(255,255,255,0.3)" fontFamily="Outfit,sans-serif">SUB</text>
-                            <circle cx="25" cy="5" r="2.5" fill="#22c55e"/>
-                            <text x="4" y="9" fontSize="5.5" fontWeight="700" fill={isSel?'#c4b5fd':'rgba(255,255,255,0.4)'} fontFamily="Outfit,sans-serif">{bidx+1}</text>
-                          </svg>
-                        </div>
-                      );
-                    })}
+              {/* ── RIGHT: EVENTS + SUBS ── */}
+              <div style={{flex:'0 0 48%',padding:'6px 6px 6px 4px',display:'flex',flexDirection:'column',gap:6,overflowY:'auto',borderLeft:'1px solid #1A1A1A'}}>
+
+                {/* Match Events */}
+                <div style={{flex:1,minHeight:0}}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
+                    <div style={{fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:1,textTransform:'uppercase'}}>MATCH EVENTS</div>
+                    <button onClick={()=>setEventsView(true)} style={{background:'none',border:'none',color:'#F5C04A',fontSize:9,fontWeight:700,cursor:'pointer',padding:0}}>All →</button>
                   </div>
-                </div>
-              )}
-            </div>
-
-            {/* RIGHT: Events (top) + Upcoming Subs (bottom) */}
-            <div style={{flex:'0 0 48%',display:'flex',flexDirection:'column',overflow:'hidden'}}>
-
-              {/* ── TOP ROW: Match Events ── */}
-              <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',borderBottom:'1px solid #1A1A1A'}}>
-
-                {/* Events header */}
-                <div style={{padding:'5px 10px 4px',borderBottom:'1px solid #1A1A1A',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                  <div style={{fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase'}}>MATCH EVENTS</div>
-                  <button onClick={()=>setActiveMatchTab('events')} style={{background:'none',border:'none',color:'#F5C04A',fontSize:9,fontWeight:700,cursor:'pointer',padding:0}}>All →</button>
-                </div>
-
-                {/* Events list */}
-                <div style={{flex:1,overflowY:'auto',padding:'4px 0'}}>
                   {goals.length===0&&matchEvents.length===0&&(
-                    <div style={{fontSize:10,color:'#333',textAlign:'center',padding:'16px 0',fontStyle:'italic'}}>No events yet</div>
+                    <div style={{fontSize:10,color:'#2A2A2A',textAlign:'center',padding:'12px 0',fontStyle:'italic'}}>No events yet</div>
                   )}
+                  {/* HT marker */}
                   {halfIdx===1&&(
-                    <div style={{display:'flex',alignItems:'center',gap:4,padding:'3px 10px'}}>
-                      <div style={{flex:1,height:1,background:'#1A1A1A'}}/>
+                    <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:4}}>
+                      <div style={{flex:1,height:1,background:'#2A2A2A'}}/>
                       <span style={{fontSize:8,color:'#555',fontWeight:700}}>HT</span>
-                      <div style={{flex:1,height:1,background:'#1A1A1A'}}/>
+                      <div style={{flex:1,height:1,background:'#2A2A2A'}}/>
                     </div>
                   )}
+                  {/* Combined events sorted by time */}
                   {[...goals.map(g=>({t:g.secs,type:'goal',data:g})),...matchEvents.map(e=>({t:(e.minute||0)*60,type:'event',data:e}))].sort((a,b)=>a.t-b.t).map((item,i)=>{
                     if(item.type==='goal'){const g=item.data;return(
-                      <div key={'g'+i} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',borderBottom:'1px solid #0D0D0D'}}>
-                        <span style={{fontSize:9,color:'#555',minWidth:20,fontWeight:700,flexShrink:0}}>{g.timeStr}'</span>
-                        <div style={{width:20,height:20,borderRadius:'50%',background:g.team==='us'?'rgba(34,197,94,0.15)':'rgba(252,165,165,0.15)',border:`1px solid ${g.team==='us'?'#22c55e':'#fca5a5'}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill={g.team==='us'?'#22c55e':'#fca5a5'}><circle cx="12" cy="12" r="10"/></svg>
-                        </div>
+                      <div key={'g'+i} style={{display:'flex',alignItems:'flex-start',gap:5,padding:'3px 0',borderBottom:'1px solid #111'}}>
+                        <span style={{fontSize:9,color:'#555',minWidth:18,fontWeight:700,flexShrink:0}}>{g.timeStr}'</span>
+                        <span style={{fontSize:11,flexShrink:0}}>⚽</span>
                         <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:10,fontWeight:700,color:g.team==='us'?'#FFF':'#fca5a5',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{g.team==='us'?g.scorer:'Opponent'}</div>
-                          {g.team==='us'&&g.position&&<div style={{fontSize:8,color:'#555'}}>{g.position}</div>}
+                          <div style={{fontSize:9,fontWeight:700,color:g.team==='us'?'#FFF':'#fca5a5',lineHeight:1.2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{g.team==='us'?g.scorer:'Opponent'}</div>
+                          {g.team==='us'&&g.position&&<div style={{fontSize:7,color:'#555'}}>{g.position}</div>}
                         </div>
-                        <button onClick={()=>removeGoal(goals.indexOf(g))} style={{background:'none',border:'none',color:'#2A2A2A',cursor:'pointer',fontSize:12,padding:0,lineHeight:1,flexShrink:0}}>✕</button>
+                        <button onClick={()=>removeGoal(goals.indexOf(g))} style={{background:'none',border:'none',color:'#222',cursor:'pointer',fontSize:11,padding:0,lineHeight:1,flexShrink:0}}>✕</button>
                       </div>
                     );}
-                    const e=item.data;
-                    const evIcon=e.type==='Yellow Card'?'🟨':e.type==='Red Card'?'🟥':e.type==='Sub'?'→':'📝';
+                    const e=item.data;const icon=e.type==='Yellow Card'?'🟨':e.type==='Red Card'?'🟥':e.type==='Sub'?'🔄':'📝';
                     return(
-                      <div key={'e'+i} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',borderBottom:'1px solid #0D0D0D'}}>
-                        <span style={{fontSize:9,color:'#555',minWidth:20,fontWeight:700,flexShrink:0}}>{e.minute||'?'}'</span>
-                        <div style={{width:20,height:20,borderRadius:'50%',background:'rgba(245,192,74,0.1)',border:'1px solid #2A2A2A',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:10}}>{evIcon}</div>
+                      <div key={'e'+i} style={{display:'flex',alignItems:'flex-start',gap:5,padding:'3px 0',borderBottom:'1px solid #111'}}>
+                        <span style={{fontSize:9,color:'#555',minWidth:18,fontWeight:700,flexShrink:0}}>{e.minute||'?'}'</span>
+                        <span style={{fontSize:11,flexShrink:0}}>{icon}</span>
                         <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:10,fontWeight:700,color:'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{e.player||e.type}</div>
-                          {e.type==='Sub'&&e.detail&&<div style={{fontSize:8,color:'#ef4444'}}>↓ {e.detail}</div>}
+                          <div style={{fontSize:9,fontWeight:700,color:'#FFF',lineHeight:1.2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{e.player||e.type}</div>
+                          {e.type==='Sub'&&e.detail&&(
+                            <div style={{fontSize:8,color:'#ef4444',lineHeight:1.2}}>↓ {e.detail}</div>
+                          )}
                         </div>
                       </div>
                     );
                   })}
+                  {/* Add goal buttons */}
+                  <div style={{display:'flex',gap:4,marginTop:6}}>
+                    <button onClick={()=>setModal('goal')} style={{flex:1,background:'#16a34a22',border:'1px solid #16a34a55',borderRadius:6,padding:'6px 4px',color:'#22c55e',fontSize:9,fontWeight:800,cursor:'pointer'}}>⚽ Our Goal</button>
+                    <button onClick={logThemGoal} style={{flex:1,background:'#7f1d1d22',border:'1px solid #7f1d1d55',borderRadius:6,padding:'6px 4px',color:'#fca5a5',fontSize:9,fontWeight:800,cursor:'pointer'}}>+ Theirs</button>
+                  </div>
                 </div>
-              </div>
 
-              {/* ── BOTTOM ROW: Upcoming Substitutions ── */}
-              <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
-                <div style={{padding:'5px 10px 4px',borderBottom:'1px solid #1A1A1A',flexShrink:0}}>
-                  <div style={{fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase'}}>UPCOMING SUBS</div>
-                </div>
-                <div style={{flex:1,overflowY:'auto',padding:'4px 0'}}>
-                  {(()=>{
-                    const nextP=halves[halfIdx]?.[pidx+1];
-                    const curP=halves[halfIdx]?.[pidx];
-                    if(!curP?.slots||!nextP?.slots){
-                      return <div style={{fontSize:10,color:'#333',textAlign:'center',padding:'12px 0',fontStyle:'italic'}}>No subs planned</div>;
-                    }
-                    const subs=[];
-                    posIds.forEach(id=>{const was=curP.slots[id],next=nextP.slots[id];if(was&&next&&was!==next)subs.push({on:next,off:was,pos:posLabel[id]||id});});
-                    if(subs.length===0) return <div style={{fontSize:10,color:'#333',textAlign:'center',padding:'12px 0',fontStyle:'italic'}}>No subs planned</div>;
-                    return subs.map((s,i)=>(
-                      <div key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',borderBottom:'1px solid #0D0D0D'}}>
-                        <div style={{display:'flex',flexDirection:'column',gap:1,flex:1,minWidth:0}}>
+                {/* ── SUBSTITUTIONS (from plan) ── */}
+                {(()=>{
+                  const curP=halves[halfIdx]?.[pidx];const prevP=pidx>0?halves[halfIdx]?.[pidx-1]:halfIdx>0?halves[halfIdx-1]?.[halves[halfIdx-1].length-1]:null;
+                  if(!curP?.slots||!prevP?.slots)return null;
+                  const subs=[];
+                  posIds.forEach(id=>{
+                    const was=prevP.slots[id],now=curP.slots[id];
+                    if(was&&now&&was!==now)subs.push({on:now,off:was,pos:posLabel[id]||id});
+                  });
+                  if(subs.length===0)return null;
+                  return(
+                    <div style={{borderTop:'1px solid #1A1A1A',paddingTop:6}}>
+                      <div style={{fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:1,textTransform:'uppercase',marginBottom:4}}>PLANNED SUBS</div>
+                      {subs.map((s,i)=>(
+                        <div key={i} style={{display:'flex',flexDirection:'column',gap:1,padding:'3px 0',borderBottom:'1px solid #111'}}>
                           <div style={{display:'flex',alignItems:'center',gap:4}}>
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-                            <span style={{fontSize:10,fontWeight:700,color:'#22c55e',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.on}</span>
+                            <span style={{color:'#22c55e',fontSize:9,fontWeight:800,minWidth:10}}>→</span>
+                            <span style={{fontSize:9,fontWeight:700,color:'#22c55e',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.on}</span>
+                            <span style={{fontSize:8,color:'#555'}}>{s.pos}</span>
                           </div>
                           <div style={{display:'flex',alignItems:'center',gap:4}}>
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
-                            <span style={{fontSize:10,fontWeight:700,color:'#ef4444',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.off}</span>
+                            <span style={{color:'#ef4444',fontSize:9,fontWeight:800,minWidth:10}}>←</span>
+                            <span style={{fontSize:9,fontWeight:700,color:'#ef4444',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.off}</span>
                           </div>
                         </div>
-                        <span style={{fontSize:8,color:'#555',flexShrink:0}}>{s.pos}</span>
-                      </div>
-                    ));
-                  })()}
-                </div>
-              </div>
+                      ))}
+                    </div>
+                  );
+                })()}
 
-              {/* Quick Actions */}
-              <div style={{padding:'5px 8px 6px',borderTop:'1px solid #1A1A1A',flexShrink:0}}>
-                <div style={{fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase',marginBottom:5}}>QUICK ACTIONS</div>
-                {/* Inline goal picker — bottom sheet style */}
-                {modal==='goalSheet'
-                  ? <div style={{background:'#1A1A1A',borderRadius:10,padding:'8px',border:'1px solid #2A2A2A'}}>
-                      <div style={{fontSize:10,fontWeight:700,color:'#22c55e',marginBottom:6}}>⚽ Select Scorer</div>
-                      <select value={goalScorer} onChange={e=>setGoalScorer(e.target.value)} style={{width:'100%',padding:'8px',background:'#0D0D0D',border:'1px solid #2A2A2A',borderRadius:7,color:'#FFF',fontSize:12,marginBottom:8,appearance:'none',WebkitAppearance:'none'}}>
-                        <option value="">— select player —</option>
-                        {squad.map(p=><option key={p.name} value={p.name}>{p.name}</option>)}
-                      </select>
-                      <div style={{display:'flex',gap:6}}>
-                        <button style={{flex:1,padding:'9px',background:'rgba(34,197,94,0.15)',border:'1px solid rgba(34,197,94,0.4)',borderRadius:7,color:'#22c55e',fontSize:11,fontWeight:800,cursor:'pointer',opacity:goalScorer?1:0.4}} onClick={()=>{
-                          if(!goalScorer) return;
-                          const id=posIds.find(id=>cur.slots[id]===goalScorer);
-                          const pos=id?posLabel[id]:'Bench';
-                          logGoal(goalScorer,pos);
-                          setGoalScorer('');
-                          setModal(null);
-                        }}>Done ✓</button>
-                        <button style={{flex:'0 0 auto',padding:'9px 14px',background:'#111',border:'1px solid #2A2A2A',borderRadius:7,color:'#555',fontSize:11,cursor:'pointer'}} onClick={()=>setModal(null)}>Cancel</button>
-                      </div>
-                    </div>
-                  : <div style={{display:'flex',gap:6}}>
-                      <button onClick={()=>{setGoalScorer('');setModal('goalSheet');}} style={{flex:1,background:'rgba(34,197,94,0.1)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:8,padding:'8px 4px',color:'#22c55e',fontSize:10,fontWeight:800,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="#22c55e"><circle cx="12" cy="12" r="10"/></svg>
-                        Our Goal
-                      </button>
-                      <button onClick={logThemGoal} style={{flex:1,background:'rgba(252,165,165,0.08)',border:'1px solid rgba(252,165,165,0.2)',borderRadius:8,padding:'8px 4px',color:'#fca5a5',fontSize:10,fontWeight:800,cursor:'pointer'}}>
-                        + Theirs
-                      </button>
-                    </div>
-                }
+                {/* Voice note */}
+                <button onClick={toggleVoice} style={{flexShrink:0,padding:'7px 8px',
+                  background:isVoiceRec?(voicePulse?'#7f1d1d':'#450a0a'):'#1A1A1A',
+                  border:isVoiceRec?'1px solid #ef4444':'1px solid #2A2A2A',
+                  borderRadius:8,cursor:'pointer',display:'flex',alignItems:'center',gap:6,transition:'background 0.3s'}}>
+                  <span style={{fontSize:16}}>{isVoiceRec?'🔴':'🎙️'}</span>
+                  <div style={{textAlign:'left',flex:1}}>
+                    <div style={{fontSize:10,fontWeight:700,color:isVoiceRec?'#fca5a5':'#FFF',lineHeight:1.2}}>{isVoiceRec?'Stop Recording':'Voice Note'}</div>
+                    <div style={{fontSize:8,color:isVoiceRec?'#f87171':'#666'}}>{isVoiceRec?'Tap to stop':'Tap to start'}</div>
+                  </div>
+                  {!isVoiceRec&&voiceNotes&&<span style={{fontSize:9,color:'#F5C04A',fontWeight:700}}>●</span>}
+                </button>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* ──── EVENTS TAB ──── */}
-        {activeMatchTab==='events'&&(
-          <div style={{flex:1,overflow:'hidden'}}>
-            <EventsPage halfElapsed={halfElapsed} goals={goals} matchEvents={matchEvents} setMatchEvents={setMatchEvents} onBack={()=>setActiveMatchTab('lineup')} opponentName={opponent||'Opposition'} ourName={config?.teamName||'My Team'} usGoalsLen={usGoals.length} themGoalsLen={themGoals.length}/>
           </div>
         )}
 
         {/* ──── STATS TAB ──── */}
         {activeMatchTab==='stats'&&(
-          <div style={{flex:1,overflowY:'auto',padding:'14px',display:'flex',flexDirection:'column',gap:12}}>
-            <div style={{background:'#111111',borderRadius:12,padding:'14px',border:'1px solid #1A1A1A'}}>
-              <div style={{fontSize:11,fontWeight:800,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase',marginBottom:10}}>MATCH SUMMARY</div>
+          <div style={{padding:'14px',display:'flex',flexDirection:'column',gap:12}}>
+            <div style={{background:'#1A1A1A',borderRadius:12,padding:'14px',border:'1px solid #222'}}>
+              <div style={{fontSize:13,fontWeight:700,color:'#FFF',marginBottom:10}}>Match Summary</div>
               {[['Goals — Us',usGoals.length],['Goals — Them',themGoals.length],['Events logged',matchEvents.length],['Voice notes',voiceNotes?'Yes':'None']].map(([label,val])=>(
-                <div key={label} style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#666',padding:'6px 0',borderBottom:'1px solid #1A1A1A'}}>
-                  <span>{label}</span><span style={{fontWeight:800,color:'#FFF'}}>{val}</span>
+                <div key={label} style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#A1A1A1',padding:'5px 0',borderBottom:'1px solid #1A1A1A'}}>
+                  <span>{label}</span><span style={{fontWeight:700,color:'#FFF'}}>{val}</span>
                 </div>
               ))}
             </div>
             {offSummary.length>0&&(
-              <div style={{background:'#111111',borderRadius:12,padding:'14px',border:'1px solid #1A1A1A'}}>
-                <div style={{fontSize:11,fontWeight:800,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase',marginBottom:10}}>PLAYER REST</div>
+              <div style={{background:'#1A1A1A',borderRadius:12,padding:'14px',border:'1px solid #222'}}>
+                <div style={{fontSize:13,fontWeight:700,color:'#FFF',marginBottom:10}}>Player Rest</div>
                 {offSummary.map(([n,c])=>(
                   <div key={n} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
                     <span style={{fontSize:11,color:'#FFF',flex:'0 0 90px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n}</span>
-                    <div style={{flex:1,height:6,background:'#1A1A1A',borderRadius:3,overflow:'hidden'}}>
+                    <div style={{flex:1,height:6,background:'#111',borderRadius:3,overflow:'hidden'}}>
                       <div style={{width:`${Math.min(c/3*100,100)}%`,height:'100%',background:c>=2?'#f59e0b':'#22c55e',borderRadius:3}}/>
                     </div>
-                    <span style={{fontSize:10,fontWeight:800,color:c>=2?'#f59e0b':'#22c55e',minWidth:18,textAlign:'right'}}>{c}×</span>
+                    <span style={{fontSize:10,fontWeight:700,color:c>=2?'#f59e0b':'#22c55e',minWidth:18,textAlign:'right'}}>{c}×</span>
                   </div>
                 ))}
               </div>
@@ -4713,23 +4644,14 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
       </div>
 
       {/* ── BOTTOM ACTION BAR ── */}
-      <div style={{display:'flex',gap:6,padding:'8px 10px',paddingBottom:'max(10px,env(safe-area-inset-bottom))',marginBottom:60,background:'#111111',borderTop:'1px solid #1A1A1A',flexShrink:0}}>
-        <button onClick={()=>goals.length>0&&removeGoal(goals.length-1)} style={{flex:'0 0 auto',padding:'11px 10px',background:'#1A1A1A',border:'1px solid #2A2A2A',borderRadius:10,color:goals.length===0?'#333':'#A1A1A1',fontSize:11,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:4}}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
-          Undo
-        </button>
-        <button onClick={()=>setActiveMatchTab('events')} style={{flex:1,padding:'11px 10px',background:'#1f2937',border:'1px solid #374151',borderRadius:10,color:'#FFF',fontSize:12,fontWeight:800,cursor:'pointer',whiteSpace:'nowrap'}}>+ Add Event</button>
-        <button onClick={()=>{setRunning(false);if(isVoiceRecRef.current)stopVoice('');if(voiceNotes.trim()){setVoiceReview(voiceNotes);setModal('voiceReview');}else setModal('save');}} style={{flex:'0 0 auto',padding:'11px 12px',background:'#ef4444',border:'none',borderRadius:10,color:'#FFF',fontSize:11,fontWeight:800,cursor:'pointer',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:4}}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="#FFF"><rect x="3" y="3" width="18" height="18" rx="3"/></svg>
-          End Match
-        </button>
-        <button onClick={toggleVoice} style={{flex:'0 0 auto',padding:'11px 12px',background:isVoiceRec?'rgba(127,29,29,0.9)':'#1A1A1A',border:isVoiceRec?'1px solid #ef4444':'1px solid #2A2A2A',borderRadius:10,color:isVoiceRec?'#fca5a5':'#A1A1A1',fontSize:10,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:4}}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
-          {isVoiceRec?'Stop':'🎙'}
-        </button>
+      <div style={{display:'flex',gap:6,padding:'8px 10px',paddingBottom:'max(10px,env(safe-area-inset-bottom))',marginBottom:70,background:'#111111',borderTop:'1px solid #1A1A1A',flexShrink:0}}>
+        <button onClick={()=>goals.length>0&&removeGoal(goals.length-1)} style={{flex:'0 0 auto',padding:'11px 10px',background:'#1A1A1A',border:'1px solid #2A2A2A',borderRadius:10,color:goals.length===0?'#333':'#A1A1A1',fontSize:11,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>↩ Undo</button>
+        <button onClick={()=>setModal('goal')} style={{flex:1,padding:'11px 10px',background:'#ef4444',border:'none',borderRadius:10,color:'#FFF',fontSize:12,fontWeight:800,cursor:'pointer',whiteSpace:'nowrap'}}>+ Add Event</button>
+        <button onClick={()=>{if(voiceNotes.trim()){setVoiceReview(voiceNotes);setModal('voiceReview');}else setModal('save');}} style={{flex:'0 0 auto',padding:'11px 10px',background:'#F5C04A',border:'none',borderRadius:10,color:'#000',fontSize:11,fontWeight:800,cursor:'pointer',whiteSpace:'nowrap',lineHeight:1.1}}>🏁 End</button>
+        <button onClick={goNextPeriod} style={{flex:'0 0 auto',padding:'11px 10px',background:'#1A1A1A',border:'1px solid #2A2A2A',borderRadius:10,color:'#A1A1A1',fontSize:10,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>+Time</button>
       </div>
 
-      <BottomNav activeTab="match" onTab={(t)=>{if(t!=="match") onExit();}}/>
+      <BottomNav activeTab="match" onTab={(t)=>{ if(t!=="match") onExit(); }} />
       <style>{`@keyframes pulse{from{opacity:1}to{opacity:0.3}}`}</style>
     </div>
   );
@@ -5139,796 +5061,6 @@ function TeamBadge({ name, size=44, radius=10, style={} }) {
   );
 }
 
-
-
-
-function MatchPlayersScreen({ contextKey, onBack }) {
-  const globalSquad = React.useMemo(() => loadSquad(), []);
-  const cx0 = loadContextData(contextKey);
-  const mp0 = cx0.matchPlayers || {};
-  const initStatuses = () => {
-    const saved = mp0.statuses || {};
-    const out = {};
-    globalSquad.forEach(p => { out[p.name] = saved[p.name] || 'available'; });
-    return out;
-  };
-  const [statuses,    setStatuses]    = React.useState(initStatuses);
-  const [guests,      setGuests]      = React.useState(() => mp0.guests || []);
-  const [search,      setSearch]      = React.useState('');
-  const [showModal,   setShowModal]   = React.useState(false);
-  const [guestName,   setGuestName]   = React.useState('');
-  const [guestPos,    setGuestPos]    = React.useState('');
-  const [guestNumber, setGuestNumber] = React.useState('');
-
-  const POSITIONS = ['Goalkeeper','Left Back','Right Back','Centre Back','Left Mid','Right Mid','Centre Mid','Left Wing','Right Wing','Striker'];
-  const STATUS_OPTS = [
-    { val:'available',   label:'Available',   color:'#22c55e' },
-    { val:'unavailable', label:'Unavailable', color:'#ef4444' },
-    { val:'maybe',       label:'Maybe',       color:'#F5C04A' },
-  ];
-
-  function setStatus(name, val) { setStatuses(prev => ({...prev, [name]: val})); }
-
-  function submitGuest() {
-    const n = guestName.trim();
-    if (!n) return;
-    setGuests(prev => [...prev, { name: n, pos: guestPos, number: guestNumber }]);
-    setGuestName(''); setGuestPos(''); setGuestNumber(''); setShowModal(false);
-  }
-  function removeGuest(name) { setGuests(prev => prev.filter(g => g.name !== name)); }
-
-  function save() {
-    saveContextData(contextKey, { matchPlayers: { statuses, guests }, playersSeen: true });
-    onBack();
-  }
-
-  const counts = {
-    available:   globalSquad.filter(p => statuses[p.name] === 'available').length + guests.length,
-    unavailable: globalSquad.filter(p => statuses[p.name] === 'unavailable').length,
-    maybe:       globalSquad.filter(p => statuses[p.name] === 'maybe').length,
-  };
-
-  const filtered = globalSquad.filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()));
-  const statusColor = s => ({ available:'#22c55e', unavailable:'#ef4444', maybe:'#F5C04A' }[s] || '#555');
-
-  return (
-    <div style={{display:'flex',flexDirection:'column',height:'100dvh',background:'#0D0D0D',overflow:'hidden'}}>
-
-      {/* Modal */}
-      {showModal && (
-        <div style={{position:'fixed',inset:0,zIndex:200,display:'flex',flexDirection:'column',justifyContent:'flex-end',background:'rgba(0,0,0,0.7)'}}
-          onClick={e=>{if(e.target===e.currentTarget){setShowModal(false);}}}>
-          <div style={{background:'#161616',borderRadius:'20px 20px 0 0',padding:'20px',paddingBottom:'calc(20px + env(safe-area-inset-bottom))'}}>
-            <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:20}}>
-              <div>
-                <div style={{fontSize:18,fontWeight:800,color:'#FFF',lineHeight:1.25}}>Add Additional</div>
-                <div style={{fontSize:18,fontWeight:800,color:'#FFF',lineHeight:1.25}}>Game Day Player</div>
-              </div>
-              <button onClick={()=>setShowModal(false)} style={{background:'#2A2A2A',border:'none',borderRadius:20,width:32,height:32,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#FFF',flexShrink:0}}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-            <div style={{display:'flex',flexDirection:'column',gap:12}}>
-              <div>
-                <div style={{fontSize:13,fontWeight:500,color:'#FFF',marginBottom:6}}>Name *</div>
-                <input value={guestName} onChange={e=>setGuestName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submitGuest()}
-                  placeholder="e.g. Lily Smith"
-                  style={{width:'100%',background:'#1A1A1A',border:'1px solid #2A2A2A',borderRadius:10,padding:'11px 14px',color:'#FFF',fontSize:14,outline:'none',boxSizing:'border-box'}}/>
-              </div>
-              <div style={{display:'flex',gap:10}}>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:13,fontWeight:500,color:'#FFF',marginBottom:6}}>Position</div>
-                  <select value={guestPos} onChange={e=>setGuestPos(e.target.value)}
-                    style={{width:'100%',background:'#1A1A1A',border:'1px solid #2A2A2A',borderRadius:10,padding:'11px 12px',color:guestPos?'#FFF':'#555',fontSize:13,outline:'none'}}>
-                    <option value="">Select…</option>
-                    {POSITIONS.map(p=><option key={p} value={p}>{p}</option>)}
-                  </select>
-                </div>
-                <div style={{width:80}}>
-                  <div style={{fontSize:13,fontWeight:500,color:'#FFF',marginBottom:6}}>Shirt #</div>
-                  <input value={guestNumber} onChange={e=>setGuestNumber(e.target.value)} placeholder="15"
-                    style={{width:'100%',background:'#1A1A1A',border:'1px solid #2A2A2A',borderRadius:10,padding:'11px 10px',color:'#FFF',fontSize:14,outline:'none',boxSizing:'border-box',textAlign:'center'}}/>
-                </div>
-              </div>
-              <div style={{display:'flex',alignItems:'center',gap:8,background:'#0D1A2A',borderRadius:10,padding:'10px 12px'}}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" style={{flexShrink:0}}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <span style={{fontSize:12,color:'#60a5fa',lineHeight:1.4}}>This player will only be added for this game.</span>
-              </div>
-              <button onClick={submitGuest} disabled={!guestName.trim()}
-                style={{width:'100%',padding:'14px',border:'none',borderRadius:12,fontSize:15,fontWeight:800,cursor:guestName.trim()?'pointer':'default',background:guestName.trim()?'#22c55e':'#1A1A1A',color:guestName.trim()?'#000':'#444',marginTop:4}}>
-                Add Player
-              </button>
-              <button onClick={()=>setShowModal(false)} style={{width:'100%',padding:'10px',border:'none',background:'none',fontSize:14,fontWeight:500,color:'#555',cursor:'pointer'}}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Header */}
-      <div style={{padding:'54px 16px 14px',background:'#111111',borderBottom:'1px solid #1A1A1A',flexShrink:0}}>
-        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
-          <button onClick={save} style={{background:'none',border:'none',cursor:'pointer',padding:4,color:'#A1A1A1',display:'flex',flexShrink:0}}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-          <div style={{fontSize:18,fontWeight:800,color:'#FFF',flex:1}}>Players</div>
-          <button onClick={save} style={{background:'#22c55e',border:'none',borderRadius:10,padding:'8px 16px',color:'#000',fontWeight:700,fontSize:13,cursor:'pointer'}}>Save</button>
-        </div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
-          {[{label:'Available',val:counts.available,color:'#22c55e'},{label:'Unavailable',val:counts.unavailable,color:'#ef4444'},{label:'Maybe',val:counts.maybe,color:'#F5C04A'}].map(s=>(
-            <div key={s.label} style={{textAlign:'center'}}>
-              <div style={{fontSize:22,fontWeight:500,color:'#FFF',lineHeight:1}}>{s.val}</div>
-              <div style={{fontSize:10,color:s.color,fontWeight:600,marginTop:3}}>{s.label}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Search bar */}
-      <div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 16px',borderBottom:'1px solid #1A1A1A',background:'#111111',flexShrink:0}}>
-        <div style={{fontSize:11,fontWeight:700,color:'#A1A1A1',flexShrink:0}}>SQUAD ({globalSquad.length})</div>
-        <div style={{flex:1,display:'flex',alignItems:'center',gap:8,background:'#0D0D0D',border:'1px solid #2A2A2A',borderRadius:8,padding:'6px 10px'}}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search players…"
-            style={{flex:1,background:'none',border:'none',outline:'none',color:'#FFF',fontSize:12}}/>
-        </div>
-      </div>
-
-      {/* Scrollable list */}
-      <div style={{flex:1,overflowY:'auto'}}>
-        {filtered.map((p, i) => {
-          const st = statuses[p.name] || 'available';
-          const initials = p.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-          return (
-            <div key={p.name} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 16px',borderBottom:'1px solid #1A1A1A',background:st==='unavailable'?'rgba(239,68,68,0.03)':'transparent'}}>
-              <div style={{width:36,height:36,borderRadius:18,background:'#1A1A2E',border:'1.5px solid #2A2A3E',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:12,fontWeight:700,color:'#A1A1A1'}}>{initials}</div>
-              <div style={{background:'#1A1A1A',borderRadius:6,padding:'2px 6px',fontSize:11,fontWeight:500,color:'#666',flexShrink:0,minWidth:22,textAlign:'center'}}>{i+1}</div>
-              <div style={{flex:1,minWidth:0,display:'flex',alignItems:'center',gap:7}}>
-                <span style={{fontSize:14,fontWeight:600,color:st==='unavailable'?'#555':'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</span>
-                {p.pos&&<span style={{background:'#1A1A1A',borderRadius:5,padding:'2px 6px',fontSize:10,fontWeight:500,color:'#666',flexShrink:0}}>{p.pos}</span>}
-              </div>
-              <select value={st} onChange={e=>setStatus(p.name,e.target.value)}
-                style={{background:'#1A1A1A',border:`1px solid ${statusColor(st)}44`,borderRadius:8,padding:'6px 10px',color:statusColor(st),fontSize:12,fontWeight:600,outline:'none',cursor:'pointer',flexShrink:0}}>
-                {STATUS_OPTS.map(o=><option key={o.val} value={o.val}>{o.label}</option>)}
-              </select>
-            </div>
-          );
-        })}
-        {guests.length > 0 && guests.map(g=>(
-          <div key={g.name} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 16px',borderBottom:'1px solid #1A1A1A'}}>
-            <div style={{width:36,height:36,borderRadius:18,background:'#1A1400',border:'1.5px solid #2A2000',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
-            </div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{display:'flex',alignItems:'center',gap:6}}>
-                <span style={{fontSize:14,fontWeight:600,color:'#FFF'}}>{g.name}</span>
-                {g.pos&&<span style={{background:'#1A1A1A',borderRadius:5,padding:'2px 6px',fontSize:10,fontWeight:500,color:'#666'}}>{g.pos}</span>}
-                {g.number&&<span style={{fontSize:10,color:'#555'}}>#{g.number}</span>}
-              </div>
-              <div style={{fontSize:10,color:'#F5C04A',fontWeight:600,marginTop:1}}>GAME DAY ONLY</div>
-            </div>
-            <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
-              <div style={{background:'#1A1A1A',border:'1px solid #22c55e44',borderRadius:8,padding:'6px 10px',color:'#22c55e',fontSize:12,fontWeight:600}}>Available</div>
-              <button onClick={()=>removeGuest(g.name)} style={{background:'none',border:'none',cursor:'pointer',padding:6,color:'#555',display:'flex'}}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Fixed footer */}
-      <div style={{flexShrink:0,background:'#111111',borderTop:'1px solid #1A1A1A',padding:'12px 16px',paddingBottom:'calc(env(safe-area-inset-bottom) + 80px)'}}>
-        <button onClick={()=>setShowModal(true)}
-          style={{width:'100%',border:'1.5px dashed #2A3A2A',borderRadius:12,padding:'12px',background:'#0A120A',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:10}}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          <span style={{fontSize:13,fontWeight:600,color:'#22c55e'}}>Add Additional Game Day Player</span>
-        </button>
-        <button onClick={save} style={{width:'100%',padding:'14px',border:'none',borderRadius:12,fontSize:15,fontWeight:800,cursor:'pointer',background:'#22c55e',color:'#000'}}>
-          ✓ Save Team
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function MatchDayScreen({ settings, onStartMatch, onLineup, onScout, onSettings, onPlayers, onBack }) {
-  const myTeam  = localStorage.getItem('soccerCoach_fixtureTeam') || settings?.teamName || 'My Team';
-  const allTeams = [...new Set(FIXTURES.flatMap(f=>[f.home,f.away]).filter(Boolean))].filter(t=>t!==myTeam).sort();
-  const nextFix = FIXTURES.find(f => isUpcoming(f) && (f.home===myTeam||f.away===myTeam));
-  const nextOpp = nextFix ? (nextFix.home===myTeam ? nextFix.away : nextFix.home) : '';
-  const squad = React.useMemo(()=>{ try{return JSON.parse(localStorage.getItem('soccerCoach_squad')||'[]');}catch{return[];} },[]);
-  const [mdOpponent, setMdOpponent] = React.useState(nextOpp||'');
-  const [customMode, setCustomMode] = React.useState(false);
-  const linkedFix = FIXTURES.find(f=>isUpcoming(f)&&((f.home===myTeam&&f.away===mdOpponent)||(f.away===myTeam&&f.home===mdOpponent)));
-  const isHome = linkedFix ? linkedFix.home===myTeam : true;
-  const ctxKey = makeContextKey(linkedFix, mdOpponent);
-  const [contextData, setContextData] = React.useState(()=>loadContextData(ctxKey));
-  React.useEffect(()=>{ setContextData(loadContextData(ctxKey)); }, [ctxKey]);
-  const savedLineup  = contextData.lineup || null;
-  const lineupReady  = savedLineup && savedLineup.h1Periods && savedLineup.h1Periods.length > 0;
-  const playersSeen  = contextData.playersSeen || false;
-  const scoutSeen    = contextData.scoutSeen || false;
-  const settingsSeen = contextData.settingsSeen || false;
-  const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  function fmtDate(s){if(!s)return'';const d=parseFixtureDate(s);if(!d)return s;return`${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;}
-  const selStyle={background:'#0D0D0D',border:'1px solid #2A2A2A',borderRadius:8,padding:'7px 10px',color:'#FFF',fontSize:12,fontWeight:600,outline:'none',cursor:'pointer',flex:1};
-  function CheckStatus({seen}){
-    if(seen)return(<div style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontSize:13,fontWeight:700,color:'#22c55e'}}>Ready</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg></div>);
-    return <span style={{fontSize:13,fontWeight:700,color:'#F5C04A'}}>Review →</span>;
-  }
-  return (
-    <div style={{display:'flex',flexDirection:'column',minHeight:'100vh',background:'#0D0D0D'}}>
-      <div style={{padding:'54px 16px 14px',background:'#111111',borderBottom:'1px solid #1A1A1A'}}>
-        <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:2,textTransform:'uppercase',marginBottom:10}}>MATCH DAY</div>
-        <div style={{display:'flex',gap:6,alignItems:'center'}}>
-          {customMode?(<><input autoFocus value={mdOpponent} onChange={e=>setMdOpponent(e.target.value)} placeholder="Type opponent name…" style={{...selStyle,outline:'none'}}/><button onClick={()=>setCustomMode(false)} style={{background:'#2A2A2A',border:'none',borderRadius:8,color:'#A1A1A1',padding:'7px 10px',cursor:'pointer',fontSize:11,flexShrink:0}}>List</button></>):(
-          <select value={allTeams.includes(mdOpponent)?mdOpponent:(mdOpponent?'__custom__':'')} onChange={e=>{if(e.target.value==='__custom__'){setCustomMode(true);setMdOpponent('');}else setMdOpponent(e.target.value);}} style={selStyle}>
-            <option value="" disabled>— Select opposition —</option>
-            {nextOpp&&<option value={nextOpp}>📅 {nextOpp} (next fixture)</option>}
-            <option value="__custom__">✏️ Custom…</option>
-            {allTeams.filter(t=>t!==nextOpp).map(t=><option key={t} value={t}>{t}</option>)}
-          </select>)}
-        </div>
-      </div>
-      <div style={{flex:1,overflowY:'auto',padding:'16px',paddingBottom:'calc(80px + env(safe-area-inset-bottom))',display:'flex',flexDirection:'column',gap:14}}>
-        <div style={{background:'#111111',borderRadius:16,padding:'20px 16px 0',border:'1px solid #1A1A1A'}}>
-          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8}}>
-            <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:8}}><TeamBadge name={isHome?myTeam:(mdOpponent||'Away')} size={64} radius={12}/><div style={{fontSize:13,fontWeight:700,color:'#FFF',textAlign:'center',lineHeight:1.2}}>{isHome?myTeam:(mdOpponent||'—')}</div><div style={{fontSize:9,fontWeight:700,color:'#555',letterSpacing:1,textTransform:'uppercase'}}>HOME</div></div>
-            <div style={{fontSize:18,fontWeight:800,color:'#A1A1A1',flexShrink:0,padding:'22px 8px 0'}}>VS</div>
-            <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:8}}><TeamBadge name={isHome?(mdOpponent||'Away'):myTeam} size={64} radius={12}/><div style={{fontSize:13,fontWeight:700,color:'#FFF',textAlign:'center',lineHeight:1.2}}>{isHome?(mdOpponent||'—'):myTeam}</div><div style={{fontSize:9,fontWeight:700,color:'#555',letterSpacing:1,textTransform:'uppercase'}}>AWAY</div></div>
-          </div>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:16,padding:'12px 0',marginTop:14,borderTop:'1px solid #1A1A1A',flexWrap:'wrap'}}>
-            {linkedFix?.date&&<div style={{display:'flex',alignItems:'center',gap:5,color:'#A1A1A1',fontSize:12}}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>{fmtDate(linkedFix.date)}</span></div>}
-            {linkedFix?.time&&<div style={{display:'flex',alignItems:'center',gap:5,color:'#A1A1A1',fontSize:12}}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>{linkedFix.time}</span></div>}
-            {linkedFix?.venue&&<div style={{display:'flex',alignItems:'center',gap:5,color:'#A1A1A1',fontSize:12}}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>{linkedFix.venue}</span></div>}
-            {!linkedFix&&mdOpponent&&<span style={{fontSize:11,color:'#555',fontStyle:'italic'}}>Friendly / no fixture</span>}
-            {!mdOpponent&&<span style={{fontSize:11,color:'#555',fontStyle:'italic'}}>Select opposition above</span>}
-          </div>
-        </div>
-        <button disabled={!lineupReady} onClick={()=>onStartMatch(savedLineup,mdOpponent)}
-          style={{width:'100%',padding:'16px',border:'none',borderRadius:14,fontSize:15,fontWeight:800,letterSpacing:0.5,cursor:lineupReady?'pointer':'default',display:'flex',alignItems:'center',justifyContent:'center',gap:10,background:lineupReady?'#22c55e':'#1A1A1A',color:lineupReady?'#000':'#444',transition:'background 0.2s'}}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill={lineupReady?'#000':'#444'}><polygon points="5,3 19,12 5,21"/></svg>
-          {lineupReady?'START MATCH':'Save your line-up first'}
-        </button>
-        <div style={{background:'#111111',borderRadius:16,border:'1px solid #1A1A1A',overflow:'hidden'}}>
-          <div style={{padding:'12px 16px 10px',borderBottom:'1px solid #1A1A1A'}}><div style={{fontSize:9,fontWeight:800,color:'#F5C04A',letterSpacing:1.5,textTransform:'uppercase'}}>PRE MATCH CHECKLIST</div></div>
-          <button onClick={()=>onPlayers(ctxKey)} style={{width:'100%',display:'flex',alignItems:'center',padding:'14px 16px',borderBottom:'1px solid #1A1A1A',background:'none',border:'none',borderTop:'none',cursor:'pointer'}}>
-            <span style={{flex:1,fontSize:13,color:'#FFF',fontWeight:500,textAlign:'left'}}>Players</span>
-            <CheckStatus seen={playersSeen}/>
-          </button>
-          <button onClick={()=>playersSeen&&onLineup(ctxKey)} style={{width:'100%',display:'flex',alignItems:'center',padding:'14px 16px',borderBottom:'1px solid #1A1A1A',background:'none',border:'none',borderTop:'none',cursor:playersSeen?'pointer':'default',opacity:playersSeen?1:0.45}}>
-            <span style={{flex:1,fontSize:13,color:'#FFF',fontWeight:500,textAlign:'left'}}>Line-up</span>
-            <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontSize:13,fontWeight:700,color:lineupReady?'#22c55e':'#F5C04A'}}>{lineupReady?'Ready':'Set up →'}</span>{lineupReady&&<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>}</div>
-          </button>
-          <button onClick={()=>{if(!mdOpponent)return;saveContextData(ctxKey,{scoutSeen:true});setContextData(cd=>({...cd,scoutSeen:true}));onScout(mdOpponent);}} style={{width:'100%',display:'flex',alignItems:'center',padding:'14px 16px',borderBottom:'1px solid #1A1A1A',background:'none',border:'none',borderTop:'none',cursor:mdOpponent?'pointer':'default',opacity:mdOpponent?1:0.45}}>
-            <span style={{flex:1,fontSize:13,color:'#FFF',fontWeight:500,textAlign:'left'}}>Scout</span><CheckStatus seen={scoutSeen}/>
-          </button>
-          <button onClick={()=>{saveContextData(ctxKey,{settingsSeen:true});setContextData(cd=>({...cd,settingsSeen:true}));onSettings(ctxKey);}} style={{width:'100%',display:'flex',alignItems:'center',padding:'14px 16px',background:'none',border:'none',cursor:'pointer'}}>
-            <span style={{flex:1,fontSize:13,color:'#FFF',fontWeight:500,textAlign:'left'}}>Match Settings</span><CheckStatus seen={settingsSeen}/>
-          </button>
-        </div>
-        {(()=>{
-          const upcoming=FIXTURES.filter(f=>(f.home===myTeam||f.away===myTeam)&&isUpcoming(f)).slice(0,3);
-          if(upcoming.length===0)return null;
-          return(<div style={{background:'#111111',borderRadius:16,border:'1px solid #1A1A1A',overflow:'hidden'}}>
-            <div style={{padding:'12px 16px 10px',borderBottom:'1px solid #1A1A1A'}}><div style={{fontSize:9,fontWeight:800,color:'#F5C04A',letterSpacing:1.5,textTransform:'uppercase'}}>UPCOMING</div></div>
-            {upcoming.map((f,i)=>{
-              const opp=f.home===myTeam?f.away:f.home;
-              const home=f.home===myTeam;
-              const isActive=opp===mdOpponent;
-              const ck=makeContextKey(f,opp);
-              const cx=loadContextData(ck);
-              const ready=cx.lineup?.h1Periods?.length>0;
-              return(<button key={i} onClick={()=>setMdOpponent(opp)}
-                style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'12px 16px',borderBottom:i<upcoming.length-1?'1px solid #1A1A1A':'none',background:isActive?'rgba(245,192,74,0.06)':'none',border:'none',borderTop:'none',cursor:'pointer',textAlign:'left'}}>
-                <TeamBadge name={opp} size={32} radius={6}/>
-                <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:600,color:isActive?'#F5C04A':'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{opp}</div><div style={{fontSize:11,color:'#555',marginTop:1}}>{home?'Home':'Away'}{f.venue?' · '+f.venue:''}</div></div>
-                <div style={{textAlign:'right',flexShrink:0}}><div style={{fontSize:12,color:'#A1A1A1',fontWeight:500}}>{fmtDate(f.date)}</div>{f.time&&<div style={{fontSize:11,color:'#555',marginTop:1}}>{f.time}</div>}</div>
-                {ready?<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>:isActive?<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>:null}
-              </button>);
-            })}
-          </div>);
-        })()}
-      </div>
-      <BottomNav activeTab="match" onTab={onBack}/>
-    </div>
-  );
-}
-
-function generatePostMatchOutputs({ game, opponent, teamName, oppR, ourR, notes, priorities, mostImproved, playerNotes, isQuick }) {
-  const won = game.scoreUs > game.scoreThem;
-  const drew = game.scoreUs === game.scoreThem;
-  const result = won ? 'won' : drew ? 'drew' : 'lost';
-  const score = `${game.scoreUs}–${game.scoreThem}`;
-  const emoji = won ? '🏆' : drew ? '🤝' : '💪';
-
-  const avgRating = (obj) => {
-    const vals = Object.values(obj).filter(v => v > 0);
-    return vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : null;
-  };
-  const stars = (n) => '★'.repeat(Math.round(n||0)) + '☆'.repeat(5-Math.round(n||0));
-  const oppAvg = avgRating(oppR);
-  const ourAvg = avgRating(ourR);
-
-  // Derive strengths/weaknesses from ratings
-  const oppStrengths = Object.entries(oppR).filter(([,v])=>v>=4).map(([k])=>k);
-  const oppWeaknesses = Object.entries(oppR).filter(([,v])=>v<=2).map(([k])=>k);
-  const ourStrengths = Object.entries(ourR).filter(([,v])=>v>=4).map(([k])=>k);
-  const ourWeaknesses = Object.entries(ourR).filter(([,v])=>v<=2).map(([k])=>k);
-
-  const label = (k) => ({
-    overallStrength:'Overall Strength', attacking:'Attacking', defending:'Defending',
-    passing:'Passing', pressing:'Pressing', physicality:'Physicality', goalkeeper:'Goalkeeper',
-    overallPerformance:'Overall Performance', teamShape:'Team Shape', communication:'Communication',
-    workRate:'Work Rate', decisionMaking:'Decision Making', composure:'Composure', finishing:'Finishing'
-  }[k] || k);
-
-  // 1. Parent Summary
-  const parentSummary = [
-    `${emoji} ${teamName} ${result} ${score} against ${opponent} today!`,
-    notes.ourPleased ? `\n✅ ${notes.ourPleased}` : (ourStrengths.length ? `\n✅ Great ${ourStrengths.slice(0,2).map(label).join(' & ').toLowerCase()} today.` : ''),
-    priorities.length ? `\n📈 This week we'll focus on: ${priorities.slice(0,2).join(' & ')}.` : (notes.ourImprove ? `\n📈 Next focus: ${notes.ourImprove.split('.')[0]}.` : ''),
-    mostImproved ? `\n⭐ Special shoutout to ${mostImproved} for their improvement today!` : '',
-    `\nWell done everyone! 👏`,
-  ].filter(Boolean).join('');
-
-  // 2. Scout Report
-  const scoutLines = [`${opponent} – Scout Report`, `Overall: ${oppAvg ? stars(oppAvg) + ' (' + oppAvg + '/5)' : 'Not rated'}`, ''];
-  Object.entries(oppR).forEach(([k,v]) => { if(v) scoutLines.push(`${label(k)}: ${stars(v)}`); });
-  if(oppStrengths.length) { scoutLines.push('', 'Strengths:'); oppStrengths.forEach(k => scoutLines.push(`• Strong ${label(k).toLowerCase()}`)); }
-  if(oppWeaknesses.length) { scoutLines.push('', 'Vulnerabilities:'); oppWeaknesses.forEach(k => scoutLines.push(`• Weak ${label(k).toLowerCase()}`)); }
-  if(notes.oppDidWell) scoutLines.push('', 'What they did well:', notes.oppDidWell);
-  if(notes.oppProblems) scoutLines.push('', 'Caused us problems with:', notes.oppProblems);
-  if(notes.oppAdvice) scoutLines.push('', 'Coach advice:', notes.oppAdvice);
-  const scoutReport = scoutLines.join('\n');
-
-  // 3. Team Review
-  const teamLines = [`${teamName} – Match Review vs ${opponent} (${score})`, ''];
-  if(ourAvg) teamLines.push(`Overall Rating: ${stars(ourAvg)} (${ourAvg}/5)`, '');
-  if(ourStrengths.length || notes.ourPleased) {
-    teamLines.push('Positives:');
-    if(notes.ourPleased) teamLines.push(`• ${notes.ourPleased}`);
-    ourStrengths.forEach(k => teamLines.push(`• Strong ${label(k).toLowerCase()}`));
-  }
-  if(ourWeaknesses.length || notes.ourImprove || priorities.length) {
-    teamLines.push('', 'Development Areas:');
-    if(notes.ourImprove) teamLines.push(`• ${notes.ourImprove}`);
-    ourWeaknesses.forEach(k => teamLines.push(`• Improve ${label(k).toLowerCase()}`));
-  }
-  const teamReview = teamLines.join('\n');
-
-  // 4. Training Recommendation
-  const trainingLines = ['Recommended Training Focus:'];
-  if(priorities.length) { priorities.forEach((p,i) => trainingLines.push(`${i===0?'Primary':'Additional'}: ${p}`)); }
-  else if(ourWeaknesses.length) { ourWeaknesses.slice(0,3).forEach(k => trainingLines.push(`• ${label(k)}`)); }
-  const trainingRec = trainingLines.join('\n');
-
-  // 5. Player Updates
-  const playerLines = [];
-  if(mostImproved) playerLines.push(`⭐ Most Improved: ${mostImproved}`);
-  Object.entries(playerNotes).filter(([,v])=>v.trim()).forEach(([name,note]) => {
-    playerLines.push('', `${name}:`, note);
-  });
-  const playerUpdates = playerLines.length ? playerLines.join('\n') : 'No individual notes recorded.';
-
-  return { parentSummary, scoutReport, teamReview, trainingRec, playerUpdates };
-}
-
-function PostMatchReviewScreen({ game, squad, opponent, config, onDone }) {
-  const teamName = config?.teamName || localStorage.getItem('soccerCoach_fixtureTeam') || 'Us';
-  const players  = (squad || []).map(p => p.name);
-
-  const [mode,            setMode]           = React.useState(null);
-  const [step,            setStep]           = React.useState(1);
-  const [oppR,            setOppR]           = React.useState({});
-  const [ourR,            setOurR]           = React.useState({});
-  const [notes,           setNotes]          = React.useState({ oppProblems:'', oppDidWell:'', oppAdvice:'', ourPleased:'', ourImprove:'' });
-  const [priorities,      setPriorities]     = React.useState([]);
-  const [mostImproved,    setMostImproved]   = React.useState('');
-  const [playerNotes,     setPlayerNotes]    = React.useState({});
-  const [showPlayerNotes, setShowPlayerNotes]= React.useState(false);
-  const [generating,      setGenerating]     = React.useState(false);
-  const [outputs,         setOutputs]        = React.useState(null);
-  const [copiedKey,       setCopiedKey]      = React.useState(null);
-  const [listeningField,  setListeningField] = React.useState(null);
-  const recogRef = React.useRef(null);
-
-  const isQuick = mode === 'quick';
-  const won  = game.scoreUs > game.scoreThem;
-  const drew = game.scoreUs === game.scoreThem;
-
-  // ── Voice dictation ──────────────────────────────────────────────────────────
-  const SpeechRec = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
-  function toggleVoice(field) {
-    if (listeningField === field) {
-      recogRef.current && recogRef.current.stop();
-      setListeningField(null); return;
-    }
-    if (!SpeechRec) return;
-    const r = new SpeechRec();
-    r.continuous = true; r.interimResults = false; r.lang = 'en-AU';
-    r.onresult = e => {
-      const t = Array.from(e.results).map(x=>x[0].transcript).join(' ');
-      setNotes(prev => ({ ...prev, [field]: (prev[field] ? prev[field]+' ' : '') + t }));
-    };
-    r.onend = () => setListeningField(null);
-    recogRef.current = r;
-    r.start();
-    setListeningField(field);
-  }
-
-  // ── Star rating ──────────────────────────────────────────────────────────────
-  function StarRow({ label, field, ratings, setRatings }) {
-    const val = ratings[field] || 0;
-    return (
-      <div style={{display:'flex',alignItems:'center',padding:'10px 0',borderBottom:'1px solid #1A1A1A'}}>
-        <div style={{flex:1,fontSize:13,color:'#A1A1A1',fontWeight:500}}>{label}</div>
-        <div style={{display:'flex',gap:2}}>
-          {[1,2,3,4,5].map(n=>(
-            <button key={n} onClick={()=>setRatings(prev=>({...prev,[field]:n}))}
-              style={{background:'none',border:'none',cursor:'pointer',padding:'2px',fontSize:26,lineHeight:1,
-                color: n<=val ? '#F5C04A' : '#2A2A2A', transition:'color 0.1s'}}>
-              ★
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // ── Training priorities ──────────────────────────────────────────────────────
-  const ALL_PRIORITIES = [
-    'Building Out','Playing Through Midfield','Final Third','Finishing','Width','Switching Play',
-    'First Touch','Passing','Communication','Team Shape','Pressing','Recovery Runs',
-    'Counter Attacking','1v1 Attacking','1v1 Defending','Throw Ins','Corners','Goal Kicks','Goalkeeping'
-  ];
-  function togglePriority(p) {
-    setPriorities(prev => prev.includes(p) ? prev.filter(x=>x!==p) : prev.length<3 ? [...prev,p] : prev);
-  }
-
-  // ── Note field with mic ──────────────────────────────────────────────────────
-  function NoteField({ label, field, placeholder, rows=3 }) {
-    const isLive = listeningField === field;
-    return (
-      <div style={{marginBottom:16}}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
-          <div style={{fontSize:13,fontWeight:500,color:'#A1A1A1'}}>{label}</div>
-          {SpeechRec && (
-            <button onClick={()=>toggleVoice(field)}
-              style={{background:isLive?'rgba(239,68,68,0.15)':'none',border:isLive?'1px solid #ef4444':'none',
-                borderRadius:8,padding:'4px 8px',cursor:'pointer',display:'flex',alignItems:'center',gap:4,
-                color:isLive?'#ef4444':'#555'}}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-              </svg>
-              <span style={{fontSize:10,fontWeight:700}}>{isLive?'Stop':'Dictate'}</span>
-            </button>
-          )}
-        </div>
-        <textarea value={notes[field]} onChange={e=>setNotes(prev=>({...prev,[field]:e.target.value}))}
-          placeholder={placeholder} rows={rows}
-          style={{width:'100%',background:'#0D0D0D',border:`1px solid ${isLive?'#ef4444':'#2A2A2A'}`,
-            borderRadius:10,padding:'10px 12px',color:'#FFF',fontSize:13,outline:'none',
-            resize:'none',fontFamily:'inherit',boxSizing:'border-box',lineHeight:1.5}}/>
-      </div>
-    );
-  }
-
-  // ── Generate outputs ─────────────────────────────────────────────────────────
-  function handleGenerate() {
-    setGenerating(true);
-    setTimeout(() => {
-      const result = generatePostMatchOutputs({ game, opponent, teamName, oppR, ourR, notes, priorities, mostImproved, playerNotes, isQuick });
-      // Save to localStorage
-      try {
-        const key = 'soccerCoach_postMatch_' + (game.id || Date.now());
-        const stored = JSON.parse(localStorage.getItem('soccerCoach_allPostMatch') || '[]');
-        stored.unshift({ id: key, gameId: game.id, opponent, date: Date.now(), oppR, ourR, notes, priorities, mostImproved, playerNotes, outputs: result });
-        localStorage.setItem('soccerCoach_allPostMatch', JSON.stringify(stored.slice(0, 50)));
-      } catch {}
-      setOutputs(result);
-      setGenerating(false);
-    }, 1800);
-  }
-
-  function copyOutput(key, text) {
-    try { navigator.clipboard.writeText(text); } catch {}
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 2000);
-  }
-
-  // ── OPP rating categories ─────────────────────────────────────────────────────
-  const oppCatsFull = [
-    ['overallStrength','Overall Strength'],['attacking','Attacking'],['defending','Defending'],
-    ['passing','Passing'],['pressing','Pressing'],['physicality','Physicality'],['goalkeeper','Goalkeeper']
-  ];
-  const oppCatsQuick = [['overallStrength','Overall Strength'],['attacking','Attacking'],['defending','Defending'],['pressing','Pressing']];
-  const ourCatsFull  = [
-    ['overallPerformance','Overall Performance'],['attacking','Attacking'],['defending','Defending'],
-    ['passing','Passing'],['teamShape','Team Shape'],['communication','Communication'],
-    ['workRate','Work Rate'],['decisionMaking','Decision Making'],['composure','Composure'],['finishing','Finishing']
-  ];
-  const ourCatsQuick = [['overallPerformance','Overall Performance'],['attacking','Attacking'],['defending','Defending'],['teamShape','Team Shape']];
-  const oppCats = isQuick ? oppCatsQuick : oppCatsFull;
-  const ourCats = isQuick ? ourCatsQuick : ourCatsFull;
-
-  const TOTAL_STEPS = 3;
-  const resultColor = won ? '#22c55e' : drew ? '#F5C04A' : '#A1A1A1';
-  const resultLabel = won ? 'Win' : drew ? 'Draw' : 'Loss';
-
-  // ── Mode select ──────────────────────────────────────────────────────────────
-  if (!mode) return (
-    <div style={{minHeight:'100vh',background:'#0D0D0D',display:'flex',flexDirection:'column'}}>
-      <div style={{padding:'54px 20px 20px',background:'#111111',borderBottom:'1px solid #1A1A1A'}}>
-        <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:2,textTransform:'uppercase',marginBottom:4}}>POST MATCH</div>
-        <div style={{fontSize:24,fontWeight:800,color:'#FFF'}}>Match Review</div>
-        <div style={{display:'flex',alignItems:'center',gap:10,marginTop:12}}>
-          <TeamBadge name={teamName} size={36} radius={8}/>
-          <div style={{fontSize:20,fontWeight:800,color:resultColor}}>{game.scoreUs}–{game.scoreThem}</div>
-          <TeamBadge name={opponent} size={36} radius={8}/>
-          <div style={{flex:1,fontSize:12,color:'#555',marginLeft:4}}>{opponent}</div>
-          <div style={{background:resultColor+'22',border:`1px solid ${resultColor}44`,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:800,color:resultColor}}>{resultLabel}</div>
-        </div>
-      </div>
-      <div style={{flex:1,padding:'24px 20px',display:'flex',flexDirection:'column',gap:14}}>
-        <div style={{fontSize:14,color:'#A1A1A1',textAlign:'center',marginBottom:8}}>How much time do you have?</div>
-        <button onClick={()=>setMode('quick')}
-          style={{background:'#111111',border:'2px solid #F5C04A',borderRadius:18,padding:'22px 20px',cursor:'pointer',textAlign:'left'}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
-            <div style={{fontSize:17,fontWeight:800,color:'#F5C04A'}}>⚡ Quick Review</div>
-            <div style={{fontSize:12,fontWeight:700,color:'#F5C04A',background:'#F5C04A22',borderRadius:8,padding:'3px 10px'}}>60–90 sec</div>
-          </div>
-          <div style={{fontSize:13,color:'#A1A1A1',lineHeight:1.5}}>Key ratings + 2 quick notes + training priorities. Perfect for right after the match.</div>
-        </button>
-        <button onClick={()=>setMode('full')}
-          style={{background:'#111111',border:'2px solid #2A2A2A',borderRadius:18,padding:'22px 20px',cursor:'pointer',textAlign:'left'}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
-            <div style={{fontSize:17,fontWeight:800,color:'#FFF'}}>📋 Full Review</div>
-            <div style={{fontSize:12,fontWeight:700,color:'#555',background:'#1A1A1A',borderRadius:8,padding:'3px 10px'}}>5–10 min</div>
-          </div>
-          <div style={{fontSize:13,color:'#A1A1A1',lineHeight:1.5}}>All ratings, detailed notes, player observations and full scout report.</div>
-        </button>
-        <button onClick={onDone} style={{marginTop:'auto',padding:'14px',border:'none',background:'none',color:'#555',fontSize:13,cursor:'pointer'}}>
-          Skip for now
-        </button>
-      </div>
-    </div>
-  );
-
-  // ── Progress header ──────────────────────────────────────────────────────────
-  function Header({ title, subtitle }) {
-    return (
-      <div style={{padding:'54px 16px 14px',background:'#111111',borderBottom:'1px solid #1A1A1A',flexShrink:0}}>
-        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
-          <button onClick={()=>step===1?setMode(null):setStep(s=>s-1)} style={{background:'none',border:'none',cursor:'pointer',color:'#A1A1A1',display:'flex',padding:4}}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-          <div style={{flex:1}}>
-            <div style={{fontSize:11,fontWeight:800,color:isQuick?'#F5C04A':'#60a5fa',letterSpacing:1.5,textTransform:'uppercase'}}>{isQuick?'⚡ QUICK REVIEW':'📋 FULL REVIEW'}</div>
-            <div style={{fontSize:17,fontWeight:800,color:'#FFF',marginTop:2}}>{title}</div>
-            {subtitle && <div style={{fontSize:12,color:'#555',marginTop:1}}>{subtitle}</div>}
-          </div>
-          <div style={{textAlign:'right',flexShrink:0}}>
-            <div style={{fontSize:11,color:'#555',fontWeight:600}}>{step} of {TOTAL_STEPS}</div>
-            <div style={{display:'flex',gap:4,marginTop:4}}>
-              {Array.from({length:TOTAL_STEPS}).map((_,i)=>(
-                <div key={i} style={{height:3,borderRadius:2,transition:'all 0.3s',
-                  width: i<step ? 18 : 10,
-                  background: i<step ? '#F5C04A' : '#2A2A2A'}}/>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── STEP 1: Ratings ──────────────────────────────────────────────────────────
-  if (step === 1 && !outputs) return (
-    <div style={{display:'flex',flexDirection:'column',height:'100dvh',background:'#0D0D0D',overflow:'hidden'}}>
-      <Header title="Match Reflection" subtitle={`Rate both teams vs ${opponent}`}/>
-      <div style={{flex:1,overflowY:'auto',padding:'16px',paddingBottom:100}}>
-
-        <div style={{background:'#111111',borderRadius:16,border:'1px solid #1A1A1A',overflow:'hidden',marginBottom:14}}>
-          <div style={{padding:'12px 16px',borderBottom:'1px solid #1A1A1A',display:'flex',alignItems:'center',gap:10}}>
-            <TeamBadge name={opponent} size={28} radius={6}/>
-            <div style={{fontSize:12,fontWeight:800,color:'#F5C04A',letterSpacing:1,textTransform:'uppercase'}}>{opponent}</div>
-          </div>
-          <div style={{padding:'0 16px'}}>
-            {oppCats.map(([field,label])=>(<StarRow key={field} label={label} field={field} ratings={oppR} setRatings={setOppR}/>))}
-          </div>
-        </div>
-
-        <div style={{background:'#111111',borderRadius:16,border:'1px solid #1A1A1A',overflow:'hidden',marginBottom:14}}>
-          <div style={{padding:'12px 16px',borderBottom:'1px solid #1A1A1A',display:'flex',alignItems:'center',gap:10}}>
-            <TeamBadge name={teamName} size={28} radius={6}/>
-            <div style={{fontSize:12,fontWeight:800,color:'#22c55e',letterSpacing:1,textTransform:'uppercase'}}>{teamName}</div>
-          </div>
-          <div style={{padding:'0 16px'}}>
-            {ourCats.map(([field,label])=>(<StarRow key={field} label={label} field={field} ratings={ourR} setRatings={setOurR}/>))}
-          </div>
-        </div>
-      </div>
-      <div style={{position:'fixed',bottom:0,left:0,right:0,padding:'12px 16px',paddingBottom:'calc(env(safe-area-inset-bottom) + 80px)',background:'#0D0D0D',borderTop:'1px solid #1A1A1A'}}>
-        <button onClick={()=>setStep(2)} style={{width:'100%',padding:'15px',border:'none',borderRadius:14,fontSize:15,fontWeight:800,cursor:'pointer',background:'#F5C04A',color:'#000'}}>
-          Next →
-        </button>
-      </div>
-      <BottomNav activeTab="match" onTab={()=>{}}/>
-    </div>
-  );
-
-  // ── STEP 2: Notes ────────────────────────────────────────────────────────────
-  if (step === 2 && !outputs) return (
-    <div style={{display:'flex',flexDirection:'column',height:'100dvh',background:'#0D0D0D',overflow:'hidden'}}>
-      <Header title="Coaching Notes" subtitle="Capture while fresh — voice or type"/>
-      <div style={{flex:1,overflowY:'auto',padding:'16px',paddingBottom:100}}>
-        <div style={{background:'#111111',borderRadius:16,border:'1px solid #1A1A1A',padding:'16px',marginBottom:14}}>
-          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-            <TeamBadge name={opponent} size={22} radius={5}/>
-            <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:1,textTransform:'uppercase'}}>{opponent} — Opposition Notes</div>
-          </div>
-          <NoteField label="What caused us the most problems?" field="oppProblems" placeholder="Their pressing, direct play, set pieces…"/>
-          {!isQuick && <NoteField label="What did they do well?" field="oppDidWell" placeholder="Good ball retention, strong centre back…"/>}
-          <NoteField label={isQuick?"Advice for playing them next time":"What should another coach know before playing them?"} field="oppAdvice" placeholder="Play wide, quick transitions, watch #9…"/>
-        </div>
-        <div style={{background:'#111111',borderRadius:16,border:'1px solid #1A1A1A',padding:'16px'}}>
-          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-            <TeamBadge name={teamName} size={22} radius={5}/>
-            <div style={{fontSize:11,fontWeight:800,color:'#22c55e',letterSpacing:1,textTransform:'uppercase'}}>{teamName} — Our Notes</div>
-          </div>
-          <NoteField label="What pleased you today?" field="ourPleased" placeholder="Great pressing, team shape held well…"/>
-          <NoteField label="What should we improve?" field="ourImprove" placeholder="Final third decisions, composure in front of goal…"/>
-        </div>
-      </div>
-      <div style={{position:'fixed',bottom:0,left:0,right:0,padding:'12px 16px',paddingBottom:'calc(env(safe-area-inset-bottom) + 80px)',background:'#0D0D0D',borderTop:'1px solid #1A1A1A'}}>
-        <button onClick={()=>setStep(3)} style={{width:'100%',padding:'15px',border:'none',borderRadius:14,fontSize:15,fontWeight:800,cursor:'pointer',background:'#F5C04A',color:'#000'}}>
-          Next →
-        </button>
-      </div>
-      <BottomNav activeTab="match" onTab={()=>{}}/>
-    </div>
-  );
-
-  // ── STEP 3: Training + Players ───────────────────────────────────────────────
-  if (step === 3 && !outputs) return (
-    <div style={{display:'flex',flexDirection:'column',height:'100dvh',background:'#0D0D0D',overflow:'hidden'}}>
-      <Header title="Training Focus" subtitle="Select up to 3 priorities"/>
-      <div style={{flex:1,overflowY:'auto',padding:'16px',paddingBottom:100}}>
-
-        <div style={{background:'#111111',borderRadius:16,border:'1px solid #1A1A1A',padding:'16px',marginBottom:14}}>
-          <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:1.5,textTransform:'uppercase',marginBottom:4}}>TRAINING PRIORITIES <span style={{color:'#555',fontWeight:500}}>({priorities.length}/3)</span></div>
-          <div style={{fontSize:11,color:'#555',marginBottom:12}}>Select up to 3 focus areas for next session</div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
-            {ALL_PRIORITIES.map(p => {
-              const sel = priorities.includes(p);
-              const dis = !sel && priorities.length >= 3;
-              return (
-                <button key={p} onClick={()=>!dis&&togglePriority(p)}
-                  style={{padding:'8px 14px',borderRadius:20,border:`1.5px solid ${sel?'#F5C04A':'#2A2A2A'}`,
-                    background:sel?'rgba(245,192,74,0.12)':'#1A1A1A',
-                    color:sel?'#F5C04A':dis?'#333':'#A1A1A1',
-                    fontSize:13,fontWeight:sel?700:500,cursor:dis?'default':'pointer',transition:'all 0.15s'}}>
-                  {p}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div style={{background:'#111111',borderRadius:16,border:'1px solid #1A1A1A',padding:'16px',marginBottom:14}}>
-          <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:1.5,textTransform:'uppercase',marginBottom:4}}>MOST IMPROVED PLAYER</div>
-          <div style={{fontSize:11,color:'#555',marginBottom:10}}>Track development — not Player of the Match</div>
-          <select value={mostImproved} onChange={e=>setMostImproved(e.target.value)}
-            style={{width:'100%',background:'#0D0D0D',border:'1px solid #2A2A2A',borderRadius:10,padding:'11px 14px',color:mostImproved?'#FFF':'#555',fontSize:14,outline:'none'}}>
-            <option value="">Select player…</option>
-            {players.map(p=><option key={p} value={p}>{p}</option>)}
-          </select>
-        </div>
-
-        {!isQuick && (
-          <div style={{background:'#111111',borderRadius:16,border:'1px solid #1A1A1A',overflow:'hidden',marginBottom:14}}>
-            <button onClick={()=>setShowPlayerNotes(p=>!p)}
-              style={{width:'100%',padding:'14px 16px',background:'none',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-              <div>
-                <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:1.5,textTransform:'uppercase',textAlign:'left'}}>PLAYER NOTES</div>
-                <div style={{fontSize:11,color:'#555',marginTop:2,textAlign:'left'}}>Optional — individual observations</div>
-              </div>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2.5" style={{transform:showPlayerNotes?'rotate(180deg)':'none',transition:'transform 0.2s'}}><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            {showPlayerNotes && (
-              <div style={{padding:'0 16px 16px',borderTop:'1px solid #1A1A1A'}}>
-                {players.slice(0,12).map(name=>(
-                  <div key={name} style={{marginTop:12}}>
-                    <div style={{fontSize:12,fontWeight:600,color:'#A1A1A1',marginBottom:4}}>{name}</div>
-                    <input value={playerNotes[name]||''} onChange={e=>setPlayerNotes(prev=>({...prev,[name]:e.target.value}))}
-                      placeholder="Short observation…"
-                      style={{width:'100%',background:'#0D0D0D',border:'1px solid #2A2A2A',borderRadius:8,padding:'8px 12px',color:'#FFF',fontSize:13,outline:'none',boxSizing:'border-box'}}/>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-      <div style={{position:'fixed',bottom:0,left:0,right:0,padding:'12px 16px',paddingBottom:'calc(env(safe-area-inset-bottom) + 80px)',background:'#0D0D0D',borderTop:'1px solid #1A1A1A'}}>
-        <button onClick={handleGenerate}
-          style={{width:'100%',padding:'16px',border:'none',borderRadius:14,fontSize:16,fontWeight:800,cursor:'pointer',background:'#22c55e',color:'#000',letterSpacing:0.3}}>
-          ✨ Generate Match Review
-        </button>
-      </div>
-      <BottomNav activeTab="match" onTab={()=>{}}/>
-    </div>
-  );
-
-  // ── Generating loader ─────────────────────────────────────────────────────────
-  if (generating) return (
-    <div style={{minHeight:'100vh',background:'#0D0D0D',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:20,padding:32}}>
-      <div style={{fontSize:40}}>✨</div>
-      <div style={{fontSize:18,fontWeight:800,color:'#FFF',textAlign:'center'}}>Generating Review…</div>
-      <div style={{fontSize:13,color:'#555',textAlign:'center',maxWidth:260}}>Building your scout report, team review, and training recommendations</div>
-      <div style={{display:'flex',gap:6,marginTop:8}}>
-        {[0,1,2].map(i=>(
-          <div key={i} style={{width:8,height:8,borderRadius:4,background:'#F5C04A',
-            animation:'pulse 1.2s ease-in-out infinite',animationDelay:`${i*0.2}s`}}/>
-        ))}
-      </div>
-      <style>{`@keyframes pulse{0%,100%{opacity:0.3}50%{opacity:1}}`}</style>
-    </div>
-  );
-
-  // ── Outputs ──────────────────────────────────────────────────────────────────
-  if (outputs) {
-    const OUT_CARDS = [
-      { key:'parentSummary', title:'📱 Parent Summary', subtitle:'WhatsApp-ready', color:'#22c55e', text:outputs.parentSummary },
-      { key:'scoutReport',   title:'🔍 Scout Report',  subtitle:opponent,          color:'#F5C04A', text:outputs.scoutReport   },
-      { key:'teamReview',    title:'📊 Team Review',   subtitle:teamName,          color:'#60a5fa', text:outputs.teamReview    },
-      { key:'trainingRec',   title:'🏋️ Training Focus', subtitle:'Next session',   color:'#a78bfa', text:outputs.trainingRec   },
-      { key:'playerUpdates', title:'⭐ Player Notes',  subtitle:'Development',      color:'#fb923c', text:outputs.playerUpdates },
-    ];
-    return (
-      <div style={{display:'flex',flexDirection:'column',minHeight:'100vh',background:'#0D0D0D'}}>
-        <div style={{padding:'54px 16px 14px',background:'#111111',borderBottom:'1px solid #1A1A1A'}}>
-          <div style={{fontSize:11,fontWeight:800,color:'#22c55e',letterSpacing:2,textTransform:'uppercase',marginBottom:4}}>REVIEW COMPLETE</div>
-          <div style={{fontSize:20,fontWeight:800,color:'#FFF'}}>Match Review Generated</div>
-          <div style={{fontSize:12,color:'#555',marginTop:4}}>Tap any card to copy to clipboard</div>
-        </div>
-        <div style={{flex:1,padding:'16px',paddingBottom:120,display:'flex',flexDirection:'column',gap:12}}>
-          {OUT_CARDS.map(card=>(
-            <div key={card.key} style={{background:'#111111',borderRadius:16,border:`1px solid ${card.color}33`,overflow:'hidden'}}>
-              <div style={{padding:'12px 16px',borderBottom:`1px solid ${card.color}22`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                <div>
-                  <div style={{fontSize:14,fontWeight:800,color:card.color}}>{card.title}</div>
-                  <div style={{fontSize:11,color:'#555',marginTop:1}}>{card.subtitle}</div>
-                </div>
-                <button onClick={()=>copyOutput(card.key,card.text)}
-                  style={{background:copiedKey===card.key?card.color+'22':'#1A1A1A',border:`1px solid ${copiedKey===card.key?card.color:'#2A2A2A'}`,
-                    borderRadius:8,padding:'6px 12px',cursor:'pointer',color:copiedKey===card.key?card.color:'#A1A1A1',fontSize:11,fontWeight:700}}>
-                  {copiedKey===card.key?'✓ Copied':'Copy'}
-                </button>
-              </div>
-              <div style={{padding:'12px 16px'}}>
-                <pre style={{margin:0,fontFamily:'inherit',fontSize:12,color:'#A1A1A1',whiteSpace:'pre-wrap',lineHeight:1.6}}>{card.text}</pre>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={{position:'fixed',bottom:0,left:0,right:0,padding:'12px 16px',paddingBottom:'calc(env(safe-area-inset-bottom) + 80px)',background:'#0D0D0D',borderTop:'1px solid #1A1A1A'}}>
-          <button onClick={onDone} style={{width:'100%',padding:'15px',border:'none',borderRadius:14,fontSize:15,fontWeight:800,cursor:'pointer',background:'#22c55e',color:'#000'}}>
-            Done ✓
-          </button>
-        </div>
-        <BottomNav activeTab="match" onTab={()=>{}}/>
-      </div>
-    );
-  }
-
-  return null;
-}
 
 function HomeScreen({ games, settings, onMatchDay, onGoSeason, onGoTeam, onGoMore, onGoAccount, setTab }) {
   const coachName = settings?.coachName || 'Coach';
@@ -6647,16 +5779,13 @@ export default function App() {
   const [squadBackTo, setSquadBackTo] = useState("home");
   const [settingsBackTo, setSettingsBackTo] = useState("account");
   const [playerStatsName, setPlayerStatsName] = useState(null);
-  const [pickerInitialTab, setPickerInitialTab] = useState('squad');
-  const [postMatchGame,    setPostMatchGame]    = useState(null);
-  const [matchContextKey, setMatchContextKey] = useState('');
 
   // Hide bottom nav during active match recording
   const hideNav = screen === "match";
 
   function goTab(tab) {
     setActiveTab(tab);
-    const roots = { home:"home", match:"matchDay", season:"season", team:"teamScreen", more:"more" };
+    const roots = { home:"home", match:"picker", season:"season", team:"teamScreen", more:"more" };
     setScreen(roots[tab]);
   }
 
@@ -6685,40 +5814,11 @@ export default function App() {
     if(screen==="teamScreen")   return <TeamScreen onBack={()=>goTab("home")} onViewStats={()=>setScreen("stats")} onGoMatch={()=>{setSquadMode("newGame");setSquadBackTo("home");goTab("match");}} onGoFixtures={()=>{_pendingSeasonSub="fixtures";setActiveTab("season");setScreen("season");}} games={games} settings={settings} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("teamSquad");setScreen("squad");}} onEditTeam={()=>{setSettingsBackTo("teamScreen");setScreen("settings");}} onViewSquad={()=>setScreen("teamSquad")} />;
     if(screen==="teamSquad")    return <TeamSquadScreen onBack={()=>setScreen("teamScreen")} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("teamSquad");setScreen("squad");}} />;
     if(screen==="stats")        return <StatsScreen games={games} onBack={()=>setScreen("teamScreen")} />;
-    if(screen==="opponentStats") return <OpponentStatsScreen opponent={scoutTeam} onBack={()=>setScreen(squadBackTo==="matchDay"?"matchDay":squadBackTo==="picker"?"picker":"squad")} />;
+    if(screen==="opponentStats") return <OpponentStatsScreen opponent={scoutTeam} onBack={()=>setScreen(squadBackTo==="picker"?"picker":"squad")} />;
     if(screen==="squad")        return <SquadScreen mode={squadMode} onNext={(s,c,opp,lfk,fih)=>{setSquad(s);setConfig(c);setOpponent(opp);setLinkedFixKey(lfk);setFixIsHome(fih);setScreen("picker");}} onBack={()=>setScreen(squadBackTo||"teamScreen")} onViewOpponent={t=>{setScoutTeam(t);setScreen("opponentStats");}} />;
     if(screen==="playerStats") return <PlayerStatsScreen playerName={playerStatsName} onBack={()=>setScreen("picker")} games={games} squad={squad} />;
-    if(screen==="matchDay")     return <MatchDayScreen settings={settings}
-      onStartMatch={(sl,mdOpp)=>{
-        const cfg={...(sl.config||{}),teamName:settings?.teamName||''};
-        const opp=mdOpp||sl.opponent||'';
-        const myTeam=localStorage.getItem('soccerCoach_fixtureTeam')||settings?.teamName||'';
-        const lf=FIXTURES.find(f=>isUpcoming(f)&&((f.home===myTeam&&f.away===opp)||(f.away===myTeam&&f.home===opp)));
-        const sq=loadSquad();
-        const sqNames=sq.map(p=>p.name);
-        // Transform raw slot arrays → [{slots:{...with bench}, seeded}] format MatchScreen expects
-        const toHalf=(ps)=>(ps||[]).map((rawSlots,i)=>{
-          const slots={...rawSlots};
-          if(!slots.bench) slots.bench=sqNames.filter(n=>!Object.values(rawSlots).includes(n));
-          return {slots, seeded:i===0};
-        });
-        setConfig(cfg); setSquad(sq);
-        setOpponent(opp);
-        setLinkedFixKey(lf?fixtureKey(lf):sl.linkedFixKey||null);
-        setFixIsHome(lf?lf.home===myTeam:sl.fixIsHome??null);
-        setHalf1(toHalf(sl.h1Periods)); setHalf2(toHalf(sl.h2Periods));
-        setScreen("match");
-      }}
-      onPlayers={ck=>{setMatchContextKey(ck||'');setScreen("playersScreen");}}
-      onLineup={ck=>{setMatchContextKey(ck||'');setPickerInitialTab('squad');setScreen("picker");}}
-      onScout={t=>{setScoutTeam(t);setSquadBackTo("matchDay");setScreen("opponentStats");}}
-      onSettings={ck=>{setMatchContextKey(ck||'');setPickerInitialTab('settings');setScreen("picker");}}
-      onBack={goTab}
-    />;
-    if(screen==="playersScreen") return <MatchPlayersScreen contextKey={matchContextKey} onBack={()=>setScreen("matchDay")} />;
-    if(screen==="picker")       return <PickerScreen onNext={null} onBack={()=>setScreen("matchDay")} onSave={()=>{setPickerInitialTab('squad');setScreen("matchDay");}} initialTab={pickerInitialTab} contextKey={matchContextKey} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("picker");setScreen("squad");}} onViewOpponent={t=>{setScoutTeam(t);setScreen("opponentStats");}} onViewStats={(name)=>{setPlayerStatsName(name);setScreen("playerStats");}} onViewPlayerStats={(name)=>{setPlayerStatsName(name);setScreen("playerStats");}} />;
-    if(screen==="match")        return <MatchScreen half1={half1} half2={half2} config={config} squad={squad} opponent={opponent} linkedFixKey={linkedFixKey} fixIsHome={fixIsHome} onSaveGame={saveGame} onPostMatch={g=>{setPostMatchGame(g);setScreen("postMatchReview");}} onExit={()=>{ setActiveTab("home"); setScreen("home"); }} />;
-    if(screen==="postMatchReview") return <PostMatchReviewScreen game={postMatchGame||{scoreUs:0,scoreThem:0}} squad={squad} opponent={opponent} config={config} onDone={()=>{ setActiveTab("home"); setScreen("home"); }} />;
+    if(screen==="picker")       return <PickerScreen onNext={(halves,cfg,opp,lfk,fih)=>{setConfig(cfg);setSquad(loadSquad());setOpponent(opp);setLinkedFixKey(lfk);setFixIsHome(fih);setHalf1(halves.half1);setHalf2(halves.half2);setScreen("match");}} onBack={()=>goTab("home")} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("picker");setScreen("squad");}} onViewOpponent={t=>{setScoutTeam(t);setScreen("opponentStats");}} onViewStats={(name)=>{setPlayerStatsName(name);setScreen("playerStats");}} onViewPlayerStats={(name)=>{setPlayerStatsName(name);setScreen("playerStats");}} />;
+    if(screen==="match")        return <MatchScreen half1={half1} half2={half2} config={config} squad={squad} opponent={opponent} linkedFixKey={linkedFixKey} fixIsHome={fixIsHome} onSaveGame={saveGame} onExit={()=>{ setActiveTab("home"); setScreen("home"); }} />;
     return null;
   }
 
