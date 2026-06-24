@@ -8061,8 +8061,12 @@ function MatchDayScreen({ settings, onStartMatch, onLineup, onScout, onSettings,
   }
   return (
     <div style={{display:'flex',flexDirection:'column',minHeight:'100vh',background:'#0D0D0D'}}>
-      <div style={{padding:'54px 16px 14px',background:'#111111',borderBottom:'1px solid #1A1A1A'}}>
-        <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:2,textTransform:'uppercase',marginBottom:10}}>MATCH DAY</div>
+      <div style={{background:'#0D0D0D',borderBottom:'1px solid #1A1A1A',paddingTop:'max(env(safe-area-inset-top),14px)',paddingBottom:14,paddingLeft:16,paddingRight:16,display:'flex',alignItems:'center',flexShrink:0}}>
+        <img src={KHULA_LOGO} alt="Khula" style={{height:40,objectFit:'contain'}} />
+        <div style={{flex:1,textAlign:'center'}}><span style={{fontSize:17,fontWeight:500,color:'#CCC'}}>Match Day</span></div>
+        <div style={{width:48}} />
+      </div>
+      <div style={{padding:'12px 16px 10px',background:'#0D0D0D',borderBottom:'1px solid #1A1A1A'}}>
         <div style={{display:'flex',gap:6,alignItems:'center'}}>
           {customMode?(<><input autoFocus value={mdOpponent} onChange={e=>setMdOpponent(e.target.value)} placeholder="Type opponent name…" style={{...selStyle,outline:'none'}}/><button onClick={()=>setCustomMode(false)} style={{background:'#2A2A2A',border:'none',borderRadius:8,color:'#A1A1A1',padding:'7px 10px',cursor:'pointer',fontSize:11,flexShrink:0}}>List</button></>):(
           <select value={allTeams.includes(mdOpponent)?mdOpponent:(mdOpponent?'__custom__':'')} onChange={e=>{if(e.target.value==='__custom__'){setCustomMode(true);setMdOpponent('');}else setMdOpponent(e.target.value);}} style={selStyle}>
@@ -9445,6 +9449,8 @@ export default function App() {
   const [scoutTeam, setScoutTeam]   = useState("");
   const [squadBackTo, setSquadBackTo] = useState("home");
   const [settingsBackTo, setSettingsBackTo] = useState("account");
+  const [importExportBackTo, setImportExportBackTo] = useState("account");
+  const [playerStatsBackTo, setPlayerStatsBackTo] = useState("picker");
   const [playerStatsName, setPlayerStatsName] = useState(null);
   const [playerProfileName, setPlayerProfileName] = useState(null);
   const [playerProfileIsNew, setPlayerProfileIsNew] = useState(false);
@@ -9480,9 +9486,9 @@ export default function App() {
   function renderScreen() {
     if(screen==="home")         return <HomeScreen games={games} settings={settings} onMatchDay={()=>goTab("match")} onGoSeason={()=>goTab("season")} onGoTeam={()=>goTab("team")} onGoMore={()=>setScreen("more")} onGoAccount={()=>setScreen("account")} setTab={goTab} />;
     if(screen==="more")         return <MoreScreen onAccount={()=>setScreen("account")} />;
-    if(screen==="account")      return <AccountScreen onBack={()=>setScreen("more")} onSettings={()=>{setSettingsBackTo("account");setScreen("settings");}} onImportExport={()=>setScreen("importExport")} />;
-    if(screen==="settings")     return <SettingsScreen settings={settings} onSave={handleSaveSettings} onBack={()=>setScreen(settingsBackTo)} onViewImportExport={()=>setScreen("importExport")} />;
-    if(screen==="importExport") return <ImportExportScreen onBack={()=>setScreen("account")} />;
+    if(screen==="account")      return <AccountScreen onBack={()=>setScreen("more")} onSettings={()=>{setSettingsBackTo("account");setScreen("settings");}} onImportExport={()=>{setImportExportBackTo("account");setScreen("importExport");}} />;
+    if(screen==="settings")     return <SettingsScreen settings={settings} onSave={handleSaveSettings} onBack={()=>setScreen(settingsBackTo)} onViewImportExport={()=>{setImportExportBackTo("settings");setScreen("importExport");}} />;
+    if(screen==="importExport") return <ImportExportScreen onBack={()=>setScreen(importExportBackTo)} />;
     if(screen==="season")       return <SeasonHubScreen games={games} onBack={()=>goTab("home")} onOpenGame={id=>{setOpenGameId(id);setScreen("gameDetail");}} onDeleteGame={deleteGame} onScout={t=>{setScoutTeam(t);setSquadBackTo("season");setScreen("opponentStats");}} />;
     if(screen==="gameDetail"){  const game=games.find(g=>g.id===openGameId); return <GameDetailScreen game={game} onBack={()=>{_pendingSeasonSub='log';setScreen("season");}} onUpdateGame={updateGame} />; }
     if(screen==="teamScreen")   return <TeamScreen onBack={()=>goTab("home")} onViewStats={()=>setScreen("stats")} onGoMatch={()=>{setSquadMode("newGame");setSquadBackTo("home");goTab("match");}} onGoFixtures={()=>{_pendingSeasonSub="fixtures";setActiveTab("season");setScreen("season");}} games={games} settings={settings} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("teamSquad");setScreen("squad");}} onEditTeam={()=>{setSettingsBackTo("teamScreen");setScreen("settings");}} onViewSquad={(name)=>{if(name==='__add__'){setPlayerProfileName(null);setPlayerProfileIsNew(true);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}else if(name){setPlayerProfileName(name);setPlayerProfileIsNew(false);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}else setScreen("teamSquad");}} />;
@@ -9490,7 +9496,7 @@ export default function App() {
     if(screen==="stats")        return <StatsScreen games={games} onBack={()=>setScreen("teamScreen")} />;
     if(screen==="opponentStats") return <OpponentStatsScreen opponent={scoutTeam} onBack={()=>setScreen(squadBackTo==="matchDay"?"matchDay":squadBackTo==="picker"?"picker":squadBackTo==="season"?"season":"squad")} />;
     if(screen==="squad")        return <SquadScreen mode={squadMode} onNext={(s,c,opp,lfk,fih)=>{setSquad(s);setConfig(c);setOpponent(opp);setLinkedFixKey(lfk);setFixIsHome(fih);setScreen("picker");}} onBack={()=>setScreen(squadBackTo||"teamScreen")} onViewOpponent={t=>{setScoutTeam(t);setScreen("opponentStats");}} onViewPlayer={name=>{setPlayerProfileName(name);setPlayerProfileIsNew(false);setPlayerProfileBackTo("squad");setScreen("playerProfile");}} onAddPlayer={()=>{setPlayerProfileName(null);setPlayerProfileIsNew(true);setPlayerProfileBackTo("squad");setScreen("playerProfile");}} />;
-    if(screen==="playerStats") return <PlayerStatsScreen playerName={playerStatsName} onBack={()=>setScreen("picker")} games={games} squad={squad} />;
+    if(screen==="playerStats") return <PlayerStatsScreen playerName={playerStatsName} onBack={()=>setScreen(playerStatsBackTo)} games={games} squad={squad} />;
     if(screen==="playerProfile") return <PlayerProfileScreen playerName={playerProfileName} isNew={playerProfileIsNew} games={games} onBack={()=>setScreen(playerProfileBackTo)} onSave={()=>setScreen(playerProfileBackTo)} />;
     if(screen==="matchDay")     return <MatchDayScreen settings={settings}
       onStartMatch={(sl,mdOpp)=>{
@@ -9527,7 +9533,7 @@ export default function App() {
     />;
     if(screen==="playersScreen") return <MatchPlayersScreen contextKey={matchContextKey} onBack={()=>setScreen("matchDay")} />;
     if(screen==="quickPlay")    return <QuickPlayScreen opponent={quickPlayData.opponent} linkedFixKey={quickPlayData.linkedFixKey} fixIsHome={quickPlayData.fixIsHome} settings={settings} onBack={()=>setScreen("matchDay")} onSaveGame={saveGame} onSaved={g=>{setPostMatchGame(g);setOpponent(g.opponent||'');setScreen("postMatchReview");}} />;
-    if(screen==="picker")       return <PickerScreen onNext={null} onBack={()=>setScreen("matchDay")} onSave={()=>{setPickerInitialTab('squad');setScreen("matchDay");}} initialTab={pickerInitialTab} contextKey={matchContextKey} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("picker");setScreen("squad");}} onViewOpponent={t=>{setScoutTeam(t);setScreen("opponentStats");}} onViewStats={(name)=>{setPlayerStatsName(name);setScreen("playerStats");}} onViewPlayerStats={(name)=>{setPlayerStatsName(name);setScreen("playerStats");}} />;
+    if(screen==="picker")       return <PickerScreen onNext={null} onBack={()=>setScreen("matchDay")} onSave={()=>{setPickerInitialTab('squad');setScreen("matchDay");}} initialTab={pickerInitialTab} contextKey={matchContextKey} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("picker");setScreen("squad");}} onViewOpponent={t=>{setScoutTeam(t);setSquadBackTo("picker");setScreen("opponentStats");}} onViewStats={(name)=>{setPlayerStatsName(name);setPlayerStatsBackTo("picker");setScreen("playerStats");}} onViewPlayerStats={(name)=>{setPlayerStatsName(name);setPlayerStatsBackTo("picker");setScreen("playerStats");}} />;
     if(screen==="match")        return <MatchScreen half1={half1} half2={half2} config={config} squad={squad} opponent={opponent} linkedFixKey={linkedFixKey} fixIsHome={fixIsHome} onSaveGame={saveGame} onPostMatch={g=>{setPostMatchGame(g);setScreen("postMatchReview");}} onExit={()=>{ setActiveTab("home"); setScreen("home"); }} />;
     if(screen==="training")       return <TrainingScreen onBack={()=>goTab("home")} />;
     if(screen==="postMatchReview") return <PostMatchReviewScreen game={postMatchGame||{scoreUs:0,scoreThem:0}} squad={squad} opponent={opponent} config={config} onDone={()=>{ setActiveTab("home"); setScreen("home"); }} />;
