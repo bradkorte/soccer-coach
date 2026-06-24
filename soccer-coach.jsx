@@ -4928,292 +4928,351 @@ function GoalModal({ squad, slots, posIds, posLabel, onLog, onClose }) {
 
 // ─── MATCH EVENT RULES ────────────────────────────────────────────────────────
 const MATCH_EVENT_RULES = [
-  { type:"GOAL",         icon:"⚽", color:"#F5D53F", label:"Goal"             },
-  { type:"SHOT",         icon:"🎯", color:"#60a5fa", label:"Shot"             },
-  { type:"CORNER",       icon:"🚩", color:"#f97316", label:"Corner"           },
-  { type:"FOUL",         icon:"⚠️", color:"#ef4444", label:"Foul / Free Kick" },
-  { type:"YELLOW",       icon:"🟨", color:"#fcd34d", label:"Yellow Card"      },
-  { type:"RED",          icon:"🟥", color:"#dc2626", label:"Red Card"         },
-  { type:"SUBSTITUTION", icon:"🔄", color:"#FDE68A", label:"Sub"              },
-  { type:"OFFSIDE",      icon:"🚫", color:"#c084fc", label:"Offside"          },
-  { type:"INJURY",       icon:"🏥", color:"#fb923c", label:"Injury"           },
-  { type:"NOTE",         icon:"📝", color:"#A1A1A1", label:"Note"             },
+  { type:"GOAL",          color:"#22c55e", label:"Goal",               desc:"We scored",                     capture:"goal",     icon:"⚽", group:"us"   },
+  { type:"BIG_CHANCE",    color:"#f97316", label:"Big Chance Created", desc:"Great opportunity for us",      capture:"player",   icon:"🎯", group:"us"   },
+  { type:"CHANCE_MISSED", color:"#ef4444", label:"Big Chance Missed",  desc:"Should have scored",            capture:"player",   icon:"😞", group:"us"   },
+  { type:"TEAM_PLAY",     color:"#F5C04A", label:"Excellent Team Play",desc:"Great play or positives",       capture:"note",     icon:"⭐", group:"us"   },
+  { type:"COACHING",      color:"#2dd4bf", label:"Coaching Moment",    desc:"Something to improve",          capture:"note",     icon:"🔧", group:"us"   },
+  { type:"GOAL_CONCEDED", color:"#ef4444", label:"Goal Conceded",      desc:"Opponent scored",               capture:"conceded", icon:"🥅", group:"them" },
+  { type:"OPP_THREAT",    color:"#a78bfa", label:"Opposition Threat",  desc:"Dangerous player or situation", capture:"note",     icon:"⚠️", group:"them" },
+  { type:"OPP_PATTERN",   color:"#38bdf8", label:"Opposition Pattern", desc:"Noticeable tactic or trend",    capture:"note",     icon:"🔭", group:"them" },
 ];
 
-function EventsPage({ halfElapsed, goals, matchEvents, setMatchEvents, onBack, opponentName, ourName, usGoalsLen, themGoalsLen }) {
-  const [evTab, setEvTab]             = useState('record');
-  const [pendingType, setPendingType] = useState(null);
-  const [noteText, setNoteText]       = useState('');
-  const [aiText, setAiText]           = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [statusMsg, setStatusMsg]     = useState('');
+function EventsPage({ halfElapsed, goals, matchEvents, setMatchEvents, opponentName, ourName, squad, onGoal, onThemGoal, onUndoGoal, onUndoThemGoal, onQuickNote, triggerEventType, onClearTrigger, triggerQN, onClearQN }) {
+  const [modal, setModal]             = React.useState(null);
+  const [scorer, setScorer]           = React.useState('');
+  const [assist, setAssist]           = React.useState('');
+  const [cause, setCause]             = React.useState('');
+  const [player, setPlayer]           = React.useState('');
+  const [noteText, setNoteText]       = React.useState('');
+  const [listening, setListening]     = React.useState(false);
+  const [showInfo, setShowInfo]       = React.useState(false);
+  const [qnOpen, setQnOpen]           = React.useState(false);
+  const [qnText, setQnText]           = React.useState('');
+  const [qnListening, setQnListening] = React.useState(false);
+  const recogRef = React.useRef(null);
+  const qnRecRef = React.useRef(null);
 
-  const OUR  = ourName   || 'My Team';
-  const THEM = opponentName || 'Opposition';
+  const SpeechRec = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
   const matchMinute = Math.floor(halfElapsed / 60);
-  const mm = String(Math.floor(halfElapsed/60)).padStart(2,'0');
-  const ss = String(halfElapsed%60).padStart(2,'0');
+  const playerNames = (squad||[]).map(p => p.name).filter(Boolean);
 
-  function makeEv(type,team){ return{id:'ev_'+Date.now()+'_'+Math.random().toString(36).slice(2),type,team,minute:matchMinute,timestamp:Date.now(),player:'',notes:''}; }
-  function addEv(type,team,extra={}){
-    setMatchEvents(evs=>[...evs,{...makeEv(type,team),...extra}]);
-    const rule=MATCH_EVENT_RULES.find(r=>r.type===type);
-    const tl=team==='us'?OUR:team==='them'?THEM:'';
-    setStatusMsg('checkmark '+(rule?.label||type)+(tl?' — '+tl:'')+' — '+matchMinute+"'");
-    setTimeout(()=>setStatusMsg(''),2500);
-    setPendingType(null); setNoteText('');
-  }
-  function removeEv(id){ setMatchEvents(evs=>evs.filter(e=>e.id!==id)); }
-
-  async function processAI(){
-    if(!aiText.trim())return;
-    setIsProcessing(true); setStatusMsg('Detecting…');
-    try{
-      const typeList=MATCH_EVENT_RULES.map(r=>r.type).join(', ');
-      const prompt='Soccer match. Our team vs '+THEM+'.\nEvent: "'+aiText+'"\nDetect events. Respond ONLY with JSON: {"events":[{"type":"TYPE","team":"us" or "them" or null,"notes":"brief"}]}\nValid types: '+typeList;
-      const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:200,messages:[{role:'user',content:prompt}]})});
-      const data=await resp.json();
-      const txt=(data.content||[]).map(c=>c.text||'').join('').replace(/```json|```/g,'').trim();
-      const parsed=JSON.parse(txt);
-      const evts=parsed.events||[];
-      evts.forEach((ev,i)=>setTimeout(()=>addEv(ev.type||'NOTE',ev.team||null,{notes:ev.notes||aiText,transcript:aiText}),i*50));
-      setAiText(''); setStatusMsg('checkmark '+evts.length+' event(s) detected');
-    }catch{
-      addEv('NOTE',null,{notes:aiText,transcript:aiText});
-      setAiText(''); setStatusMsg('Saved as note');
+  // External trigger from bottom bar quick actions
+  React.useEffect(() => {
+    if (triggerEventType) {
+      const rule = MATCH_EVENT_RULES.find(r => r.type === triggerEventType);
+      if (rule) openModal(rule);
+      if (onClearTrigger) onClearTrigger();
     }
-    setIsProcessing(false); setTimeout(()=>setStatusMsg(''),3000);
+  }, [triggerEventType]);
+
+  React.useEffect(() => {
+    if (triggerQN) { openQuickNote(); if (onClearQN) onClearQN(); }
+  }, [triggerQN]);
+
+  function stopRec(ref, setter) { try { ref.current && ref.current.stop(); } catch(e){} setter(false); }
+
+  function toggleVoice() {
+    if (listening) { stopRec(recogRef, setListening); return; }
+    if (!SpeechRec) return;
+    const r = new SpeechRec();
+    r.continuous = true; r.interimResults = false; r.lang = 'en-AU';
+    r.onresult = e => { const t = Array.from(e.results).map(x=>x[0].transcript).join(' '); setNoteText(p=>(p?p+' ':'')+t); };
+    r.onend = () => setListening(false);
+    recogRef.current = r; r.start(); setListening(true);
   }
 
-  // Stats counts
-  const usCt={}, themCt={};
-  MATCH_EVENT_RULES.forEach(r=>{usCt[r.type]=0;themCt[r.type]=0;});
-  matchEvents.forEach(ev=>{
-    if(ev.team==='us') usCt[ev.type]=(usCt[ev.type]||0)+1;
-    else if(ev.team==='them') themCt[ev.type]=(themCt[ev.type]||0)+1;
-  });
-  goals.forEach(g=>{ if(g.team==='us')usCt['GOAL']=(usCt['GOAL']||0)+1; else themCt['GOAL']=(themCt['GOAL']||0)+1; });
-  const maxStat=Math.max(...MATCH_EVENT_RULES.map(r=>Math.max(usCt[r.type]||0,themCt[r.type]||0)),1);
+  function toggleQnVoice() {
+    if (qnListening) { stopRec(qnRecRef, setQnListening); return; }
+    if (!SpeechRec) return;
+    const r = new SpeechRec();
+    r.continuous = true; r.interimResults = false; r.lang = 'en-AU';
+    r.onresult = e => { const t = Array.from(e.results).map(x=>x[0].transcript).join(' '); setQnText(p=>(p?p+' ':'')+t); };
+    r.onend = () => setQnListening(false);
+    qnRecRef.current = r; r.start(); setQnListening(true);
+  }
 
-  // Timeline — merge goals + events, dedup
-  const goalEvts=goals.map(g=>({id:'g_'+g.secs+'_'+g.team,type:'GOAL',team:g.team,minute:Math.floor(g.secs/60),timestamp:g.secs*1000,player:g.team==='us'?g.scorer:'Opponent',notes:'',_fromGoals:true}));
-  const evGoalKeys=new Set(matchEvents.filter(e=>e.type==='GOAL').map(e=>e.team+'_'+e.minute));
-  const filteredGoalEvts=goalEvts.filter(ge=>!evGoalKeys.has(ge.team+'_'+ge.minute));
-  const sorted=[...matchEvents,...filteredGoalEvts].sort((a,b)=>a.minute-b.minute||a.timestamp-b.timestamp);
+  function openModal(rule) {
+    stopRec(recogRef, setListening);
+    setScorer(''); setAssist(''); setCause(''); setPlayer(''); setNoteText('');
+    setModal({ rule, editId: null });
+  }
+  function closeModal() { stopRec(recogRef, setListening); setModal(null); }
+  function openQuickNote() { stopRec(recogRef, setListening); setQnText(''); setQnOpen(true); }
+  function saveQuickNote() {
+    stopRec(qnRecRef, setQnListening);
+    if (qnText.trim() && onQuickNote) onQuickNote(qnText.trim());
+    setQnOpen(false); setQnText('');
+  }
 
-  // Export report
-  const now=new Date();
-  const dateStr=now.toISOString().split('T')[0];
-  const timeStr=now.toLocaleDateString('en-GB')+', '+now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  const reportLines=[
-    'MATCH REPORT','________________________','',
-    OUR+' '+usGoalsLen+' - '+themGoalsLen+' '+THEM,'',
-    'Date: '+dateStr,'Venue: —','Competition: League','',
-    '________________________','',
-    'MATCH EVENTS ('+sorted.length+')','________________________',
-    ...sorted.map(ev=>{const rule=MATCH_EVENT_RULES.find(r=>r.type===ev.type)||MATCH_EVENT_RULES[MATCH_EVENT_RULES.length-1];const team=ev.team==='us'?OUR:ev.team==='them'?THEM:'';return '  '+ev.minute+"' "+rule.label+(team?' · '+team:'');}),
-    '','________________________','','STATISTICS','________________________','',
-    ...MATCH_EVENT_RULES.filter(r=>r.type!=='NOTE').map(rule=>(rule.label+'/Free Kick').slice(0,16).padEnd(20)+(usCt[rule.type]||0)+' - '+(themCt[rule.type]||0)),
-    '','Generated by Soccer Coach · '+timeStr,
+  function makeEv(type, extra) {
+    return { id:'ev_'+Date.now()+'_'+Math.random().toString(36).slice(2), type, eventType:type, minute:matchMinute, timestamp:Date.now(), player:'', secondaryPlayer:'', category:'', note:'', ...(extra||{}) };
+  }
+
+  function saveEvent() {
+    const rule = modal.rule;
+    let ev;
+    if (rule.capture === 'goal') {
+      if (onGoal) onGoal(scorer||'Unknown');
+      ev = makeEv(rule.type, { player:scorer, secondaryPlayer:assist, team:'us', note:noteText });
+    } else if (rule.capture === 'conceded') {
+      if (onThemGoal) onThemGoal();
+      ev = makeEv(rule.type, { category:cause, team:'them', note:noteText||cause });
+    } else if (rule.capture === 'player') {
+      ev = makeEv(rule.type, { player, team:'us', note:noteText });
+    } else {
+      const team = rule.group==='them' ? 'them' : rule.type==='COACHING' ? null : 'us';
+      ev = makeEv(rule.type, { note:noteText, team });
+    }
+    if (modal.editId) {
+      setMatchEvents(evs => evs.map(e => e.id===modal.editId ? {...e,...ev,id:modal.editId} : e));
+    } else {
+      setMatchEvents(evs => [...evs, ev]);
+    }
+    closeModal();
+  }
+
+  function undoLastEvent() {
+    if (!matchEvents.length) return;
+    const last = [...matchEvents].sort((a,b)=>b.timestamp-a.timestamp)[0];
+    setMatchEvents(evs => evs.filter(e=>e.id!==last.id));
+    if (last.type==='GOAL' && onUndoGoal) onUndoGoal();
+    if (last.type==='GOAL_CONCEDED' && onUndoThemGoal) onUndoThemGoal();
+  }
+
+  function deleteEvent(id) { setMatchEvents(evs=>evs.filter(e=>e.id!==id)); }
+
+  function editEvent(ev) {
+    const rule = MATCH_EVENT_RULES.find(r=>r.type===ev.type)||{type:'NOTE',label:'Note',desc:'',capture:'note',color:'#A1A1A1',icon:'📝',group:'us'};
+    setScorer(ev.player||''); setAssist(ev.secondaryPlayer||''); setCause(ev.category||''); setPlayer(ev.player||''); setNoteText(ev.note||'');
+    setModal({ rule, editId:ev.id });
+  }
+
+  const recentEvents = [...matchEvents].sort((a,b)=>b.minute-a.minute||b.timestamp-a.timestamp);
+  const CAUSES = ['Counter Attack','Set Piece','Defensive Error','Individual Skill','Other'];
+  const notePlaceholders = { GOAL:'E.g. Great finish from 18 yards…', BIG_CHANCE:'E.g. Through ball cut open defence…', CHANCE_MISSED:'E.g. Good position, shot wide…', GOAL_CONCEDED:'E.g. Caught on the break…', OPP_THREAT:'E.g. #7 very fast down right wing…', OPP_PATTERN:'E.g. Build out through keeper…', TEAM_PLAY:'E.g. 10 pass sequence, great pressing…', COACHING:'E.g. Not tracking runners, too narrow…' };
+
+  function PlayerPicker({ value, onChange, label, optional }) {
+    return (
+      <div style={{marginBottom:16}}>
+        <div style={{fontSize:11,fontWeight:700,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase',marginBottom:10}}>{label}{optional?' (optional)':''}</div>
+        <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+          {optional&&<button onClick={()=>onChange('')} style={{padding:'8px 14px',borderRadius:20,border:value===''?'1.5px solid #F5C04A':'1px solid #2A2A2A',background:value===''?'rgba(245,192,74,0.1)':'#1A1A1A',color:value===''?'#F5C04A':'#555',fontSize:12,fontWeight:600,cursor:'pointer'}}>None</button>}
+          {playerNames.map(n=>(
+            <button key={n} onClick={()=>onChange(n)} style={{padding:'8px 14px',borderRadius:20,border:value===n?'1.5px solid #F5C04A':'1px solid #2A2A2A',background:value===n?'rgba(245,192,74,0.1)':'#1A1A1A',color:value===n?'#F5C04A':'#FFF',fontSize:13,fontWeight:value===n?700:400,cursor:'pointer'}}>{n}</button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function NoteField({ rule }) {
+    return (
+      <div style={{marginTop:16}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+          <div style={{fontSize:11,fontWeight:700,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase'}}>
+            {rule.capture==='note' ? 'Note' : 'Additional Notes'}
+          </div>
+          {SpeechRec&&<button onClick={toggleVoice} style={{background:listening?'rgba(239,68,68,0.1)':'#1A1A1A',border:`1px solid ${listening?'#ef4444':'#2A2A2A'}`,borderRadius:8,padding:'6px 12px',cursor:'pointer',display:'flex',alignItems:'center',gap:6,color:listening?'#ef4444':'#A1A1A1',fontSize:11,fontWeight:700}}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            {listening?'Stop':'Dictate'}
+          </button>}
+        </div>
+        <textarea value={noteText} onChange={e=>setNoteText(e.target.value)}
+          placeholder={notePlaceholders[rule.type]||'Add a note…'}
+          rows={rule.capture==='note'?4:3}
+          style={{width:'100%',background:'#0D0D0D',border:`1px solid ${listening?'#ef4444':'#2A2A2A'}`,borderRadius:10,padding:'12px',color:'#FFF',fontSize:14,fontFamily:'inherit',lineHeight:1.6,resize:'none',outline:'none',boxSizing:'border-box'}}/>
+        {listening&&<div style={{fontSize:11,color:'#ef4444',marginTop:5,fontWeight:600}}>🎙️ Recording — speak your note</div>}
+      </div>
+    );
+  }
+
+  // Flat 2×4 grid: our team cards first (green border), opposition second (red border)
+  const GRID_ORDER = [
+    ...MATCH_EVENT_RULES.filter(r=>r.group==='us'),
+    ...MATCH_EVENT_RULES.filter(r=>r.group==='them'),
   ];
-  const reportText=reportLines.join('\n');
-  function downloadTxt(){const blob=new Blob([reportText],{type:'text/plain'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='match-report.txt';a.click();URL.revokeObjectURL(url);}
-  function exportJSON(){const blob=new Blob([JSON.stringify({match:{ourTeam:OUR,opponent:THEM,score:{us:usGoalsLen,them:themGoalsLen},date:dateStr},events:matchEvents,goals},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='match-data.json';a.click();URL.revokeObjectURL(url);}
 
-  const TABS=[{k:'record',icon:'🎙',label:'Record'},{k:'timeline',icon:'📋',label:'Timeline'},{k:'stats',icon:'📊',label:'Stats'},{k:'export',icon:'📤',label:'Export'}];
-  const BG='#0a150a', CARD='#163016', BORDER='#0d200d';
+  function cardBorder(rule) {
+    return rule.group==='us' ? '1px solid rgba(34,197,94,0.4)' : '1px solid rgba(239,68,68,0.4)';
+  }
+  function cardBg(rule) {
+    return rule.group==='us' ? 'rgba(34,197,94,0.04)' : 'rgba(239,68,68,0.04)';
+  }
 
   return (
-    <div style={{...S.wrap,padding:0,background:BG}}>
+    <div style={{flex:1,overflowY:'auto',paddingBottom:90,background:'#0D0D0D'}}>
 
-      {/* Compact header */}
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 16px',background:BG,borderBottom:'1px solid '+CARD,flexShrink:0,width:'100%',maxWidth:500}}>
-        <button style={{...S.btnGhost,borderColor:'#1A1400',color:'#7A5000'}} onClick={onBack}>← Pitch</button>
-        <div style={{fontSize:14,fontWeight:800,color:'#FFFFFF'}}>{usGoalsLen} – {themGoalsLen} <span style={{fontSize:11,color:'#7A5000',fontWeight:400}}>{mm}:{ss}</span></div>
-        <div style={{width:60}}/>
+      {/* ── Header ── */}
+      <div style={{padding:'14px 16px 6px',display:'flex',alignItems:'flex-start',justifyContent:'space-between'}}>
+        <div>
+          <div style={{display:'flex',alignItems:'center',gap:7}}>
+            <div style={{fontSize:18,fontWeight:800,color:'#FFF'}}>Match Events</div>
+            <button onClick={()=>setShowInfo(!showInfo)} style={{background:'none',border:'none',padding:0,cursor:'pointer',color:'#555',display:'flex',alignItems:'center'}}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="8" strokeLinecap="round" strokeWidth="3"/><path d="M12 12v4"/></svg>
+            </button>
+          </div>
+          <div style={{fontSize:11,color:'#555',marginTop:3}}>Tap an event to record it</div>
+        </div>
+        <button onClick={undoLastEvent} disabled={!matchEvents.length}
+          style={{marginTop:2,padding:'7px 13px',border:'1px solid #2A2A2A',borderRadius:10,background:'none',color:matchEvents.length?'#A1A1A1':'#333',fontSize:11,fontWeight:700,cursor:matchEvents.length?'pointer':'default',display:'flex',alignItems:'center',gap:5,flexShrink:0}}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
+          Undo
+        </button>
       </div>
 
-      {/* Khula-style tab bar */}
-      <div style={{display:'flex',background:BG,borderBottom:'1px solid '+CARD,flexShrink:0,width:'100%',maxWidth:500}}>
-        {TABS.map(({k,icon,label})=>(
-          <button key={k} onClick={()=>setEvTab(k)} style={{flex:1,padding:'10px 2px 8px',border:'none',background:'transparent',color:evTab===k?'#fff':'#4a6a4a',fontSize:10,fontWeight:evTab===k?700:400,cursor:'pointer',borderBottom:evTab===k?'2px solid #F5D53F':'2px solid transparent',display:'flex',flexDirection:'column',alignItems:'center',gap:2,transition:'color 0.15s'}}>
-            <span style={{fontSize:16}}>{icon}</span>
-            <span>{label}</span>
+      {showInfo&&(
+        <div style={{margin:'0 16px 10px',background:'#111111',border:'1px solid #1E1E1E',borderRadius:12,padding:'10px 14px'}}>
+          <div style={{fontSize:12,color:'#A1A1A1',lineHeight:1.7}}><span style={{color:'#22c55e',fontWeight:700}}>Green border</span> = our team. <span style={{color:'#ef4444',fontWeight:700}}>Red border</span> = opposition. Goal and Goal Conceded update the live score.</div>
+          <button onClick={()=>setShowInfo(false)} style={{marginTop:6,background:'none',border:'none',color:'#F5C04A',fontSize:12,fontWeight:700,cursor:'pointer',padding:0}}>Got it ✕</button>
+        </div>
+      )}
+
+      {/* ── Flat 2×4 event grid ── */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,padding:'8px 12px 16px'}}>
+        {GRID_ORDER.map(rule=>(
+          <button key={rule.type} onClick={()=>openModal(rule)}
+            style={{background:cardBg(rule),border:cardBorder(rule),borderRadius:14,padding:'12px 10px',cursor:'pointer',textAlign:'left',display:'flex',flexDirection:'column',gap:5,WebkitTapHighlightColor:'transparent'}}>
+            <div style={{fontSize:24}}>{rule.icon}</div>
+            <div style={{fontSize:11,fontWeight:800,color:'#FFF',lineHeight:1.25}}>{rule.label}</div>
+            <div style={{fontSize:10,color:'#666',lineHeight:1.35}}>{rule.desc}</div>
           </button>
         ))}
       </div>
 
-      {/* Tab content */}
-      <div style={{flex:1,overflowY:'auto',padding:'16px',background:BG,width:'100%',maxWidth:500,boxSizing:'border-box'}}>
-
-        {/* ── RECORD ── */}
-        {evTab==='record' && (
-          <div>
-            {pendingType && (()=>{
-              const rule=MATCH_EVENT_RULES.find(r=>r.type===pendingType)||MATCH_EVENT_RULES[MATCH_EVENT_RULES.length-1];
-              return (
-                <div style={{background:CARD,border:'2px solid '+rule.color+'55',borderRadius:12,padding:14,marginBottom:14}}>
-                  <div style={{fontSize:15,fontWeight:700,color:rule.color,textAlign:'center',marginBottom:12}}>{rule.icon} {rule.label} — which team?</div>
-                  {pendingType==='NOTE' ? (
-                    <div>
-                      <textarea value={noteText} onChange={e=>setNoteText(e.target.value)} rows={2} placeholder="What happened?" style={{...S.inp,resize:'none',width:'100%',marginBottom:8,fontSize:13,background:'#0d200d',borderColor:'#1A1400'}}/>
-                      <div style={{display:'flex',gap:6,marginBottom:8}}>
-                        <button onClick={()=>addEv('NOTE','us',{notes:noteText})} style={{flex:1,padding:'11px 6px',borderRadius:9,border:'none',background:'#0b3a1a',color:'#FDE68A',fontWeight:700,fontSize:13,cursor:'pointer'}}>⭐ {OUR}</button>
-                        <button onClick={()=>addEv('NOTE','them',{notes:noteText})} style={{flex:1,padding:'11px 6px',borderRadius:9,border:'none',background:'#3a0b0b',color:'#fca5a5',fontWeight:700,fontSize:13,cursor:'pointer'}}>{THEM}</button>
-                        <button onClick={()=>addEv('NOTE',null,{notes:noteText})} style={{flex:1,padding:'11px 6px',borderRadius:9,border:'none',background:CARD,color:'#9ca3af',fontWeight:700,fontSize:11,cursor:'pointer'}}>General</button>
-                      </div>
-                      <button onClick={()=>setPendingType(null)} style={{width:'100%',padding:'9px',borderRadius:9,border:'1px solid #1A1400',background:'transparent',color:'#7A5000',fontSize:12,cursor:'pointer'}}>Cancel</button>
-                    </div>
-                  ) : (
-                    <div>
-                      <div style={{display:'flex',gap:8,marginBottom:8}}>
-                        <button onClick={()=>addEv(pendingType,'us')} style={{flex:1,padding:'14px 8px',borderRadius:9,border:'none',background:'#0b3a1a',color:'#FDE68A',fontWeight:700,fontSize:15,cursor:'pointer'}}>⭐ {OUR}</button>
-                        <button onClick={()=>addEv(pendingType,'them')} style={{flex:1,padding:'14px 8px',borderRadius:9,border:'none',background:'#3a0b0b',color:'#fca5a5',fontWeight:700,fontSize:15,cursor:'pointer'}}>{THEM}</button>
-                      </div>
-                      <button onClick={()=>setPendingType(null)} style={{width:'100%',padding:'9px',borderRadius:9,border:'1px solid #1A1400',background:'transparent',color:'#7A5000',fontSize:12,cursor:'pointer'}}>Cancel</button>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {statusMsg&&<div style={{background:'#110D00',border:'1px solid #F5C04A44',borderRadius:9,padding:'9px 12px',marginBottom:12}}><span style={{fontSize:13,color:'#FCD34D',fontWeight:600}}>{statusMsg}</span></div>}
-
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
-              {MATCH_EVENT_RULES.map(rule=>(
-                <button key={rule.type} onClick={()=>setPendingType(rule.type)}
-                  style={{background:pendingType===rule.type?rule.color+'33':rule.color+'15',border:'2px solid '+(pendingType===rule.type?rule.color:rule.color+'44'),borderRadius:11,padding:'13px 10px',cursor:'pointer',color:rule.color,fontSize:13,fontWeight:700,textAlign:'left',display:'flex',alignItems:'center',gap:9}}>
-                  <span style={{fontSize:22}}>{rule.icon}</span><span>{rule.label}</span>
-                </button>
-              ))}
-            </div>
-
-            <div style={{borderTop:'1px solid '+CARD,paddingTop:14}}>
-              <div style={{fontSize:11,fontWeight:700,color:'#7A5000',textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>🤖 Describe what happened</div>
-              <textarea value={aiText} onChange={e=>setAiText(e.target.value)} rows={3}
-                placeholder='e.g. "Corner for us, keeper tipped it over"'
-                style={{...S.inp,resize:'none',width:'100%',lineHeight:1.6,fontSize:13,background:'#0d200d',borderColor:'#1A1400'}}/>
-              <button onClick={processAI} disabled={isProcessing||!aiText.trim()}
-                style={{...S.btnBlue,width:'100%',marginTop:9,fontSize:13,opacity:aiText.trim()&&!isProcessing?1:0.4}}>
-                {isProcessing?'Detecting…':'✨ AI Detect & Log'}
-              </button>
-            </div>
+      {/* ── Recent Events ── */}
+      {recentEvents.length>0&&(
+        <div style={{padding:'0 12px 16px'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+            <div style={{fontSize:14,fontWeight:800,color:'#FFF'}}>Recent Events</div>
+            <div style={{fontSize:11,color:'#555'}}>{recentEvents.length} logged</div>
           </div>
-        )}
-
-        {/* ── TIMELINE ── */}
-        {evTab==='timeline' && (
-          <div>
-            <div style={{fontSize:11,fontWeight:700,color:'#9ca3af',letterSpacing:1,textTransform:'uppercase',marginBottom:14}}>{sorted.length} EVENTS</div>
-            {sorted.length===0&&<p style={{color:'#4a6a4a',textAlign:'center',padding:24,margin:0}}>No events yet — use Record to add some.</p>}
-            {sorted.map(ev=>{
-              const rule=MATCH_EVENT_RULES.find(r=>r.type===ev.type)||MATCH_EVENT_RULES[MATCH_EVENT_RULES.length-1];
-              const teamName=ev.team==='us'?OUR:ev.team==='them'?THEM:null;
+          <div style={{background:'#111111',borderRadius:14,border:'1px solid #1E1E1E',overflow:'hidden'}}>
+            {recentEvents.map((ev,i)=>{
+              const rule = MATCH_EVENT_RULES.find(r=>r.type===ev.type)||{icon:'📝',label:ev.type,color:'#A1A1A1',group:'us'};
+              const detail = ev.player?(ev.secondaryPlayer?`${ev.player}  ·  Assist: ${ev.secondaryPlayer}`:ev.player):(ev.note||ev.category||'');
               return (
-                <div key={ev.id} style={{background:CARD,borderRadius:10,borderLeft:'3px solid '+rule.color,padding:'14px 12px',marginBottom:8,display:'flex',alignItems:'center',gap:10}}>
-                  <span style={{fontSize:12,color:'#6a8a6a',minWidth:28,flexShrink:0}}>{ev.minute}'</span>
-                  <span style={{fontSize:26,flexShrink:0}}>{rule.icon}</span>
-                  <div style={{flex:1,display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-                    <span style={{fontSize:15,fontWeight:700,color:rule.color}}>{rule.label}</span>
-                    {teamName&&<span style={{background:BORDER,color:'#9ca3af',borderRadius:6,padding:'2px 8px',fontSize:12}}>{teamName}</span>}
-                    {ev.notes&&<span style={{fontSize:11,color:'#6a8a6a',width:'100%',marginTop:2}}>{ev.notes}</span>}
+                <div key={ev.id} style={{display:'flex',alignItems:'center',gap:10,padding:'11px 14px',borderBottom:i<recentEvents.length-1?'1px solid #1E1E1E':'none'}}>
+                  <div style={{width:34,height:34,borderRadius:10,background:rule.group==='them'?'rgba(239,68,68,0.12)':'rgba(34,197,94,0.12)',border:`1px solid ${rule.color}44`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>{rule.icon}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13,fontWeight:700,color:rule.color}}>{rule.label}</div>
+                    {detail&&<div style={{fontSize:11,color:'#666',marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{detail}</div>}
                   </div>
-                  {!ev._fromGoals&&<button style={{background:'none',border:'none',color:'#4a6a4a',fontSize:11,fontWeight:700,cursor:'pointer',flexShrink:0,padding:'4px 6px'}} onClick={()=>removeEv(ev.id)}>EDIT</button>}
+                  <div style={{fontSize:12,fontWeight:700,color:'#444',flexShrink:0,marginRight:6}}>{ev.minute}'</div>
+                  <div style={{display:'flex',gap:5,flexShrink:0}}>
+                    <button onClick={()=>editEvent(ev)} style={{background:'none',border:'1px solid #2A2A2A',borderRadius:7,padding:'4px 9px',color:'#666',fontSize:11,cursor:'pointer',fontWeight:600}}>Edit</button>
+                    <button onClick={()=>deleteEvent(ev.id)} style={{background:'none',border:'1px solid rgba(239,68,68,0.25)',borderRadius:7,padding:'4px 9px',color:'#ef4444',fontSize:11,cursor:'pointer'}}>✕</button>
+                  </div>
                 </div>
               );
             })}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ── STATS ── */}
-        {evTab==='stats' && (
-          <div>
-            {/* Final score card */}
-            <div style={{background:CARD,borderRadius:12,padding:'20px 16px',marginBottom:20,textAlign:'center'}}>
-              <div style={{fontSize:11,fontWeight:700,color:'#7A5000',letterSpacing:2,textTransform:'uppercase',marginBottom:10}}>FINAL SCORE</div>
-              <div style={{fontSize:52,fontWeight:900,color:'#F5D53F',lineHeight:1,marginBottom:12}}>{usGoalsLen} – {themGoalsLen}</div>
-              <div style={{display:'flex',justifyContent:'space-between'}}>
-                <span style={{fontSize:14,fontWeight:700,color:'#FFFFFF'}}>{OUR}</span>
-                <span style={{fontSize:14,fontWeight:700,color:'#FFFFFF'}}>{THEM}</span>
-              </div>
-            </div>
-
-            {/* Match statistics */}
-            <div style={{fontSize:11,fontWeight:700,color:'#9ca3af',letterSpacing:1,textTransform:'uppercase',marginBottom:10}}>MATCH STATISTICS</div>
-            <div style={{background:CARD,borderRadius:12,padding:'16px 16px 8px',marginBottom:20}}>
-              {MATCH_EVENT_RULES.filter(r=>r.type!=='NOTE').map(rule=>{
-                const us=usCt[rule.type]||0, them=themCt[rule.type]||0;
-                return (
-                  <div key={rule.type} style={{marginBottom:14}}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:5}}>
-                      <span style={{fontSize:15,fontWeight:700,color:'#60c4f0',minWidth:20}}>{us}</span>
-                      <span style={{fontSize:12,color:'#9ca3af'}}>{rule.label}</span>
-                      <span style={{fontSize:15,fontWeight:700,color:'#f97316',minWidth:20,textAlign:'right'}}>{them}</span>
-                    </div>
-                    <div style={{height:4,background:BORDER,borderRadius:2,position:'relative'}}>
-                      <div style={{position:'absolute',right:'50%',top:0,height:'100%',width:(us/maxStat*50)+'%',background:'#60c4f0',borderRadius:'2px 0 0 2px'}}/>
-                      <div style={{position:'absolute',left:'50%',top:0,height:'100%',width:1,background:'#1A1400'}}/>
-                      <div style={{position:'absolute',left:'50%',top:0,height:'100%',width:(them/maxStat*50)+'%',background:'#f97316',borderRadius:'0 2px 2px 0'}}/>
-                    </div>
-                  </div>
-                );
-              })}
-              <div style={{display:'flex',justifyContent:'space-between',marginTop:8,paddingTop:8,borderTop:'1px solid '+BORDER}}>
-                <span style={{fontSize:12,fontWeight:700,color:'#60c4f0'}}>{OUR}</span>
-                <span style={{fontSize:12,fontWeight:700,color:'#f97316'}}>{THEM}</span>
-              </div>
-            </div>
-
-            {/* Total events list */}
-            {(()=>{
-              const totals=MATCH_EVENT_RULES.filter(r=>r.type!=='NOTE').map(r=>({rule:r,count:(usCt[r.type]||0)+(themCt[r.type]||0)})).filter(x=>x.count>0);
-              if(totals.length===0)return null;
-              const total=totals.reduce((a,x)=>a+x.count,0);
-              return (
-                <div>
-                  <div style={{fontSize:11,fontWeight:700,color:'#9ca3af',letterSpacing:1,textTransform:'uppercase',marginBottom:10}}>{total} TOTAL EVENTS</div>
-                  <div style={{background:CARD,borderRadius:12,overflow:'hidden'}}>
-                    {totals.map(({rule,count},i)=>(
-                      <div key={rule.type} style={{display:'flex',alignItems:'center',gap:12,padding:'13px 16px',borderBottom:i<totals.length-1?'1px solid '+BORDER:'none'}}>
-                        <span style={{fontSize:22}}>{rule.icon}</span>
-                        <span style={{flex:1,fontSize:14,fontWeight:700,color:rule.color}}>{rule.label}</span>
-                        <span style={{fontSize:15,fontWeight:700,color:'#FFFFFF'}}>{count}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        )}
-
-        {/* ── EXPORT ── */}
-        {evTab==='export' && (
-          <div>
-            <div style={{fontSize:11,fontWeight:700,color:'#9ca3af',letterSpacing:1,textTransform:'uppercase',marginBottom:14}}>EXPORT MATCH REPORT</div>
-            <div style={{background:CARD,borderRadius:12,padding:12,marginBottom:20,display:'flex',flexDirection:'column',gap:8}}>
-              <button onClick={()=>navigator.clipboard?.writeText(reportText)} style={{background:'#F5D53F',border:'none',borderRadius:10,padding:'16px',fontSize:14,fontWeight:700,color:'#0a150a',cursor:'pointer',width:'100%'}}>
-                📋 Copy Report to Clipboard
-              </button>
-              <button onClick={downloadTxt} style={{background:'#60c4f0',border:'none',borderRadius:10,padding:'16px',fontSize:14,fontWeight:700,color:'#0a150a',cursor:'pointer',width:'100%'}}>
-                ↓ Download .txt Report
-              </button>
-              <button onClick={exportJSON} style={{background:'#2d5a2d',border:'none',borderRadius:10,padding:'16px',fontSize:14,fontWeight:700,color:'#FFFFFF',cursor:'pointer',width:'100%'}}>
-                ↓ Export Raw Data (JSON)
-              </button>
-            </div>
-
-            <div style={{fontSize:11,fontWeight:700,color:'#9ca3af',letterSpacing:1,textTransform:'uppercase',marginBottom:10}}>PREVIEW</div>
-            <div style={{background:CARD,borderRadius:12,padding:'16px'}}>
-              <pre style={{margin:0,fontFamily:'monospace',fontSize:11,color:'#9ca3af',lineHeight:1.8,whiteSpace:'pre-wrap',wordBreak:'break-word'}}>{reportText}</pre>
-            </div>
-          </div>
-        )}
-
+      {/* ── Quick Note FAB ── */}
+      <div style={{position:'fixed',bottom:68,left:0,right:0,display:'flex',justifyContent:'center',zIndex:40,pointerEvents:'none'}}>
+        <button onClick={openQuickNote}
+          style={{background:'#22c55e',border:'none',borderRadius:30,padding:'12px 22px',fontSize:14,fontWeight:800,color:'#FFF',cursor:'pointer',display:'flex',alignItems:'center',gap:10,boxShadow:'0 4px 20px rgba(34,197,94,0.35)',pointerEvents:'all'}}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <div><div style={{lineHeight:1.1}}>Quick Note</div><div style={{fontSize:10,fontWeight:500,opacity:0.75,lineHeight:1.1}}>Capture any other moment</div></div>
+        </button>
       </div>
+
+      {/* ── Quick Note modal ── */}
+      {qnOpen&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',zIndex:200,display:'flex',flexDirection:'column',justifyContent:'flex-end'}}
+          onClick={e=>{if(e.target===e.currentTarget){stopRec(qnRecRef,setQnListening);setQnOpen(false);}}}>
+          <div style={{background:'#111111',borderRadius:'20px 20px 0 0',padding:'20px 20px 40px'}}>
+            <div style={{width:36,height:4,background:'#2A2A2A',borderRadius:2,margin:'0 auto 18px'}}/>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <span style={{fontSize:22}}>📝</span>
+                <div>
+                  <div style={{fontSize:17,fontWeight:800,color:'#FFF'}}>Quick Note</div>
+                  <div style={{fontSize:11,color:'#555',marginTop:1}}>{matchMinute}' — type or dictate</div>
+                </div>
+              </div>
+              <div style={{display:'flex',gap:8}}>
+                {SpeechRec&&<button onClick={toggleQnVoice} style={{background:qnListening?'rgba(239,68,68,0.1)':'#1A1A1A',border:`1px solid ${qnListening?'#ef4444':'#2A2A2A'}`,borderRadius:8,padding:'7px 13px',cursor:'pointer',display:'flex',alignItems:'center',gap:6,color:qnListening?'#ef4444':'#A1A1A1',fontSize:12,fontWeight:700}}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                  {qnListening?'Stop':'Dictate'}
+                </button>}
+                <button onClick={()=>{stopRec(qnRecRef,setQnListening);setQnOpen(false);}} style={{background:'#1A1A1A',border:'none',borderRadius:'50%',width:32,height:32,display:'flex',alignItems:'center',justifyContent:'center',color:'#666',cursor:'pointer',fontSize:15}}>✕</button>
+              </div>
+            </div>
+            <div style={{height:1,background:'#1E1E1E',margin:'14px 0'}}/>
+            <textarea value={qnText} onChange={e=>setQnText(e.target.value)}
+              placeholder="E.g. Their #9 drifting wide, pressing very high line…"
+              rows={4} autoFocus
+              style={{width:'100%',background:'#0D0D0D',border:`1px solid ${qnListening?'#ef4444':'#2A2A2A'}`,borderRadius:10,padding:'12px',color:'#FFF',fontSize:14,fontFamily:'inherit',lineHeight:1.6,resize:'none',outline:'none',boxSizing:'border-box'}}/>
+            {qnListening&&<div style={{fontSize:11,color:'#ef4444',marginTop:6,fontWeight:600}}>🎙️ Recording — speak your note</div>}
+            <button onClick={saveQuickNote} style={{width:'100%',marginTop:14,padding:'15px',border:'none',borderRadius:14,background:'#22c55e',color:'#FFF',fontSize:15,fontWeight:800,cursor:'pointer'}}>
+              Save Note — {matchMinute}'
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Event capture modal ── */}
+      {modal&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',zIndex:200,display:'flex',flexDirection:'column',justifyContent:'flex-end'}}
+          onClick={e=>{if(e.target===e.currentTarget)closeModal();}}>
+          <div style={{background:'#111111',borderRadius:'20px 20px 0 0',padding:'20px 20px 40px',maxHeight:'90dvh',overflowY:'auto'}}>
+            <div style={{width:36,height:4,background:'#2A2A2A',borderRadius:2,margin:'0 auto 20px'}}/>
+
+            {/* Modal header */}
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <div style={{width:44,height:44,borderRadius:12,background:`${modal.rule.color}18`,border:`1px solid ${modal.rule.color}44`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>{modal.rule.icon}</div>
+                <div>
+                  <div style={{fontSize:17,fontWeight:800,color:modal.rule.color}}>{modal.rule.label}</div>
+                  <div style={{fontSize:11,color:'#555',marginTop:1}}>{matchMinute}' · {modal.rule.group==='us'?ourName||'Our Team':opponentName||'Opposition'}</div>
+                </div>
+              </div>
+              <button onClick={closeModal} style={{background:'#1A1A1A',border:'none',borderRadius:'50%',width:32,height:32,display:'flex',alignItems:'center',justifyContent:'center',color:'#666',cursor:'pointer',fontSize:16,flexShrink:0}}>✕</button>
+            </div>
+            <div style={{height:1,background:'#1E1E1E',margin:'16px 0'}}/>
+
+            {/* Goal: scorer + assist pickers */}
+            {modal.rule.capture==='goal'&&<div>
+              <PlayerPicker value={scorer} onChange={setScorer} label="Scorer" optional={false}/>
+              <PlayerPicker value={assist} onChange={setAssist} label="Assist" optional={true}/>
+            </div>}
+
+            {/* Goal Conceded: cause radio buttons */}
+            {modal.rule.capture==='conceded'&&(
+              <div style={{marginBottom:8}}>
+                <div style={{fontSize:11,fontWeight:700,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase',marginBottom:10}}>Cause</div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+                  {CAUSES.map(c=>(
+                    <button key={c} onClick={()=>setCause(c)}
+                      style={{display:'flex',alignItems:'center',gap:10,background:cause===c?'rgba(239,68,68,0.1)':'#0D0D0D',border:`1px solid ${cause===c?'#ef4444':'#2A2A2A'}`,borderRadius:10,padding:'11px 12px',cursor:'pointer',textAlign:'left'}}>
+                      <div style={{width:16,height:16,borderRadius:'50%',border:`2px solid ${cause===c?'#ef4444':'#444'}`,background:cause===c?'#ef4444':'none',flexShrink:0}}/>
+                      <span style={{fontSize:12,color:cause===c?'#FFF':'#A1A1A1',fontWeight:cause===c?700:400,lineHeight:1.3}}>{c}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Big Chance Created / Missed: player picker */}
+            {modal.rule.capture==='player'&&<PlayerPicker value={player} onChange={setPlayer} label="Player" optional={false}/>}
+
+            {/* Note field — always shown for all capture types */}
+            <NoteField rule={modal.rule}/>
+
+            <button onClick={saveEvent} style={{width:'100%',marginTop:20,padding:'16px',border:'none',borderRadius:14,background:modal.rule.color,color:['#F5C04A','#f97316','#2dd4bf'].includes(modal.rule.color)?'#000':'#FFF',fontSize:15,fontWeight:800,cursor:'pointer',letterSpacing:0.3}}>
+              {modal.editId?'Update Event':'Save Event'} — {matchMinute}'
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
+
 
 function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixIsHome, onSaveGame, onPostMatch, onExit }) {
   const positions = getPositions(config.formation);
@@ -5235,6 +5294,8 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
   const [matchEvents, setMatchEvents] = useState([]);
   const [modal, setModal]   = useState(null);
   const [eventsView, setEventsView] = useState(false);
+  const [triggerEventType, setTriggerEventType] = React.useState(null);
+  const [triggerQN, setTriggerQN] = React.useState(false);
   const [report, setReport] = useState("");
   const [reportLoading, setReportLoading] = useState(false);
   const [voiceNotes, setVoiceNotes]   = useState("");      // accumulated transcript
@@ -5412,6 +5473,7 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
   function logGoal(scorer,position){setGoals(g=>[...g,{scorer,position,secs:halfElapsed,timeStr:fmtTime(halfElapsed),team:"us",half:halfIdx+1}]);}
   function logThemGoal(){setGoals(g=>[...g,{scorer:"Opponent",secs:halfElapsed,timeStr:fmtTime(halfElapsed),team:"them",half:halfIdx+1}]);}
   function removeGoal(i){setGoals(g=>g.filter((_,j)=>j!==i));}
+  function removeThemGoal(){setGoals(g=>{const idx=[...g].map((x,i)=>({x,i})).filter(({x})=>x.team==='them');if(!idx.length)return g;return g.filter((_,i)=>i!==idx[idx.length-1].i);});}
 
   const usGoals=goals.filter(g=>g.team==="us");
   const themGoals=goals.filter(g=>g.team==="them");
@@ -5818,39 +5880,13 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
                 </div>
               </div>
 
-              {/* Quick Actions */}
-              <div style={{padding:'5px 8px 6px',borderTop:'1px solid #1A1A1A',flexShrink:0}}>
-                <div style={{fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase',marginBottom:5}}>QUICK ACTIONS</div>
-                {/* Inline goal picker — bottom sheet style */}
-                {modal==='goalSheet'
-                  ? <div style={{background:'#1A1A1A',borderRadius:10,padding:'8px',border:'1px solid #2A2A2A'}}>
-                      <div style={{fontSize:10,fontWeight:700,color:'#22c55e',marginBottom:6}}>⚽ Select Scorer</div>
-                      <select value={goalScorer} onChange={e=>setGoalScorer(e.target.value)} style={{width:'100%',padding:'8px',background:'#0D0D0D',border:'1px solid #2A2A2A',borderRadius:7,color:'#FFF',fontSize:12,marginBottom:8,appearance:'none',WebkitAppearance:'none'}}>
-                        <option value="">— select player —</option>
-                        {squad.map(p=><option key={p.name} value={p.name}>{p.name}</option>)}
-                      </select>
-                      <div style={{display:'flex',gap:6}}>
-                        <button style={{flex:1,padding:'9px',background:'rgba(34,197,94,0.15)',border:'1px solid rgba(34,197,94,0.4)',borderRadius:7,color:'#22c55e',fontSize:11,fontWeight:800,cursor:'pointer',opacity:goalScorer?1:0.4}} onClick={()=>{
-                          if(!goalScorer) return;
-                          const id=posIds.find(id=>cur.slots[id]===goalScorer);
-                          const pos=id?posLabel[id]:'Bench';
-                          logGoal(goalScorer,pos);
-                          setGoalScorer('');
-                          setModal(null);
-                        }}>Done ✓</button>
-                        <button style={{flex:'0 0 auto',padding:'9px 14px',background:'#111',border:'1px solid #2A2A2A',borderRadius:7,color:'#555',fontSize:11,cursor:'pointer'}} onClick={()=>setModal(null)}>Cancel</button>
-                      </div>
-                    </div>
-                  : <div style={{display:'flex',gap:6}}>
-                      <button onClick={()=>{setGoalScorer('');setModal('goalSheet');}} style={{flex:1,background:'rgba(34,197,94,0.1)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:8,padding:'8px 4px',color:'#22c55e',fontSize:10,fontWeight:800,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="#22c55e"><circle cx="12" cy="12" r="10"/></svg>
-                        Our Goal
-                      </button>
-                      <button onClick={logThemGoal} style={{flex:1,background:'rgba(252,165,165,0.08)',border:'1px solid rgba(252,165,165,0.2)',borderRadius:8,padding:'8px 4px',color:'#fca5a5',fontSize:10,fontWeight:800,cursor:'pointer'}}>
-                        + Theirs
-                      </button>
-                    </div>
-                }
+              {/* Events link */}
+              <div style={{padding:'5px 8px 6px',borderTop:'1px solid #1E1E1E',flexShrink:0}}>
+                <button onClick={()=>setActiveMatchTab('events')}
+                  style={{width:'100%',padding:'9px',background:'rgba(245,192,74,0.08)',border:'1px solid rgba(245,192,74,0.25)',borderRadius:9,color:'#F5C04A',fontSize:11,fontWeight:800,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  Match Events
+                </button>
               </div>
             </div>
           </div>
@@ -5859,7 +5895,7 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
         {/* ──── EVENTS TAB ──── */}
         {activeMatchTab==='events'&&(
           <div style={{flex:1,overflow:'hidden'}}>
-            <EventsPage halfElapsed={halfElapsed} goals={goals} matchEvents={matchEvents} setMatchEvents={setMatchEvents} onBack={()=>setActiveMatchTab('lineup')} opponentName={opponent||'Opposition'} ourName={config?.teamName||'My Team'} usGoalsLen={usGoals.length} themGoalsLen={themGoals.length}/>
+            <EventsPage halfElapsed={halfElapsed} goals={goals} matchEvents={matchEvents} setMatchEvents={setMatchEvents} opponentName={opponent||'Opposition'} ourName={config?.teamName||'My Team'} usGoalsLen={usGoals.length} themGoalsLen={themGoals.length} squad={squad} onGoal={(scorer,assist)=>logGoal(scorer,null)} onThemGoal={()=>logThemGoal()} onUndoGoal={()=>removeGoal(goals.filter(g=>g.team==='us').length-1)} onUndoThemGoal={removeThemGoal} onQuickNote={text=>setVoiceNotes(v=>(v?v+'\n':'')+`[${matchMinute}'\u202f${text}`)} triggerEventType={triggerEventType} onClearTrigger={()=>setTriggerEventType(null)} triggerQN={triggerQN} onClearQN={()=>setTriggerQN(false)}/>
           </div>
         )}
 
@@ -5894,22 +5930,37 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
 
       </div>
 
-      {/* ── BOTTOM ACTION BAR ── */}
-      <div style={{display:'flex',gap:6,padding:'8px 10px',paddingBottom:'max(10px,env(safe-area-inset-bottom))',marginBottom:60,background:'#111111',borderTop:'1px solid #1A1A1A',flexShrink:0}}>
-        <button onClick={()=>goals.length>0&&removeGoal(goals.length-1)} style={{flex:'0 0 auto',padding:'11px 10px',background:'#1A1A1A',border:'1px solid #2A2A2A',borderRadius:10,color:goals.length===0?'#333':'#A1A1A1',fontSize:11,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:4}}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
-          Undo
-        </button>
-        <button onClick={()=>setActiveMatchTab('events')} style={{flex:1,padding:'11px 10px',background:'#1f2937',border:'1px solid #374151',borderRadius:10,color:'#FFF',fontSize:12,fontWeight:800,cursor:'pointer',whiteSpace:'nowrap'}}>+ Add Event</button>
-        <button onClick={()=>{setRunning(false);if(isVoiceRecRef.current)stopVoice('');if(voiceNotes.trim()){setVoiceReview(voiceNotes);setModal('voiceReview');}else setModal('save');}} style={{flex:'0 0 auto',padding:'11px 12px',background:'#ef4444',border:'none',borderRadius:10,color:'#FFF',fontSize:11,fontWeight:800,cursor:'pointer',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:4}}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="#FFF"><rect x="3" y="3" width="18" height="18" rx="3"/></svg>
-          End Match
-        </button>
-        <button onClick={toggleVoice} style={{flex:'0 0 auto',padding:'11px 12px',background:isVoiceRec?'rgba(127,29,29,0.9)':'#1A1A1A',border:isVoiceRec?'1px solid #ef4444':'1px solid #2A2A2A',borderRadius:10,color:isVoiceRec?'#fca5a5':'#A1A1A1',fontSize:10,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:4}}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
-          {isVoiceRec?'Stop':'🎙'}
-        </button>
-      </div>
+      {/* ── QUICK ACTIONS BAR — shown on all non-events tabs; links directly into EventsPage modals ── */}
+      {activeMatchTab!=='events'&&(
+        <div style={{background:'#111111',borderTop:'1px solid #1E1E1E',padding:'8px 10px',paddingBottom:'max(8px,env(safe-area-inset-bottom))',marginBottom:60,flexShrink:0}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:6}}>
+            {/* End Match */}
+            <button onClick={()=>{setRunning(false);if(isVoiceRecRef.current)stopVoice('');if(voiceNotes.trim()){setVoiceReview(voiceNotes);setModal('voiceReview');}else setModal('save');}}
+              style={{padding:'10px 6px',background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.25)',borderRadius:10,cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#ef4444"><rect x="3" y="3" width="18" height="18" rx="3"/></svg>
+              <span style={{fontSize:10,fontWeight:700,color:'#ef4444'}}>End Match</span>
+            </button>
+            {/* Goal */}
+            <button onClick={()=>{setActiveMatchTab('events');setTriggerEventType('GOAL');}}
+              style={{padding:'10px 6px',background:'rgba(34,197,94,0.1)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:10,cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+              <span style={{fontSize:18}}>⚽</span>
+              <span style={{fontSize:10,fontWeight:700,color:'#22c55e'}}>Goal</span>
+            </button>
+            {/* Goal Conceded */}
+            <button onClick={()=>{setActiveMatchTab('events');setTriggerEventType('GOAL_CONCEDED');}}
+              style={{padding:'10px 6px',background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:10,cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+              <span style={{fontSize:18}}>🥅</span>
+              <span style={{fontSize:10,fontWeight:700,color:'#ef4444'}}>Conceded</span>
+            </button>
+            {/* Quick Note */}
+            <button onClick={()=>{setActiveMatchTab('events');setTriggerQN(true);}}
+              style={{padding:'10px 6px',background:'#1A1A1A',border:'1px solid #2A2A2A',borderRadius:10,cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+              <span style={{fontSize:18}}>📝</span>
+              <span style={{fontSize:10,fontWeight:700,color:'#A1A1A1'}}>Quick Note</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       <BottomNav activeTab="match" onTab={(t)=>{if(t!=="match") onExit();}}/>
       <style>{`@keyframes pulse{from{opacity:1}to{opacity:0.3}}`}</style>
