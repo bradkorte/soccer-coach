@@ -1944,13 +1944,14 @@ function OpponentStatsScreen({ opponent, onBack, embedded, teamNotes }) {
   return (
     <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
       {/* Header */}
-      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', background:'#111111', borderBottom:'1px solid #1E1E1E', flexShrink:0 }}>
-        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', color:'#F5C04A', fontSize:22, padding:0, lineHeight:1 }}>‹</button>
-        <TeamBadge name={opponent} size={34} radius={7} />
-        <div>
-          <div style={{ fontSize:17, fontWeight:800, color:'#FFFFFF' }}>{opponent}</div>
-          <div style={{ fontSize:11, color:'#A1A1A1' }}>2026 Season · Scout Report</div>
+      <div style={{ background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', paddingTop:'max(env(safe-area-inset-top),14px)', paddingBottom:14, paddingLeft:16, paddingRight:16, display:'flex', alignItems:'center', flexShrink:0, position:'relative' }}>
+        <button onClick={onBack} style={{ background:'none', border:'none', color:'#F5C04A', fontSize:22, cursor:'pointer', padding:0, lineHeight:1, flexShrink:0, zIndex:1 }}>←</button>
+        <img src={KHULA_LOGO} alt="Khula" style={{ height:40, objectFit:'contain', marginLeft:8, zIndex:1 }} />
+        <div style={{ position:'absolute', left:0, right:0, textAlign:'center', pointerEvents:'none' }}>
+          <span style={{ fontSize:17, fontWeight:500, color:'#CCC' }}>{opponent}</span>
         </div>
+        <div style={{ flex:1 }} />
+        <TeamBadge name={opponent} size={32} radius={6} />
       </div>
       <div style={{ flex:1, overflowY:'auto', padding:'14px 16px 20px' }}>
         {statsContent}
@@ -2254,11 +2255,14 @@ function StatsScreen({ games, onBack }) {
   const COL = {width:38,textAlign:"center",fontSize:13,fontWeight:700,flexShrink:0};
   return (
     <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
-      <div style={{ position:'relative', display:'flex', alignItems:'center', padding:'14px 16px 10px', background:'#111111', borderBottom:'1px solid #1A1A1A', flexShrink:0 }}>
-        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', color:'#A1A1A1', fontSize:22, padding:0, lineHeight:1, position:'absolute', left:16 }}>←</button>
-        <div style={{ flex:1, textAlign:'center', fontSize:14, fontWeight:700, color:'#FFFFFF', letterSpacing:2, textTransform:'uppercase' }}>Player Stats</div>
+      <div style={{ background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', paddingTop:'max(env(safe-area-inset-top),14px)', paddingBottom:14, paddingLeft:16, paddingRight:16, display:'flex', alignItems:'center', flexShrink:0, position:'relative' }}>
+        <button onClick={onBack} style={{ background:'none', border:'none', color:'#F5C04A', fontSize:22, cursor:'pointer', padding:0, lineHeight:1, flexShrink:0, zIndex:1 }}>←</button>
+        <img src={KHULA_LOGO} alt="Khula" style={{ height:40, objectFit:'contain', marginLeft:8, zIndex:1 }} />
+        <div style={{ position:'absolute', left:0, right:0, textAlign:'center', pointerEvents:'none' }}>
+          <span style={{ fontSize:17, fontWeight:500, color:'#CCC' }}>Player Stats</span>
+        </div>
       </div>
-      <div style={{ fontSize:12, color:'#A1A1A1', padding:'8px 16px', background:'#111111', borderBottom:'1px solid #1A1A1A' }}>{games.length} game{games.length!==1?"s":""} recorded</div>
+      <div style={{ fontSize:12, color:'#666', padding:'8px 16px 8px 16px', background:'#0D0D0D' }}>{games.length} game{games.length!==1?"s":""} recorded</div>
       <div style={{ flex:1, overflowY:'auto' }}>
         {rows.length===0
           ? <p style={{ padding:"20px 16px", color:"#A1A1A1", fontSize:13 }}>Save some games to see player stats.</p>
@@ -2347,11 +2351,13 @@ function GameLogScreen({ onBack, onOpenGame, onDeleteGame }) {
   return (
     <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
 
-      {/* Header — breadcrumb style */}
-      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', background:'#111111', borderBottom:'1px solid #1E1E1E', flexShrink:0 }}>
-        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', color:'#F5C04A', fontSize:22, padding:0, lineHeight:1 }}>‹</button>
-        <div style={{ fontSize:17, fontWeight:800, color:'#FFFFFF' }}>Season</div>
-        <div style={{ fontSize:13, color:'#A1A1A1' }}>/ Game Log</div>
+      {/* Header */}
+      <div style={{ background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', paddingTop:'max(env(safe-area-inset-top),14px)', paddingBottom:14, paddingLeft:16, paddingRight:16, display:'flex', alignItems:'center', flexShrink:0, position:'relative' }}>
+        <button onClick={onBack} style={{ background:'none', border:'none', color:'#F5C04A', fontSize:22, cursor:'pointer', padding:0, lineHeight:1, flexShrink:0, zIndex:1 }}>←</button>
+        <img src={KHULA_LOGO} alt="Khula" style={{ height:40, objectFit:'contain', marginLeft:8, zIndex:1 }} />
+        <div style={{ position:'absolute', left:0, right:0, textAlign:'center', pointerEvents:'none' }}>
+          <span style={{ fontSize:17, fontWeight:500, color:'#CCC' }}>Game Log</span>
+        </div>
         <div style={{ flex:1 }} />
         <div style={{ fontSize:12, color:'#A1A1A1' }}>{allRes.length} result{allRes.length!==1?'s':''}</div>
       </div>
@@ -2457,11 +2463,13 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout }) {
 
   // Shared sub-screen page wrapper
   const subPage = (title, children) => (
-    <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
-      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', background:'#111111', borderBottom:'1px solid #1E1E1E', flexShrink:0 }}>
-        <button onClick={()=>setSubScreen(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'#F5C04A', fontSize:22, padding:0, lineHeight:1 }}>‹</button>
-        <div style={{ fontSize:17, fontWeight:800, color:'#FFFFFF' }}>Season</div>
-        <div style={{ fontSize:13, color:'#A1A1A1' }}>/ {title}</div>
+    <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:90, display:'flex', flexDirection:'column' }}>
+      <div style={{ background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', paddingTop:'max(env(safe-area-inset-top),14px)', paddingBottom:14, paddingLeft:16, paddingRight:16, display:'flex', alignItems:'center', flexShrink:0, position:'relative' }}>
+        <button onClick={()=>setSubScreen(null)} style={{ background:'none', border:'none', color:'#F5C04A', fontSize:22, cursor:'pointer', padding:0, lineHeight:1, flexShrink:0, zIndex:1 }}>←</button>
+        <img src={KHULA_LOGO} alt="Khula" style={{ height:40, objectFit:'contain', marginLeft:8, zIndex:1 }} />
+        <div style={{ position:'absolute', left:0, right:0, textAlign:'center', pointerEvents:'none' }}>
+          <span style={{ fontSize:17, fontWeight:500, color:'#CCC' }}>{title}</span>
+        </div>
       </div>
       {children}
     </div>
@@ -2494,10 +2502,12 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout }) {
   // ── Scout ───────────────────────────────────────────────────────────────────
   if (subScreen === 'scout') return (
     <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
-      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', background:'#111111', borderBottom:'1px solid #1E1E1E', flexShrink:0 }}>
-        <button onClick={()=>setSubScreen(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'#F5C04A', fontSize:22, padding:0, lineHeight:1 }}>‹</button>
-        <div style={{ fontSize:17, fontWeight:800, color:'#FFFFFF' }}>Season</div>
-        <div style={{ fontSize:13, color:'#A1A1A1' }}>/ Scout</div>
+      <div style={{ background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', paddingTop:'max(env(safe-area-inset-top),14px)', paddingBottom:14, paddingLeft:16, paddingRight:16, display:'flex', alignItems:'center', flexShrink:0, position:'relative' }}>
+        <button onClick={()=>setSubScreen(null)} style={{ background:'none', border:'none', color:'#F5C04A', fontSize:22, cursor:'pointer', padding:0, lineHeight:1, flexShrink:0, zIndex:1 }}>←</button>
+        <img src={KHULA_LOGO} alt="Khula" style={{ height:40, objectFit:'contain', marginLeft:8, zIndex:1 }} />
+        <div style={{ position:'absolute', left:0, right:0, textAlign:'center', pointerEvents:'none' }}>
+          <span style={{ fontSize:17, fontWeight:500, color:'#CCC' }}>Scout</span>
+        </div>
       </div>
       <div style={{ flex:1, overflowY:'auto', padding:'16px' }}>
         <div style={{ fontSize:11, fontWeight:700, color:'#A1A1A1', textTransform:'uppercase', letterSpacing:1, marginBottom:10 }}>Select a team to scout</div>
@@ -2543,9 +2553,12 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout }) {
     <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)' }}>
 
       {/* Header */}
-      <div style={{ padding:'20px 16px 8px' }}>
-        <div style={{ fontSize:26, fontWeight:800, color:'#FFFFFF', letterSpacing:-0.5 }}>Season</div>
-        <div style={{ fontSize:12, color:'#A1A1A1', marginTop:2 }}>2026 · UQFC</div>
+      <div style={{ background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', paddingTop:'max(env(safe-area-inset-top),14px)', paddingBottom:14, paddingLeft:16, paddingRight:16, display:'flex', alignItems:'center', flexShrink:0 }}>
+        <img src={KHULA_LOGO} alt="Khula" style={{ height:40, objectFit:'contain' }} />
+        <div style={{ flex:1, textAlign:'center' }}>
+          <span style={{ fontSize:17, fontWeight:500, color:'#CCC' }}>Season</span>
+        </div>
+        <div style={{ width:48 }} />
       </div>
 
       {/* Season stat strip */}
@@ -2560,8 +2573,8 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout }) {
               [(gd>=0?'+':'')+gd, 'GD',  gd>0?'#22c55e':gd<0?'#ef4444':'#A1A1A1'],
             ].map(([val, label, color]) => (
               <div key={label} style={{ textAlign:'center' }}>
-                <div style={{ fontSize:20, fontWeight:800, color, lineHeight:1 }}>{val}</div>
-                <div style={{ fontSize:10, color:'#A1A1A1', fontWeight:600, textTransform:'uppercase', letterSpacing:0.8, marginTop:3 }}>{label}</div>
+                <div style={{ fontSize:20, fontWeight:600, color, lineHeight:1 }}>{val}</div>
+                <div style={{ fontSize:10, color:'#777', fontWeight:600, textTransform:'uppercase', letterSpacing:0.8, marginTop:3 }}>{label}</div>
               </div>
             ))}
           </div>
@@ -2976,11 +2989,15 @@ function TeamScreen({ onBack, onViewStats, onManageSquad, onGoMatch, onGoFixture
     <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
 
       {/* ── Header ── */}
-      <div style={{ position:'relative', display:'flex', alignItems:'center', padding:'14px 16px 10px', background:'#111111', borderBottom:'1px solid #1A1A1A', flexShrink:0 }}>
-        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', color:'#A1A1A1', fontSize:22, padding:0, lineHeight:1, position:'absolute', left:16 }}>←</button>
-        <div style={{ flex:1, textAlign:'center', fontSize:14, fontWeight:700, color:'#FFFFFF', letterSpacing:2, textTransform:'uppercase' }}>Your Team</div>
-        <button onClick={onEditTeam||onManageSquad} style={{ background:'none', border:'none', cursor:'pointer', padding:0, position:'absolute', right:16 }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A1A1A1" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <div style={{ background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', paddingTop:'max(env(safe-area-inset-top),14px)', paddingBottom:14, paddingLeft:16, paddingRight:16, display:'flex', alignItems:'center', flexShrink:0, position:'relative' }}>
+        <button onClick={onBack} style={{ background:'none', border:'none', color:'#F5C04A', fontSize:22, cursor:'pointer', padding:0, lineHeight:1, flexShrink:0, zIndex:1 }}>←</button>
+        <img src={KHULA_LOGO} alt="Khula" style={{ height:40, objectFit:'contain', marginLeft:8, zIndex:1 }} />
+        <div style={{ position:'absolute', left:0, right:0, textAlign:'center', pointerEvents:'none' }}>
+          <span style={{ fontSize:17, fontWeight:500, color:'#CCC' }}>Your Team</span>
+        </div>
+        <div style={{ flex:1 }} />
+        <button onClick={onEditTeam||onManageSquad} style={{ background:'none', border:'none', cursor:'pointer', padding:0, zIndex:1 }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#777" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
           </svg>
         </button>
@@ -3392,12 +3409,13 @@ function GameDetailScreen({ game, onBack, onUpdateGame }) {
     <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
 
       {/* Header */}
-      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'max(env(safe-area-inset-top),14px) 16px 14px', background:'#111111', borderBottom:'1px solid #1E1E1E', flexShrink:0 }}>
-        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', color:'#F5C04A', fontSize:22, padding:0, lineHeight:1 }}>‹</button>
-        <div>
-          <div style={{ fontSize:11, fontWeight:700, color:'#A1A1A1', letterSpacing:1.5, textTransform:'uppercase' }}>Match Report</div>
-          <div style={{ fontSize:17, fontWeight:800, color:'#FFFFFF' }}>vs {game.opponent||'Opposition'}</div>
+      <div style={{ background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', paddingTop:'max(env(safe-area-inset-top),14px)', paddingBottom:14, paddingLeft:16, paddingRight:16, display:'flex', alignItems:'center', flexShrink:0, position:'relative' }}>
+        <button onClick={onBack} style={{ background:'none', border:'none', color:'#F5C04A', fontSize:22, cursor:'pointer', padding:0, lineHeight:1, flexShrink:0, zIndex:1 }}>←</button>
+        <img src={KHULA_LOGO} alt="Khula" style={{ height:40, objectFit:'contain', marginLeft:8, zIndex:1 }} />
+        <div style={{ position:'absolute', left:0, right:0, textAlign:'center', pointerEvents:'none' }}>
+          <span style={{ fontSize:17, fontWeight:500, color:'#CCC' }}>Match Report</span>
         </div>
+        <div style={{ flex:1 }} />
       </div>
 
       {/* Score hero */}
@@ -8382,24 +8400,23 @@ Write 3-4 focused paragraphs covering: result and key moments, what worked well 
   // ── Shared page header ────────────────────────────────────────────────────────
   function PageHeader({ title, step: s, total, onBack }) {
     return (
-      <div style={{background:'#111111',borderBottom:'1px solid #1E1E1E',padding:'max(env(safe-area-inset-top),14px) 16px 14px',flexShrink:0}}>
-        <div style={{display:'flex',alignItems:'center',gap:12}}>
-          <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',color:'#F5C04A',fontSize:22,padding:0,lineHeight:1}}>‹</button>
-          <div style={{flex:1}}>
-            <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:2,textTransform:'uppercase'}}>FURTHER NOTES</div>
-            <div style={{fontSize:17,fontWeight:800,color:'#FFF',marginTop:1}}>{title}</div>
-          </div>
-          {s && total && (
-            <div style={{textAlign:'right'}}>
-              <div style={{fontSize:11,color:'#555',fontWeight:600}}>{s} of {total}</div>
-              <div style={{display:'flex',gap:3,marginTop:4,justifyContent:'flex-end'}}>
-                {Array.from({length:total}).map((_,i)=>(
-                  <div key={i} style={{height:3,borderRadius:2,width:i<s?18:10,background:i<s?'#F5C04A':'#2A2A2A',transition:'all 0.3s'}}/>
-                ))}
-              </div>
-            </div>
-          )}
+      <div style={{background:'#0D0D0D',borderBottom:'1px solid #1A1A1A',paddingTop:'max(env(safe-area-inset-top),14px)',paddingBottom:14,paddingLeft:16,paddingRight:16,flexShrink:0,display:'flex',alignItems:'center',position:'relative'}}>
+        <button onClick={onBack} style={{background:'none',border:'none',color:'#F5C04A',fontSize:22,cursor:'pointer',padding:0,lineHeight:1,flexShrink:0,zIndex:1}}>←</button>
+        <img src={KHULA_LOGO} alt="Khula" style={{height:40,objectFit:'contain',marginLeft:8,zIndex:1}} />
+        <div style={{position:'absolute',left:0,right:0,textAlign:'center',pointerEvents:'none'}}>
+          <span style={{fontSize:17,fontWeight:500,color:'#CCC'}}>{title}</span>
         </div>
+        <div style={{flex:1}} />
+        {s && total && (
+          <div style={{display:'flex',alignItems:'center',gap:4,zIndex:1}}>
+            <span style={{fontSize:11,color:'#555'}}>{s}/{total}</span>
+            <div style={{display:'flex',gap:3}}>
+              {Array.from({length:total}).map((_,i)=>(
+                <div key={i} style={{height:3,borderRadius:2,width:i<s?18:10,background:i<s?'#F5C04A':'#2A2A2A',transition:'all 0.3s'}}/>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -8410,8 +8427,15 @@ Write 3-4 focused paragraphs covering: result and key moments, what worked well 
   if (step === 0 && !outputs) return (
     <div style={{minHeight:'100dvh',background:'#0D0D0D',display:'flex',flexDirection:'column',paddingBottom:90}}>
       {/* Header */}
-      <div style={{background:'#111111',borderBottom:'1px solid #1E1E1E',padding:'max(env(safe-area-inset-top),14px) 16px 16px'}}>
-        <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:2,textTransform:'uppercase',marginBottom:6}}>POST MATCH</div>
+      <div style={{background:'#0D0D0D',borderBottom:'1px solid #1A1A1A',paddingTop:'max(env(safe-area-inset-top),14px)',paddingBottom:14,paddingLeft:16,paddingRight:16,display:'flex',alignItems:'center',position:'relative',flexShrink:0}}>
+        <img src={KHULA_LOGO} alt="Khula" style={{height:40,objectFit:'contain',zIndex:1}} />
+        <div style={{position:'absolute',left:0,right:0,textAlign:'center',pointerEvents:'none'}}>
+          <span style={{fontSize:17,fontWeight:500,color:'#CCC'}}>Post Match Review</span>
+        </div>
+        <div style={{flex:1}} />
+        <button onClick={onDone} style={{background:'none',border:'none',color:'#555',fontSize:13,cursor:'pointer',padding:0,zIndex:1}}>Skip</button>
+      </div>
+      <div style={{background:'#111111',borderBottom:'1px solid #1E1E1E',padding:'14px 16px'}}>
         <div style={{display:'flex',alignItems:'center',gap:12}}>
           <TeamBadge name={teamName} size={44} radius={10}/>
           <div style={{flex:1}}>
@@ -8663,17 +8687,22 @@ Write 3-4 focused paragraphs covering: result and key moments, what worked well 
 
     return (
       <div style={{display:'flex',flexDirection:'column',minHeight:'100dvh',background:'#0D0D0D'}}>
-        <div style={{background:'#111111',borderBottom:'1px solid #1E1E1E',padding:'max(env(safe-area-inset-top),14px) 16px 14px'}}>
-          <div style={{fontSize:11,fontWeight:800,color:'#22c55e',letterSpacing:2,textTransform:'uppercase',marginBottom:4}}>COMPLETE</div>
-          <div style={{fontSize:20,fontWeight:800,color:'#FFF'}}>Match Review Generated</div>
-          <div style={{fontSize:12,color:'#555',marginTop:2}}>Tap Copy on any card to share</div>
+        <div style={{background:'#0D0D0D',borderBottom:'1px solid #1A1A1A',paddingTop:'max(env(safe-area-inset-top),14px)',paddingBottom:14,paddingLeft:16,paddingRight:16,display:'flex',alignItems:'center',position:'relative'}}>
+          <img src={KHULA_LOGO} alt="Khula" style={{height:40,objectFit:'contain',zIndex:1}} />
+          <div style={{position:'absolute',left:0,right:0,textAlign:'center',pointerEvents:'none'}}>
+            <span style={{fontSize:17,fontWeight:500,color:'#CCC'}}>Review Complete</span>
+          </div>
+          <div style={{flex:1}} />
+          <div style={{display:'flex',alignItems:'center',gap:5,zIndex:1}}>
+            <span style={{fontSize:11,color:'#22c55e',fontWeight:600}}>✓ Done</span>
+          </div>
         </div>
         <div style={{flex:1,padding:'16px',paddingBottom:120,display:'flex',flexDirection:'column',gap:10}}>
           {OUT_CARDS.map(card=>(
             <div key={card.key} style={{background:'#111111',borderRadius:14,border:`1px solid ${card.color}33`,overflow:'hidden'}}>
               <div style={{padding:'12px 16px',borderBottom:`1px solid ${card.color}22`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                 <div>
-                  <div style={{fontSize:14,fontWeight:800,color:card.color}}>{card.title}</div>
+                  <div style={{fontSize:14,fontWeight:600,color:card.color}}>{card.title}</div>
                   <div style={{fontSize:11,color:'#555',marginTop:1}}>{card.subtitle}</div>
                 </div>
                 <button onClick={()=>copyOutput(card.key,card.text)}
@@ -8688,7 +8717,7 @@ Write 3-4 focused paragraphs covering: result and key moments, what worked well 
           ))}
         </div>
         <div style={{position:'fixed',bottom:80,left:0,right:0,padding:'12px 16px',background:'#0D0D0D',borderTop:'1px solid #1E1E1E'}}>
-          <button onClick={onDone} style={{width:'100%',padding:'15px',border:'none',borderRadius:14,fontSize:15,fontWeight:800,cursor:'pointer',background:'#22c55e',color:'#000'}}>
+          <button onClick={onDone} style={{width:'100%',padding:'15px',border:'none',borderRadius:14,fontSize:15,fontWeight:700,cursor:'pointer',background:'#22c55e',color:'#000'}}>
             Done ✓
           </button>
         </div>
@@ -9096,26 +9125,26 @@ function PlayerStatsScreen({ playerName, onBack, games, squad }) {
     <div style={{ minHeight:'100vh', background:'#0D0D0D', display:'flex', flexDirection:'column', paddingTop:'env(safe-area-inset-top)' }}>
 
       {/* ── Hero Header ── */}
-      <div style={{ background:'linear-gradient(160deg,#1A1A2E 0%,#111111 100%)', borderBottom:'1px solid #1A1A1A', flexShrink:0 }}>
-        {/* Back row */}
-        <div style={{ display:'flex', alignItems:'center', padding:'12px 16px 0' }}>
-          <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', color:'#A1A1A1', padding:0, display:'flex', alignItems:'center', gap:6, fontSize:13, fontWeight:600 }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
-            Back
-          </button>
-          <div style={{ flex:1, textAlign:'center', fontSize:11, fontWeight:700, color:'#A1A1A1', letterSpacing:2 }}>PLAYER STATS</div>
-          <div style={{ width:60 }}/>
+      <div style={{ background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', flexShrink:0 }}>
+        {/* Nav bar */}
+        <div style={{ display:'flex', alignItems:'center', paddingTop:'max(env(safe-area-inset-top),14px)', paddingBottom:0, paddingLeft:16, paddingRight:16, position:'relative' }}>
+          <button onClick={onBack} style={{ background:'none', border:'none', color:'#F5C04A', fontSize:22, cursor:'pointer', padding:0, lineHeight:1, flexShrink:0, zIndex:1 }}>←</button>
+          <img src={KHULA_LOGO} alt="Khula" style={{ height:40, objectFit:'contain', marginLeft:8, zIndex:1 }} />
+          <div style={{ position:'absolute', left:0, right:0, textAlign:'center', pointerEvents:'none' }}>
+            <span style={{ fontSize:17, fontWeight:500, color:'#CCC' }}>Player Stats</span>
+          </div>
+          <div style={{ flex:1 }} />
         </div>
 
         {/* Player info */}
         <div style={{ display:'flex', alignItems:'center', gap:16, padding:'16px 20px 20px' }}>
           {/* Avatar */}
-          <div style={{ width:72, height:72, borderRadius:16, background:'linear-gradient(135deg,#F5C04A22,#F5C04A44)', border:'2px solid #F5C04A66', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+          <div style={{ width:72, height:72, borderRadius:16, background:'rgba(245,192,74,0.08)', border:'2px solid rgba(245,192,74,0.3)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
             <span style={{ fontSize:26, fontWeight:700, color:'#F5C04A' }}>{initials}</span>
           </div>
           {/* Name + position */}
           <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontSize:22, fontWeight:800, color:'#FFFFFF', lineHeight:1.1, marginBottom:4 }}>{playerName}</div>
+            <div style={{ fontSize:20, fontWeight:600, color:'#FFFFFF', lineHeight:1.1, marginBottom:4 }}>{playerName}</div>
             <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
               {positions.map(p => (
                 <span key={p} style={{ fontSize:10, fontWeight:700, color:'#F5C04A', background:'#F5C04A15', border:'1px solid #F5C04A33', borderRadius:6, padding:'2px 8px', letterSpacing:1 }}>{p}</span>
@@ -9125,8 +9154,8 @@ function PlayerStatsScreen({ playerName, onBack, games, squad }) {
           </div>
           {/* App count pill */}
           <div style={{ textAlign:'center', flexShrink:0 }}>
-            <div style={{ fontSize:22, fontWeight:900, color:'#FFFFFF' }}>{totalApps}</div>
-            <div style={{ fontSize:9, color:'#A1A1A1', letterSpacing:1, fontWeight:600 }}>APPS</div>
+            <div style={{ fontSize:20, fontWeight:600, color:'#FFFFFF' }}>{totalApps}</div>
+            <div style={{ fontSize:9, color:'#777', letterSpacing:1, fontWeight:600 }}>APPS</div>
           </div>
         </div>
 
@@ -9139,8 +9168,8 @@ function PlayerStatsScreen({ playerName, onBack, games, squad }) {
             { label:'Rating', value:rating.toFixed(1) },
           ].map((s,i) => (
             <div key={s.label} style={{ flex:1, textAlign:'center', padding:'10px 4px', borderRight: i<3 ? '1px solid #1A1A1A' : 'none' }}>
-              <div style={{ fontSize:17, fontWeight:800, color: s.label==='Rating' ? '#F5C04A' : '#FFFFFF' }}>{s.value}</div>
-              <div style={{ fontSize:9, color:'#A1A1A1', fontWeight:600, letterSpacing:1 }}>{s.label.toUpperCase()}</div>
+              <div style={{ fontSize:17, fontWeight:600, color: s.label==='Rating' ? '#F5C04A' : '#FFFFFF' }}>{s.value}</div>
+              <div style={{ fontSize:9, color:'#777', fontWeight:600, letterSpacing:1 }}>{s.label.toUpperCase()}</div>
             </div>
           ))}
         </div>
