@@ -1299,7 +1299,16 @@ async function generateAIReport(game) {
   const us=game.goals.filter(g=>g.team==="us").length;
   const them=game.goals.filter(g=>g.team==="them").length;
   const goalSummary=game.goals.map(g=>`H${g.half} ${g.timeStr} — ${g.team==="us"?`${g.scorer}${g.position?` ('${g.position}')`:""} (our team)`:"Opponent"}`).join("\n")||"No goals logged";
-  const evts2=(game.matchEvents||[]); const noteSummary=evts2.length?evts2.map(e=>`${e.minute}' ${e.type}${e.team?` (${e.team==="us"?"Us":game.opponent||"Them"})`:``}${e.notes?` — ${e.notes}`:``}`).join("\n"):"No match events recorded";
+  const evts2=(game.matchEvents||[]); const noteSummary=evts2.length?evts2.map(e=>{
+    const evtRule=(typeof MATCH_EVENT_RULES!=="undefined"?MATCH_EVENT_RULES:[]).find(r=>r.type===e.type)||{label:e.type};
+    const evtTeam=e.team==="us"?"Us":(game.opponent||"Them");
+    const evtParts=[];
+    if(e.player)evtParts.push(e.player+(e.secondaryPlayer?` (assist: ${e.secondaryPlayer})`:""));
+    if(e.category)evtParts.push("cause: "+e.category);
+    const evtNote=e.note||e.notes||"";
+    if(evtNote)evtParts.push(evtNote);
+    return `${e.minute}' ${evtRule.label}${e.team?` (${evtTeam})`:``}${evtParts.length?" — "+evtParts.join(", "):""}`;
+  }).join("\n"):"No match events recorded";
   const potmArr=Array.isArray(game.potm)?game.potm:(game.potm?[game.potm]:[]);
   const potmLine=potmArr.length?`\nMost Valuable Player (MVP): ${potmArr.join(", ")}`:"";
   const oppLine=game.oppNotes&&game.oppNotes.trim()?`\n\nOpposition notes:\n${game.oppNotes.trim()}`:"";
@@ -4938,7 +4947,7 @@ const MATCH_EVENT_RULES = [
   { type:"OPP_PATTERN",   color:"#38bdf8", label:"Opposition Pattern", desc:"Noticeable tactic or trend",    capture:"note",     icon:"🔭", group:"them" },
 ];
 
-function EventsPage({ halfElapsed, goals, matchEvents, setMatchEvents, opponentName, ourName, squad, onGoal, onThemGoal, onUndoGoal, onUndoThemGoal, onQuickNote, triggerEventType, onClearTrigger, triggerQN, onClearQN }) {
+function EventsPage({ halfElapsed, goals, matchEvents, setMatchEvents, opponentName, ourName, squad, onGoal, onThemGoal, onUndoGoal, onUndoThemGoal, quickNotes, setQuickNotes, qnActive, qnLiveText, toggleQnDictation, triggerEventType, onClearTrigger, onReturnToMatch }) {
   const [modal, setModal]             = React.useState(null);
   const [scorer, setScorer]           = React.useState('');
   const [assist, setAssist]           = React.useState('');
@@ -4947,11 +4956,9 @@ function EventsPage({ halfElapsed, goals, matchEvents, setMatchEvents, opponentN
   const [noteText, setNoteText]       = React.useState('');
   const [listening, setListening]     = React.useState(false);
   const [showInfo, setShowInfo]       = React.useState(false);
-  const [qnOpen, setQnOpen]           = React.useState(false);
-  const [qnText, setQnText]           = React.useState('');
-  const [qnListening, setQnListening] = React.useState(false);
+  const [qnEditId, setQnEditId]       = React.useState(null);
+  const [qnEditText, setQnEditText]   = React.useState('');
   const recogRef = React.useRef(null);
-  const qnRecRef = React.useRef(null);
 
   const SpeechRec = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
   const matchMinute = Math.floor(halfElapsed / 60);
@@ -4966,10 +4973,6 @@ function EventsPage({ halfElapsed, goals, matchEvents, setMatchEvents, opponentN
     }
   }, [triggerEventType]);
 
-  React.useEffect(() => {
-    if (triggerQN) { openQuickNote(); if (onClearQN) onClearQN(); }
-  }, [triggerQN]);
-
   function stopRec(ref, setter) { try { ref.current && ref.current.stop(); } catch(e){} setter(false); }
 
   function toggleVoice() {
@@ -4982,29 +4985,12 @@ function EventsPage({ halfElapsed, goals, matchEvents, setMatchEvents, opponentN
     recogRef.current = r; r.start(); setListening(true);
   }
 
-  function toggleQnVoice() {
-    if (qnListening) { stopRec(qnRecRef, setQnListening); return; }
-    if (!SpeechRec) return;
-    const r = new SpeechRec();
-    r.continuous = true; r.interimResults = false; r.lang = 'en-AU';
-    r.onresult = e => { const t = Array.from(e.results).map(x=>x[0].transcript).join(' '); setQnText(p=>(p?p+' ':'')+t); };
-    r.onend = () => setQnListening(false);
-    qnRecRef.current = r; r.start(); setQnListening(true);
-  }
-
   function openModal(rule) {
     stopRec(recogRef, setListening);
     setScorer(''); setAssist(''); setCause(''); setPlayer(''); setNoteText('');
     setModal({ rule, editId: null });
   }
   function closeModal() { stopRec(recogRef, setListening); setModal(null); }
-  function openQuickNote() { stopRec(recogRef, setListening); setQnText(''); setQnOpen(true); }
-  function saveQuickNote() {
-    stopRec(qnRecRef, setQnListening);
-    if (qnText.trim() && onQuickNote) onQuickNote(qnText.trim());
-    setQnOpen(false); setQnText('');
-  }
-
   function makeEv(type, extra) {
     return { id:'ev_'+Date.now()+'_'+Math.random().toString(36).slice(2), type, eventType:type, minute:matchMinute, timestamp:Date.now(), player:'', secondaryPlayer:'', category:'', note:'', ...(extra||{}) };
   }
@@ -5140,6 +5126,50 @@ function EventsPage({ halfElapsed, goals, matchEvents, setMatchEvents, opponentN
         ))}
       </div>
 
+      {/* ── Quick Notes frame ── */}
+      {(quickNotes||[]).length>0&&(
+        <div style={{padding:'0 12px 16px'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+            <div style={{fontSize:14,fontWeight:800,color:'#FFF'}}>Quick Notes</div>
+            <div style={{fontSize:11,color:'#555'}}>{(quickNotes||[]).length} note{(quickNotes||[]).length!==1?'s':''}</div>
+          </div>
+          <div style={{background:'#111111',borderRadius:14,border:'1px solid #1E1E1E',overflow:'hidden'}}>
+            {[...(quickNotes||[])].reverse().map((note,i,arr)=>(
+              <div key={note.id} style={{borderBottom:i<arr.length-1?'1px solid #1E1E1E':'none'}}>
+                {qnEditId===note.id?(
+                  <div style={{padding:'10px 12px'}}>
+                    <textarea value={qnEditText} onChange={e=>setQnEditText(e.target.value)} autoFocus
+                      rows={3} style={{width:'100%',background:'#0D0D0D',border:'1px solid #F5C04A44',borderRadius:10,padding:'10px',color:'#FFF',fontSize:13,fontFamily:'inherit',lineHeight:1.5,resize:'none',outline:'none',boxSizing:'border-box'}}/>
+                    <div style={{display:'flex',gap:8,marginTop:8}}>
+                      <button onClick={()=>{setQuickNotes(prev=>prev.map(n=>n.id===note.id?{...n,text:qnEditText}:n));setQnEditId(null);}}
+                        style={{flex:1,padding:'8px',background:'#22c55e',border:'none',borderRadius:9,color:'#FFF',fontSize:12,fontWeight:800,cursor:'pointer'}}>Save</button>
+                      <button onClick={()=>setQnEditId(null)}
+                        style={{padding:'8px 16px',background:'none',border:'1px solid #2A2A2A',borderRadius:9,color:'#666',fontSize:12,cursor:'pointer'}}>Cancel</button>
+                    </div>
+                  </div>
+                ):(
+                  <div style={{display:'flex',alignItems:'flex-start',gap:10,padding:'11px 14px'}}>
+                    <div style={{width:34,height:34,borderRadius:10,background:'rgba(245,192,74,0.08)',border:'1px solid rgba(245,192,74,0.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,flexShrink:0}}>📝</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,color:'#E5E5E5',lineHeight:1.5,wordBreak:'break-word'}}>{note.text}</div>
+                    </div>
+                    <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:5,flexShrink:0}}>
+                      <div style={{fontSize:12,fontWeight:700,color:'#F5C04A'}}>{note.minute}'</div>
+                      <div style={{display:'flex',gap:5}}>
+                        <button onClick={()=>{setQnEditId(note.id);setQnEditText(note.text);}}
+                          style={{background:'none',border:'1px solid #2A2A2A',borderRadius:7,padding:'4px 9px',color:'#666',fontSize:11,cursor:'pointer',fontWeight:600}}>Edit</button>
+                        <button onClick={()=>setQuickNotes(prev=>prev.filter(n=>n.id!==note.id))}
+                          style={{background:'none',border:'1px solid rgba(239,68,68,0.25)',borderRadius:7,padding:'4px 9px',color:'#ef4444',fontSize:11,cursor:'pointer'}}>✕</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Recent Events ── */}
       {recentEvents.length>0&&(
         <div style={{padding:'0 12px 16px'}}>
@@ -5170,49 +5200,39 @@ function EventsPage({ halfElapsed, goals, matchEvents, setMatchEvents, opponentN
         </div>
       )}
 
-      {/* ── Quick Note FAB ── */}
-      <div style={{position:'fixed',bottom:68,left:0,right:0,display:'flex',justifyContent:'center',zIndex:40,pointerEvents:'none'}}>
-        <button onClick={openQuickNote}
-          style={{background:'#22c55e',border:'none',borderRadius:30,padding:'12px 22px',fontSize:14,fontWeight:800,color:'#FFF',cursor:'pointer',display:'flex',alignItems:'center',gap:10,boxShadow:'0 4px 20px rgba(34,197,94,0.35)',pointerEvents:'all'}}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          <div><div style={{lineHeight:1.1}}>Quick Note</div><div style={{fontSize:10,fontWeight:500,opacity:0.75,lineHeight:1.1}}>Capture any other moment</div></div>
-        </button>
-      </div>
-
-      {/* ── Quick Note modal ── */}
-      {qnOpen&&(
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',zIndex:200,display:'flex',flexDirection:'column',justifyContent:'flex-end'}}
-          onClick={e=>{if(e.target===e.currentTarget){stopRec(qnRecRef,setQnListening);setQnOpen(false);}}}>
-          <div style={{background:'#111111',borderRadius:'20px 20px 0 0',padding:'20px 20px 40px'}}>
-            <div style={{width:36,height:4,background:'#2A2A2A',borderRadius:2,margin:'0 auto 18px'}}/>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
-              <div style={{display:'flex',alignItems:'center',gap:10}}>
-                <span style={{fontSize:22}}>📝</span>
-                <div>
-                  <div style={{fontSize:17,fontWeight:800,color:'#FFF'}}>Quick Note</div>
-                  <div style={{fontSize:11,color:'#555',marginTop:1}}>{matchMinute}' — type or dictate</div>
-                </div>
-              </div>
-              <div style={{display:'flex',gap:8}}>
-                {SpeechRec&&<button onClick={toggleQnVoice} style={{background:qnListening?'rgba(239,68,68,0.1)':'#1A1A1A',border:`1px solid ${qnListening?'#ef4444':'#2A2A2A'}`,borderRadius:8,padding:'7px 13px',cursor:'pointer',display:'flex',alignItems:'center',gap:6,color:qnListening?'#ef4444':'#A1A1A1',fontSize:12,fontWeight:700}}>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-                  {qnListening?'Stop':'Dictate'}
-                </button>}
-                <button onClick={()=>{stopRec(qnRecRef,setQnListening);setQnOpen(false);}} style={{background:'#1A1A1A',border:'none',borderRadius:'50%',width:32,height:32,display:'flex',alignItems:'center',justifyContent:'center',color:'#666',cursor:'pointer',fontSize:15}}>✕</button>
-              </div>
-            </div>
-            <div style={{height:1,background:'#1E1E1E',margin:'14px 0'}}/>
-            <textarea value={qnText} onChange={e=>setQnText(e.target.value)}
-              placeholder="E.g. Their #9 drifting wide, pressing very high line…"
-              rows={4} autoFocus
-              style={{width:'100%',background:'#0D0D0D',border:`1px solid ${qnListening?'#ef4444':'#2A2A2A'}`,borderRadius:10,padding:'12px',color:'#FFF',fontSize:14,fontFamily:'inherit',lineHeight:1.6,resize:'none',outline:'none',boxSizing:'border-box'}}/>
-            {qnListening&&<div style={{fontSize:11,color:'#ef4444',marginTop:6,fontWeight:600}}>🎙️ Recording — speak your note</div>}
-            <button onClick={saveQuickNote} style={{width:'100%',marginTop:14,padding:'15px',border:'none',borderRadius:14,background:'#22c55e',color:'#FFF',fontSize:15,fontWeight:800,cursor:'pointer'}}>
-              Save Note — {matchMinute}'
-            </button>
+      {/* ── Live transcript strip (shown while QN recording) ── */}
+      {qnActive&&(
+        <div style={{position:'fixed',bottom:136,left:12,right:12,zIndex:41,background:'rgba(13,13,13,0.96)',border:'1px solid #ef444455',borderRadius:16,padding:'10px 16px',display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:8,height:8,borderRadius:'50%',background:'#ef4444',flexShrink:0,animation:'pulse 1s infinite'}}/>
+          <div style={{flex:1,fontSize:13,color:qnLiveText?'#FFF':'#555',lineHeight:1.4,fontStyle:qnLiveText?'normal':'italic'}}>
+            {qnLiveText||'Listening…'}
           </div>
+          <div style={{fontSize:11,color:'#ef4444',fontWeight:700}}>{matchMinute}'</div>
         </div>
       )}
+
+      {/* ── FAB row: Return to Match + Quick Note ── */}
+      <div style={{position:'fixed',bottom:68,left:0,right:0,display:'flex',justifyContent:'center',alignItems:'center',gap:10,padding:'0 16px',zIndex:40,pointerEvents:'none'}}>
+        <button onClick={()=>onReturnToMatch&&onReturnToMatch()}
+          style={{background:'rgba(245,192,74,0.12)',border:'1px solid rgba(245,192,74,0.35)',borderRadius:30,padding:'12px 18px',fontSize:13,fontWeight:700,color:'#F5C04A',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:7,boxShadow:'0 4px 16px rgba(0,0,0,0.4)',pointerEvents:'all',flex:'1 1 0',maxWidth:200,whiteSpace:'nowrap'}}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Return to Match
+        </button>
+        <button onClick={toggleQnDictation}
+          style={{background:qnActive?'#ef4444':'#22c55e',border:'none',borderRadius:30,padding:'12px 18px',fontSize:14,fontWeight:800,color:'#FFF',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,boxShadow:qnActive?'0 4px 20px rgba(239,68,68,0.45)':'0 4px 20px rgba(34,197,94,0.35)',pointerEvents:'all',flex:'1 1 0',maxWidth:200}}>
+          {qnActive?(
+            <>
+              <div style={{width:10,height:10,borderRadius:'50%',background:'#FFF',flexShrink:0}}/>
+              Stop &amp; Save
+            </>
+          ):(
+            <>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+              Quick Note
+            </>
+          )}
+        </button>
+      </div>
 
       {/* ── Event capture modal ── */}
       {modal&&(
@@ -5295,10 +5315,12 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
   const [modal, setModal]   = useState(null);
   const [eventsView, setEventsView] = useState(false);
   const [triggerEventType, setTriggerEventType] = React.useState(null);
-  const [triggerQN, setTriggerQN] = React.useState(false);
   const [report, setReport] = useState("");
   const [reportLoading, setReportLoading] = useState(false);
   const [voiceNotes, setVoiceNotes]   = useState("");      // accumulated transcript
+  const [quickNotes, setQuickNotes]   = React.useState([]); // structured quick notes from Events tab
+  const [qnActive, setQnActive]        = React.useState(false);
+  const [qnLiveText, setQnLiveText]    = React.useState('');
   const [voiceReview, setVoiceReview] = useState("");      // editable copy in review modal
   const [isVoiceRec, setIsVoiceRec]   = useState(false);
   const [voicePulse, setVoicePulse]   = useState(false);
@@ -5382,6 +5404,10 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
     stopVoice._restartRef = () => { clearTimeout(restartTimer); };
   }
   const isVoiceRecRef = useRef(false);
+  const qnRecRef_ms   = React.useRef(null);
+  const qnLiveRef_ms  = React.useRef('');
+  const qnSavedRef_ms = React.useRef(false);
+  const halfElapsedRef_ms = React.useRef(0);
   function stopVoice(extraText) {
     if (stopVoice._restartRef) { stopVoice._restartRef(); stopVoice._restartRef = null; }
     isVoiceRecRef.current = false;
@@ -5473,13 +5499,60 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
   function logGoal(scorer,position){setGoals(g=>[...g,{scorer,position,secs:halfElapsed,timeStr:fmtTime(halfElapsed),team:"us",half:halfIdx+1}]);}
   function logThemGoal(){setGoals(g=>[...g,{scorer:"Opponent",secs:halfElapsed,timeStr:fmtTime(halfElapsed),team:"them",half:halfIdx+1}]);}
   function removeGoal(i){setGoals(g=>g.filter((_,j)=>j!==i));}
+  React.useEffect(() => { halfElapsedRef_ms.current = halfElapsed; }, [halfElapsed]);
+
+  function toggleQnDictation() {
+    const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (qnActive) {
+      qnSavedRef_ms.current = true;
+      try { qnRecRef_ms.current && qnRecRef_ms.current.stop(); } catch(e){}
+      setQnActive(false);
+      const text = qnLiveRef_ms.current.trim();
+      if (text) {
+        const note = { id:'qn_'+Date.now(), minute: Math.floor(halfElapsedRef_ms.current/60), text };
+        setQuickNotes(prev => [...(prev||[]), note]);
+      }
+      qnLiveRef_ms.current = ''; setQnLiveText('');
+      return;
+    }
+    if (!SR) {
+      // No speech rec — switch to events tab where text input is available
+      setActiveMatchTab('events');
+      return;
+    }
+    qnLiveRef_ms.current = ''; setQnLiveText(''); qnSavedRef_ms.current = false;
+    const r = new SR();
+    r.continuous = true; r.interimResults = false; r.lang = 'en-AU';
+    r.onresult = e => {
+      let finals = '';
+      for (let i = 0; i < e.results.length; i++) {
+        if (e.results[i].isFinal) finals += (finals ? ' ' : '') + e.results[i][0].transcript;
+      }
+      if (finals) { qnLiveRef_ms.current = finals; setQnLiveText(finals); }
+    };
+    r.onend = () => {
+      setQnActive(false);
+      if (!qnSavedRef_ms.current) {
+        const text = qnLiveRef_ms.current.trim();
+        if (text) {
+          const note = { id:'qn_'+Date.now(), minute: Math.floor(halfElapsedRef_ms.current/60), text };
+          setQuickNotes(pn => [...(pn||[]), note]);
+        }
+        qnLiveRef_ms.current = ''; setQnLiveText('');
+      }
+      qnSavedRef_ms.current = false;
+    };
+    qnRecRef_ms.current = r; r.start(); setQnActive(true);
+  }
+
   function removeThemGoal(){setGoals(g=>{const idx=[...g].map((x,i)=>({x,i})).filter(({x})=>x.team==='them');if(!idx.length)return g;return g.filter((_,i)=>i!==idx[idx.length-1].i);});}
 
   const usGoals=goals.filter(g=>g.team==="us");
   const themGoals=goals.filter(g=>g.team==="them");
 
   function currentGameObj(){
-    return{opponent,date:Date.now(),goals,matchEvents,scoreUs:usGoals.length,scoreThem:themGoals.length,halves,config,voiceNotes:voiceNotes||"",...(linkedFixKey?{linkedFixtureKey:linkedFixKey,fixtureIsHome:fixIsHome}:{})};
+    const _allNotes=[voiceNotes,...(quickNotes||[]).map(n=>`[${n.minute}'] ${n.text}`)].filter(s=>s&&s.trim()).join('\n');
+    return{opponent,date:Date.now(),goals,matchEvents,quickNotes:quickNotes||[],scoreUs:usGoals.length,scoreThem:themGoals.length,halves,config,voiceNotes:_allNotes||"",...(linkedFixKey?{linkedFixtureKey:linkedFixKey,fixtureIsHome:fixIsHome}:{})};
   }
   async function generateReport(){
     setModal("report");setReportLoading(true);
@@ -5892,19 +5965,17 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
           </div>
         )}
 
-        {/* ──── EVENTS TAB ──── */}
-        {activeMatchTab==='events'&&(
-          <div style={{flex:1,overflow:'hidden'}}>
-            <EventsPage halfElapsed={halfElapsed} goals={goals} matchEvents={matchEvents} setMatchEvents={setMatchEvents} opponentName={opponent||'Opposition'} ourName={config?.teamName||'My Team'} usGoalsLen={usGoals.length} themGoalsLen={themGoals.length} squad={squad} onGoal={(scorer,assist)=>logGoal(scorer,null)} onThemGoal={()=>logThemGoal()} onUndoGoal={()=>removeGoal(goals.filter(g=>g.team==='us').length-1)} onUndoThemGoal={removeThemGoal} onQuickNote={text=>setVoiceNotes(v=>(v?v+'\n':'')+`[${matchMinute}'\u202f${text}`)} triggerEventType={triggerEventType} onClearTrigger={()=>setTriggerEventType(null)} triggerQN={triggerQN} onClearQN={()=>setTriggerQN(false)}/>
-          </div>
-        )}
+        {/* ──── EVENTS TAB (always mounted, hidden via CSS so triggers fire reliably) ──── */}
+        <div style={{flex:1,overflow:'hidden',display:activeMatchTab==='events'?'flex':'none',flexDirection:'column'}}>
+          <EventsPage halfElapsed={halfElapsed} goals={goals} matchEvents={matchEvents} setMatchEvents={setMatchEvents} opponentName={opponent||'Opposition'} ourName={config?.teamName||'My Team'} usGoalsLen={usGoals.length} themGoalsLen={themGoals.length} squad={squad} onGoal={(scorer,assist)=>logGoal(scorer,null)} onThemGoal={()=>logThemGoal()} onUndoGoal={()=>removeGoal(goals.filter(g=>g.team==='us').length-1)} onUndoThemGoal={removeThemGoal} quickNotes={quickNotes} setQuickNotes={setQuickNotes} triggerEventType={triggerEventType} onClearTrigger={()=>setTriggerEventType(null)} qnActive={qnActive} qnLiveText={qnLiveText} toggleQnDictation={toggleQnDictation} onReturnToMatch={()=>setActiveMatchTab('lineup')}/>
+        </div>
 
         {/* ──── STATS TAB ──── */}
         {activeMatchTab==='stats'&&(
           <div style={{flex:1,overflowY:'auto',padding:'14px',display:'flex',flexDirection:'column',gap:12}}>
             <div style={{background:'#111111',borderRadius:12,padding:'14px',border:'1px solid #1A1A1A'}}>
               <div style={{fontSize:11,fontWeight:800,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase',marginBottom:10}}>MATCH SUMMARY</div>
-              {[['Goals — Us',usGoals.length],['Goals — Them',themGoals.length],['Events logged',matchEvents.length],['Voice notes',voiceNotes?'Yes':'None']].map(([label,val])=>(
+              {[['Goals — Us',usGoals.length],['Goals — Them',themGoals.length],['Events logged',matchEvents.length],['Quick Notes',quickNotes.length||0]].map(([label,val])=>(
                 <div key={label} style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#666',padding:'6px 0',borderBottom:'1px solid #1A1A1A'}}>
                   <span>{label}</span><span style={{fontWeight:800,color:'#FFF'}}>{val}</span>
                 </div>
@@ -5953,10 +6024,12 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
               <span style={{fontSize:10,fontWeight:700,color:'#ef4444'}}>Conceded</span>
             </button>
             {/* Quick Note */}
-            <button onClick={()=>{setActiveMatchTab('events');setTriggerQN(true);}}
-              style={{padding:'10px 6px',background:'#1A1A1A',border:'1px solid #2A2A2A',borderRadius:10,cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-              <span style={{fontSize:18}}>📝</span>
-              <span style={{fontSize:10,fontWeight:700,color:'#A1A1A1'}}>Quick Note</span>
+            <button onClick={toggleQnDictation}
+              style={{padding:'10px 6px',background:qnActive?'rgba(239,68,68,0.15)':'#1A1A1A',border:`1px solid ${qnActive?'#ef4444':'#2A2A2A'}`,borderRadius:10,cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+              {qnActive
+                ? <><div style={{width:10,height:10,borderRadius:'50%',background:'#ef4444'}}/><span style={{fontSize:10,fontWeight:700,color:'#ef4444'}}>Stop</span></>
+                : <><span style={{fontSize:18}}>📝</span><span style={{fontSize:10,fontWeight:700,color:'#A1A1A1'}}>Quick Note</span></>
+              }
             </button>
           </div>
         </div>
@@ -7643,7 +7716,12 @@ function PostMatchReviewScreen({ game, squad, opponent, config, onDone }) {
     return evts.map(e => {
       const rule = (typeof MATCH_EVENT_RULES !== 'undefined' ? MATCH_EVENT_RULES : []).find(r => r.type === e.type) || { icon:'📝', label: e.type };
       const team = e.team === 'us' ? teamName : (opponent || 'Them');
-      return `${rule.icon} ${e.minute}' ${rule.label}${e.team ? ` (${team})` : ''}${e.notes ? ` — ${e.notes}` : ''}`;
+      const parts = [];
+      if (e.player) parts.push(e.player + (e.secondaryPlayer ? ` (assist: ${e.secondaryPlayer})` : ''));
+      if (e.category) parts.push(`cause: ${e.category}`);
+      const noteVal = e.note || e.notes || '';
+      if (noteVal) parts.push(noteVal);
+      return `${rule.icon} ${e.minute}' ${rule.label}${e.team ? ` (${team})` : ''}${parts.length ? ' — ' + parts.join(', ') : ''}`;
     }).join('\n');
   }
 
