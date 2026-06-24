@@ -40,11 +40,11 @@ const DEFAULT_FORMATION = "1-3-2-3";
 const POSITIONS   = FORMATIONS[DEFAULT_FORMATION];
 // All positions across all formations — used in squad position dropdowns
 const ALL_POSITIONS = [
-  {id:"gk", label:"Goalkeeper"},
-  {id:"dl", label:"Left Def"},  {id:"dc", label:"Centre Def"}, {id:"dr", label:"Right Def"},
-  {id:"ml", label:"Left Mid"},  {id:"mc", label:"Centre Mid"}, {id:"mr", label:"Right Mid"},
-  {id:"al", label:"Left Wing"}, {id:"ar", label:"Right Wing"},
-  {id:"lf", label:"Left Fwd"},  {id:"rf", label:"Right Fwd"},  {id:"st", label:"Striker"},
+  {id:"gk", short:"GK", label:"Goalkeeper"},
+  {id:"dl", short:"LB", label:"Left Back"},  {id:"dc", short:"CB", label:"Centre Back"}, {id:"dr", short:"RB", label:"Right Back"},
+  {id:"ml", short:"LM", label:"Left Mid"},   {id:"mc", short:"CM", label:"Centre Mid"},  {id:"mr", short:"RM", label:"Right Mid"},
+  {id:"al", short:"LW", label:"Left Wing"},  {id:"ar", short:"RW", label:"Right Wing"},
+  {id:"lf", short:"LF", label:"Left Fwd"},   {id:"rf", short:"RF", label:"Right Fwd"},   {id:"st", short:"ST", label:"Striker"},
 ];
 const PAIR_COLORS = ["#f59e0b", "#a855f7", "#06b6d4"];
 
@@ -2763,105 +2763,148 @@ function InsightsScreen({ games }) {
 // ════════════════════════════════════════════════════════════════════════════════
 //  SCREEN: TEAM SQUAD (lineup view — full screen, from Team > Squad tab)
 // ════════════════════════════════════════════════════════════════════════════════
-function TeamSquadScreen({ onBack, onManageSquad }) {
-  const squad   = loadSquad();
-  const cfg     = loadConfig();
-  const myTeam  = localStorage.getItem('soccerCoach_fixtureTeam') || '';
-  const formation = cfg.formation || DEFAULT_FORMATION;
-  const positions = getPositions(formation);
-  const filledSlots = autoFillSlots(squad, positions);
-  const assigned    = Object.values(filledSlots).filter(Boolean);
-  const bench       = squad.filter(p => !assigned.includes(p.name));
+function TeamSquadScreen({ onBack, onManageSquad, onViewPlayer, onAddPlayer }) {
+  const [squad, setSquad]   = React.useState(()=>loadSquad());
+  const [search, setSearch] = React.useState('');
+  const [sortBy, setSortBy] = React.useState('number');
+  const myTeam    = localStorage.getItem('soccerCoach_fixtureTeam') || '';
+  const settings  = loadSettings();
+  const teamName  = settings.teamName || myTeam || 'My Team';
+  const league    = settings.league   || 'U11 Girls';
+  const season    = settings.season   || '2026 Season';
 
-  const leftColRef = useRef(null);
-  const [colH, setColH] = React.useState(null);
-  useEffect(() => {
-    const el = leftColRef.current;
-    if (!el) return;
-    const upd = () => setColH(el.getBoundingClientRect().height);
-    upd();
-    const ro = new ResizeObserver(upd);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  const filtered = React.useMemo(() => {
+    let list = search.trim()
+      ? squad.filter(p => (p.name||'').toLowerCase().includes(search.toLowerCase()) || (p.nickname||'').toLowerCase().includes(search.toLowerCase()))
+      : [...squad];
+    if (sortBy === 'number') list.sort((a,b) => (parseInt(a.number)||999)-(parseInt(b.number)||999));
+    else list.sort((a,b) => (a.name||'').localeCompare(b.name||''));
+    return list;
+  }, [squad, search, sortBy]);
+
+  const FunnelIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+    </svg>
+  );
 
   return (
-    <div style={{ height:'calc(100dvh - 60px)', background:'#0D0D0D', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-      {/* Header */}
-      <div style={{ background:'#111111', borderBottom:'1px solid #1E1E1E', height:52, display:'flex', alignItems:'center', padding:'0 14px', gap:10, flexShrink:0 }}>
-        <button onClick={onBack} style={{ background:'none', border:'none', color:'#A1A1A1', fontSize:18, cursor:'pointer', padding:'4px 8px 4px 0' }}>←</button>
-        <span style={{ flex:1, fontSize:13, fontWeight:800, color:'#FFF', letterSpacing:1, textTransform:'uppercase' }}>SQUAD</span>
-        <span style={{ fontSize:11, fontWeight:700, color:'#F5C04A', background:'#1A1400', border:'1px solid #F5C04A33', borderRadius:7, padding:'4px 9px' }}>{formation}</span>
+    <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingTop:'max(env(safe-area-inset-top),0px)', paddingBottom:'calc(72px + env(safe-area-inset-bottom))' }}>
+
+      {/* Team banner card */}
+      <div style={{ margin:'12px 16px 0', background:'#111111', borderRadius:16, border:'1px solid #1E1E1E', padding:'14px 16px', display:'flex', alignItems:'center', gap:14, cursor:'pointer' }}
+        onClick={onBack}>
+        <TeamBadge name={myTeam||teamName} size={62} radius={10} />
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:18, fontWeight:800, color:'#FFF', lineHeight:1.2 }}>{teamName}</div>
+          {league && <div style={{ fontSize:12, color:'#A1A1A1', marginTop:3 }}>{league}</div>}
+          {season && <div style={{ fontSize:12, color:'#A1A1A1', marginTop:1 }}>{season}</div>}
+        </div>
+        <div style={{ color:'#F5C04A', fontSize:22, lineHeight:1, flexShrink:0 }}>›</div>
       </div>
 
-      {squad.length === 0 ? (
-        <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:32 }}>
-          <div style={{ fontSize:40, marginBottom:12 }}>👥</div>
-          <div style={{ fontSize:16, fontWeight:800, color:'#FFF', marginBottom:6 }}>No squad yet</div>
-          <div style={{ fontSize:13, color:'#A1A1A1', marginBottom:20, textAlign:'center' }}>Add players to see your lineup here</div>
-          <button onClick={onManageSquad} style={{ background:'#F5C04A', color:'#000', border:'none', borderRadius:12, padding:'14px 28px', fontWeight:800, cursor:'pointer' }}>Set Up Squad →</button>
+      {/* Search + filter */}
+      <div style={{ margin:'12px 16px 0', display:'flex', gap:10, alignItems:'center' }}>
+        <div style={{ flex:1, position:'relative' }}>
+          <div style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', color:'#555', fontSize:15, pointerEvents:'none' }}>🔍</div>
+          <input
+            value={search} onChange={e=>setSearch(e.target.value)}
+            placeholder="Search players..."
+            style={{ width:'100%', background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:12, padding:'12px 14px 12px 40px', color:'#FFF', fontSize:14, outline:'none', boxSizing:'border-box' }}
+          />
         </div>
-      ) : (
-        <div style={{ flex:1, display:'flex', flexDirection:'column', overflowY:'auto' }}>
-          {/* Pitch + player list */}
-          <div style={{ display:'flex', padding:'10px 10px 0' }}>
-            {/* Left: pitch */}
-            <div ref={leftColRef} style={{ flex:'0 0 56%', paddingRight:8 }}>
-              <PitchLineupView positions={positions} slots={filledSlots} myTeam={myTeam} interactive={false} />
-            </div>
-            {/* Right: player list — same height as pitch */}
-            <div style={{ flex:'0 0 44%', display:'flex', flexDirection:'column', height: colH||'auto', overflow:'hidden' }}>
-              <div style={{ fontSize:9, fontWeight:800, color:'#A1A1A1', letterSpacing:1.5, textTransform:'uppercase', marginBottom:5 }}>PLAYERS {squad.length}</div>
-              <div style={{ flex:1, overflowY:'auto' }}>
-                {squad.map(p => {
-                  const isOn  = assigned.includes(p.name);
-                  const posId = Object.keys(filledSlots).find(k=>filledSlots[k]===p.name);
-                  const pl    = posId ? (positions.find(pos=>pos.id===posId)?.label||posId) : 'Bench';
-                  return (
-                    <div key={p.name} style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 6px', borderBottom:'1px solid #141414' }}>
-                      <div style={{ width:28, height:28, borderRadius:'50%', overflow:'hidden', background:'#1A1A1A', flexShrink:0 }}>
-                        <TeamBadge name={myTeam||'Team'} size={28} />
-                      </div>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:11, fontWeight:700, color:'#FFF', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.name}</div>
-                        <div style={{ fontSize:9, color: isOn?'#F5C04A':'#555', fontWeight:600 }}>{pl}</div>
-                      </div>
-                      <div style={{ width:7, height:7, borderRadius:'50%', background: isOn?'#22c55e':'#2A2A2A', flexShrink:0 }} />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+        <button
+          onClick={()=>setSortBy(s=>s==='number'?'name':'number')}
+          style={{ width:48, height:48, background:'#1A1A1A', border:'1px solid rgba(245,192,74,0.35)', borderRadius:12, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
+          <FunnelIcon />
+        </button>
+      </div>
 
-          {/* Bench */}
-          {bench.length > 0 && (
-            <div style={{ padding:'10px 10px 4px' }}>
-              <div style={{ fontSize:9, fontWeight:800, color:'#A1A1A1', letterSpacing:1.5, textTransform:'uppercase', marginBottom:7 }}>BENCH ({bench.length})</div>
-              <div style={{ display:'flex', gap:10, overflowX:'auto' }}>
-                {bench.map(p => (
-                  <div key={p.name} style={{ textAlign:'center', flexShrink:0 }}>
-                    <div style={{ width:38, height:38, borderRadius:'50%', overflow:'hidden', background:'#1A1A1A', border:'1px solid #333', margin:'0 auto 3px' }}>
-                      <TeamBadge name={myTeam||'Team'} size={38} />
-                    </div>
-                    <div style={{ fontSize:8, color:'#A1A1A1', maxWidth:44, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.name}</div>
+      {/* Count + sort */}
+      <div style={{ margin:'10px 16px 6px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <div style={{ fontSize:14, fontWeight:700, color:'#FFF' }}>{filtered.length} Players</div>
+        <button onClick={()=>setSortBy(s=>s==='name'?'number':'name')}
+          style={{ background:'none', border:'none', color:'#A1A1A1', fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:4, padding:0 }}>
+          Sort: {sortBy==='name'?'Name':'Number'}
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="#A1A1A1"><path d="M2 3.5L5 7 8 3.5"/></svg>
+        </button>
+      </div>
+
+      {/* Player list — grouped card */}
+      <div style={{ margin:'0 16px' }}>
+        {filtered.length === 0 && !search && (
+          <div style={{ textAlign:'center', padding:'48px 0' }}>
+            <div style={{ fontSize:40, marginBottom:12 }}>👥</div>
+            <div style={{ fontSize:16, fontWeight:800, color:'#FFF', marginBottom:6 }}>No players yet</div>
+            <div style={{ fontSize:13, color:'#666' }}>Tap Add New Player to get started</div>
+          </div>
+        )}
+        {filtered.length === 0 && search && (
+          <div style={{ textAlign:'center', padding:'32px 0', color:'#555', fontSize:13 }}>No players match "{search}"</div>
+        )}
+        {filtered.length > 0 && (
+          <div style={{ background:'#111111', borderRadius:16, border:'1px solid #1E1E1E', overflow:'hidden' }}>
+            {filtered.map((p, idx) => {
+              const positions = [p.pos, p.pos2, p.pos3].filter(Boolean);
+              return (
+                <div key={p.name}
+                  onClick={() => onViewPlayer && onViewPlayer(p.name)}
+                  style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 16px', borderBottom: idx < filtered.length-1 ? '1px solid #1A1A1A' : 'none', cursor:'pointer', WebkitTapHighlightColor:'transparent' }}>
+
+                  {/* Jersey number circle */}
+                  <div style={{ width:40, height:40, borderRadius:'50%', border:'2px solid rgba(245,192,74,0.6)', background:'rgba(245,192,74,0.06)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <span style={{ fontSize:14, fontWeight:800, color:'#F5C04A' }}>{p.number || '?'}</span>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
 
-          {/* Manage Squad button */}
-          <div style={{ padding:'12px 10px 16px' }}>
-            <button onClick={onManageSquad} style={{ width:'100%', padding:'14px', background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:12, color:'#F5C04A', fontSize:13, fontWeight:800, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
-              👥 Manage Squad
-            </button>
+                  {/* Photo (if set) */}
+                  {p.photo && (
+                    <div style={{ width:36, height:36, borderRadius:'50%', overflow:'hidden', flexShrink:0 }}>
+                      <img src={p.photo} alt={p.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                    </div>
+                  )}
+
+                  {/* Name + nickname inline */}
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:15, fontWeight:500, color:'#FFF', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                      {p.name}
+                      {p.nickname && <span style={{ color:'#F5C04A', marginLeft:6 }}>"{p.nickname}"</span>}
+                    </div>
+                  </div>
+
+                  {/* Position badges */}
+                  {positions.length > 0 && (
+                    <div style={{ display:'flex', gap:5, flexShrink:0 }}>
+                      {positions.map((pid, i) => {
+                        const pg = ALL_POSITIONS.find(x=>x.id===pid);
+                        return (
+                          <div key={i} style={{ background:'#1A1A1A', border:'1px solid #333', borderRadius:6, padding:'4px 8px', fontSize:11, fontWeight:700, color:'#CCC', whiteSpace:'nowrap' }}>
+                            {pg ? pg.short : pid.toUpperCase()}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Chevron */}
+                  <div style={{ color:'#F5C04A', fontSize:20, flexShrink:0, lineHeight:1 }}>›</div>
+                </div>
+              );
+            })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
+
+      {/* Add New Player */}
+      <button
+        onClick={() => onAddPlayer && onAddPlayer()}
+        style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:10, width:'calc(100% - 32px)', margin:'12px 16px 0', padding:'16px', background:'transparent', color:'#F5C04A', border:'2px dashed rgba(245,192,74,0.4)', borderRadius:16, fontSize:15, fontWeight:700, cursor:'pointer', boxSizing:'border-box' }}>
+        <span style={{ fontSize:22, lineHeight:1 }}>+</span>
+        <span>Add New Player</span>
+      </button>
     </div>
   );
 }
+
 
 function TeamScreen({ onBack, onViewStats, onManageSquad, onGoMatch, onGoFixtures, games, settings, onEditTeam, onViewSquad }) {
   const [tab, setTab] = React.useState('overview');
@@ -3116,60 +3159,64 @@ function TeamScreen({ onBack, onViewStats, onManageSquad, onGoMatch, onGoFixture
           </div>
         )}
 
-        {/* SQUAD tab — inline squad management */}
-        {tab === 'squad' && (() => {
-          const posOpts = <><option value="">—</option>{ALL_POSITIONS.map(op=><option key={op.id} value={op.id}>{op.label}</option>)}</>;
-          const sel2 = { background:'#111111', border:'1px solid #2A2A2A', borderRadius:6, padding:'4px 6px', color:'#FFF', fontSize:10, fontWeight:600, outline:'none', cursor:'pointer', width:'100%' };
-          return (
-            <div style={{ padding:'10px 12px', display:'flex', flexDirection:'column', gap:10 }}>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                <div style={{ fontSize:13, fontWeight:700, color:'#FFF' }}>Squad ({squadData.length})</div>
-                <button onClick={()=>setSqShowAdd(v=>!v)} style={{ background:'#F5C04A', border:'none', borderRadius:8, padding:'7px 14px', color:'#000', fontSize:12, fontWeight:800, cursor:'pointer' }}>
-                  {sqShowAdd ? '✕ Cancel' : '+ Add Player'}
-                </button>
+        {/* SQUAD tab */}
+        {tab === 'squad' && (
+          <div style={{ padding:'12px 14px' }}>
+            {squadData.length === 0 ? (
+              <div style={{ textAlign:'center', padding:'40px 0' }}>
+                <div style={{ fontSize:36, marginBottom:10 }}>👥</div>
+                <div style={{ fontSize:15, fontWeight:800, color:'#FFF', marginBottom:6 }}>No players yet</div>
+                <div style={{ fontSize:13, color:'#666', marginBottom:20 }}>Tap below to add your first player</div>
               </div>
-              {sqShowAdd && (
-                <div style={{ display:'flex', gap:6 }}>
-                  <input autoFocus value={sqInput} onChange={e=>setSqInput(e.target.value)}
-                    onKeyDown={e=>{ if(e.key==='Enter') sqAddPlayer(); }}
-                    placeholder="Player name…"
-                    style={{ flex:1, background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:8, padding:'9px 12px', color:'#FFF', fontSize:13, outline:'none' }} />
-                  <button onClick={sqAddPlayer} style={{ background:'#22c55e', border:'none', borderRadius:8, padding:'9px 16px', color:'#000', fontSize:13, fontWeight:800, cursor:'pointer' }}>Add</button>
-                </div>
-              )}
-              {squadData.length === 0 ? (
-                <div style={{ textAlign:'center', color:'#A1A1A1', fontSize:13, padding:'30px 0' }}>
-                  <div style={{ fontSize:32, marginBottom:8 }}>👥</div>
-                  No players yet — tap + Add Player
-                </div>
-              ) : (
-                <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                  {squadData.map((p) => (
-                    <div key={p.name} style={{ background:'#1A1A1A', border:'1px solid #222', borderRadius:10, padding:'8px 10px' }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5 }}>
-                        <div style={{ width:32, height:32, borderRadius:'50%', overflow:'hidden', background:'#111', flexShrink:0 }}>
-                          <TeamBadge name={myTeam||'Team'} size={32} />
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:8 }}>
+                {squadData.map(p => {
+                  const pInitials = (p.name||'?').split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
+                  const positions = [p.pos, p.pos2, p.pos3].filter(Boolean);
+                  return (
+                    <div key={p.name}
+                      onClick={()=>onViewSquad&&onViewSquad(p.name)}
+                      style={{ background:'#111111', borderRadius:14, padding:'12px 14px', border:'1px solid #1E1E1E', display:'flex', alignItems:'center', gap:10, cursor:'pointer', WebkitTapHighlightColor:'transparent' }}>
+                      {p.number ? (
+                        <div style={{ width:36, height:36, borderRadius:'50%', background:'rgba(245,192,74,0.12)', border:'2px solid rgba(245,192,74,0.35)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                          <span style={{ fontSize:12, fontWeight:900, color:'#F5C04A' }}>{p.number}</span>
                         </div>
-                        <div style={{ flex:1, fontSize:13, fontWeight:700, color:'#FFF', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.name}</div>
-                        <button onClick={()=>sqRemove(p.name)} style={{ background:'none', border:'none', color:'#ef4444', fontSize:16, cursor:'pointer', padding:'2px 4px', lineHeight:1, flexShrink:0 }}>✕</button>
+                      ) : (
+                        <div style={{ width:36, height:36, borderRadius:'50%', background:'#1A1A1A', border:'1px solid #2A2A2A', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                          <span style={{ fontSize:12, fontWeight:800, color:'#555' }}>{pInitials}</span>
+                        </div>
+                      )}
+                      {p.photo && (
+                        <div style={{ width:36, height:36, borderRadius:'50%', overflow:'hidden', flexShrink:0 }}>
+                          <img src={p.photo} alt={p.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                        </div>
+                      )}
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:14, fontWeight:500, color:'#FFF', lineHeight:1.2 }}>{p.name}</div>
+                        {p.nickname && <div style={{ fontSize:11, color:'#F5C04A', marginTop:1 }}>"{p.nickname}"</div>}
                       </div>
-                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:5 }}>
-                        {[['pos','Pos 1'],['pos2','Pos 2'],['pos3','Pos 3']].map(([field, label])=>(
-                          <div key={field}>
-                            <div style={{ fontSize:8, color:'#666', fontWeight:700, letterSpacing:0.8, marginBottom:2 }}>{label}</div>
-                            <select value={p[field]||''} onChange={e=>sqSetPos(p.name, field, e.target.value)} style={sel2}>
-                              {posOpts}
-                            </select>
-                          </div>
-                        ))}
-                      </div>
+                      {positions.length > 0 && (
+                        <div style={{ display:'flex', gap:4, flexWrap:'wrap', justifyContent:'flex-end', maxWidth:90 }}>
+                          {positions.map((pid, i) => {
+                            const pg = ALL_POSITIONS.find(x=>x.id===pid);
+                            return <div key={i} style={{ background: i===0?'rgba(245,192,74,0.15)':'rgba(255,255,255,0.05)', border:`1px solid ${i===0?'rgba(245,192,74,0.4)':'#2A2A2A'}`, borderRadius:5, padding:'2px 7px', fontSize:10, fontWeight:800, color: i===0?'#F5C04A':'#555' }}>{pg?pg.short:pid.toUpperCase()}</div>;
+                          })}
+                        </div>
+                      )}
+                      <div style={{ color:'#444', fontSize:18, flexShrink:0 }}>›</div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })()}
+                  );
+                })}
+              </div>
+            )}
+            <button
+              onClick={()=>{ if(onViewSquad) onViewSquad('__add__'); }}
+              style={{ width:'100%', padding:'14px', background:'transparent', color:'#F5C04A', border:'2px dashed rgba(245,192,74,0.35)', borderRadius:14, fontSize:13, fontWeight:800, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8, boxSizing:'border-box' }}>
+              <span style={{ fontSize:18 }}>＋</span>
+              <span>Add New Player</span>
+            </button>
+          </div>
+        )}
 
         {/* STATS tab */}
         {tab === 'stats' && (
@@ -3595,7 +3642,432 @@ function GameDetailScreen({ game, onBack, onUpdateGame }) {
 // ════════════════════════════════════════════════════════════════════════════════
 //  SCREEN: SQUAD + new game setup
 // ════════════════════════════════════════════════════════════════════════════════
-function SquadScreen({ mode, onNext, onBack, onViewOpponent }) {
+// ════════════════════════════════════════════════════════════════════════════════
+//  SCREEN: PLAYER PROFILE
+// ════════════════════════════════════════════════════════════════════════════════
+function PlayerProfileScreen({ playerName, isNew, onBack, onSave, games }) {
+  const photoRef = React.useRef(null);
+  const myTeam      = localStorage.getItem('soccerCoach_fixtureTeam') || '';
+  const settingsObj = loadSettings();
+  const teamName    = settingsObj.teamName || myTeam || 'My Team';
+  const league      = settingsObj.league || 'U11 Girls';
+
+  const loadPlayer = () => {
+    const sq = loadSquad();
+    if (playerName) {
+      const p = sq.find(p => p.name === playerName) || { name: playerName };
+      if (!p.firstName && !p.lastName) {
+        const parts = (p.name||'').trim().split(' ');
+        p.firstName = parts[0]||''; p.lastName = parts.slice(1).join(' ')||'';
+      }
+      return p;
+    }
+    return { firstName:'', lastName:'', name:'', nickname:'', number:'', pos:'', pos2:'', pos3:'', dob:'', foot:'right', canPlayGK:false, joined:'', coachNotes:'', devFocus:'', photo:'' };
+  };
+
+  const [draft,   setDraft]   = React.useState(loadPlayer);
+  const [editing, setEditing] = React.useState(!!isNew);
+
+  function upd(k,v) { setDraft(d=>({...d,[k]:v})); }
+  function pickPhoto() { photoRef.current && photoRef.current.click(); }
+  function onPhotoChange(e) {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => upd('photo', ev.target.result);
+    reader.readAsDataURL(file);
+  }
+  function togglePosition(posId) {
+    const cur = [draft.pos,draft.pos2,draft.pos3].filter(Boolean);
+    if (cur.includes(posId)) {
+      const nxt = cur.filter(p=>p!==posId);
+      setDraft(d=>({...d, pos:nxt[0]||'', pos2:nxt[1]||'', pos3:nxt[2]||''}));
+    } else if (cur.length < 3) {
+      const nxt = [...cur, posId];
+      setDraft(d=>({...d, pos:nxt[0]||'', pos2:nxt[1]||'', pos3:nxt[2]||''}));
+    }
+  }
+  function save() {
+    const firstName=(draft.firstName||'').trim(), lastName=(draft.lastName||'').trim();
+    const fullName=[firstName,lastName].filter(Boolean).join(' ');
+    if (!fullName) { alert('Please enter a name.'); return; }
+    const sq=loadSquad();
+    const trimmed={...draft, firstName, lastName, name:fullName};
+    if (sq.some(p=>p.name===fullName&&p.name!==playerName)) { alert('A player with that name already exists.'); return; }
+    const next=isNew?[trimmed,...sq]:sq.map(p=>p.name===playerName?trimmed:p);
+    saveSquad(next); setDraft(trimmed); setEditing(false);
+    if (onSave) onSave(trimmed);
+  }
+  function fmtJoined(j) {
+    if (!j) return ''; try { return new Date(j+'-01').toLocaleDateString('en-AU',{month:'short',year:'numeric'}); } catch{return j;}
+  }
+  function fmtDate(ts) {
+    if (!ts) return ''; try { return new Date(ts).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}); } catch{return '';}
+  }
+
+  const displayName = [draft.firstName,draft.lastName].filter(Boolean).join(' ')||draft.name||'New Player';
+  const initials    = displayName.split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase()||'?';
+
+  const { playerGoals, appearances, potmList, recentMatches } = React.useMemo(() => {
+    if (!games || !displayName) return { playerGoals:0, appearances:0, potmList:[], recentMatches:[] };
+    const nm = displayName;
+    const appeared = games.filter(g =>
+      (g.goals||[]).some(x=>x.scorer===nm||x.assist===nm) ||
+      (g.matchEvents||[]).some(e=>e.player===nm||e.secondaryPlayer===nm) ||
+      (Array.isArray(g.potm)?g.potm:[g.potm||'']).includes(nm)
+    );
+    const goals = appeared.reduce((s,g)=>s+(g.goals||[]).filter(x=>x.scorer===nm).length,0);
+    const potm  = games.filter(g=>(Array.isArray(g.potm)?g.potm:[g.potm||'']).includes(nm));
+    return { playerGoals:goals, appearances:appeared.length, potmList:potm, recentMatches:[...appeared].reverse().slice(0,3) };
+  }, [games, displayName]);
+
+  const totalGames   = (games||[]).length;
+  const availability = totalGames>0 ? Math.round(appearances/totalGames*100) : 0;
+
+  const inputStyle = { background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:10, padding:'11px 14px', color:'#FFF', fontSize:14, outline:'none', width:'100%', boxSizing:'border-box', fontFamily:'inherit' };
+  const labelStyle = { fontSize:10, color:'#555', fontWeight:700, letterSpacing:1, textTransform:'uppercase', marginBottom:5 };
+
+  const KhulaHeader = ({ rightEl }) => (
+    <div style={{ background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', paddingTop:'max(env(safe-area-inset-top),14px)', paddingBottom:14, paddingLeft:16, paddingRight:16, display:'flex', alignItems:'center', flexShrink:0, position:'relative' }}>
+      <button onClick={onBack} style={{ background:'none', border:'none', color:'#F5C04A', fontSize:22, cursor:'pointer', padding:0, lineHeight:1, flexShrink:0, zIndex:1 }}>←</button>
+      <img src={KHULA_LOGO} alt="Khula" style={{ height:56, objectFit:'contain', marginLeft:8, zIndex:1 }} />
+      <div style={{ position:'absolute', left:0, right:0, textAlign:'center', pointerEvents:'none' }}>
+        <span style={{ fontSize:17, fontWeight:500, color:'#CCC' }}>Player Profile</span>
+      </div>
+      <div style={{ flex:1 }} />
+      {rightEl && <div style={{ zIndex:1 }}>{rightEl}</div>}
+    </div>
+  );
+
+  /* ── VIEW MODE ─────────────────────────────────────────────────────────── */
+  if (!isNew && !editing) {
+    const preferredPos = [draft.pos, draft.pos2].filter(Boolean);
+    const secondaryPos = [draft.pos3].filter(Boolean);
+    const coachLines   = (draft.coachNotes||'').split('\n').filter(s=>s.trim());
+    const devLines     = (draft.devFocus||'').split('\n').filter(s=>s.trim());
+
+    return (
+      <div style={{ background:'#0D0D0D', minHeight:'100dvh', display:'flex', flexDirection:'column' }}>
+        <KhulaHeader rightEl={
+          <button onClick={()=>{ setDraft(loadPlayer()); setEditing(true); }}
+            style={{ background:'none', border:'none', color:'#F5C04A', fontSize:15, fontWeight:600, cursor:'pointer', padding:0 }}>
+            Edit
+          </button>
+        } />
+
+        <div style={{ flex:1, overflowY:'auto', paddingBottom:'calc(80px + env(safe-area-inset-bottom))' }}>
+
+          {/* ── Hero ── */}
+          <div style={{ background:'#111111', padding:'16px 16px 14px', borderBottom:'1px solid #1E1E1E' }}>
+            <div style={{ display:'flex', gap:14, alignItems:'flex-start' }}>
+
+              {/* Photo + number */}
+              <div style={{ position:'relative', flexShrink:0 }}>
+                <div style={{ width:80, height:80, borderRadius:'50%', overflow:'hidden', border:'3px solid rgba(245,192,74,0.4)', background:'rgba(245,192,74,0.08)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  {draft.photo ? <img src={draft.photo} alt={displayName} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <span style={{ fontSize:26, fontWeight:700, color:'#F5C04A' }}>{initials}</span>}
+                </div>
+                {draft.number && (
+                  <div style={{ position:'absolute', bottom:-2, right:-2, width:26, height:26, borderRadius:'50%', background:'#F5C04A', border:'2px solid #111111', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <span style={{ fontSize:11, fontWeight:700, color:'#000' }}>{draft.number}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Name + nickname + positions + GK */}
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:19, fontWeight:700, color:'#FFF', lineHeight:1.2 }}>{displayName}</div>
+                {draft.nickname && <div style={{ fontSize:13, color:'#F5C04A', marginTop:2, fontWeight:400 }}>"{draft.nickname}"</div>}
+                <div style={{ display:'flex', gap:6, marginTop:8, flexWrap:'wrap' }}>
+                  {[draft.pos,draft.pos2,draft.pos3].filter(Boolean).map((pid,i)=>{
+                    const pg=ALL_POSITIONS.find(p=>p.id===pid);
+                    return <div key={i} style={{ background:i===0?'#F5C04A':'rgba(255,255,255,0.07)', border:i===0?'none':'1px solid #3A3A3A', borderRadius:6, padding:'4px 10px', fontSize:12, fontWeight:600, color:i===0?'#000':'#BBB' }}>{pg?pg.short:pid.toUpperCase()}</div>;
+                  })}
+                </div>
+                <div style={{ fontSize:11, color:'#777', marginTop:8 }}>Can Play GK: <span style={{ color:'#CCC', fontWeight:500 }}>{draft.canPlayGK?'Yes':'No'}</span></div>
+              </div>
+
+              {/* Team badge — bigger */}
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', flexShrink:0, minWidth:68 }}>
+                <TeamBadge name={myTeam||teamName} size={62} radius={10} />
+                <div style={{ fontSize:10, fontWeight:600, color:'#DDD', marginTop:6, textAlign:'center', lineHeight:1.3 }}>{teamName}</div>
+                <div style={{ fontSize:9, color:'#777', marginTop:2, textAlign:'center' }}>{league}</div>
+              </div>
+            </div>
+
+            {/* Joined */}
+            {draft.joined && (
+              <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:10 }}>
+                <span style={{ fontSize:12 }}>📅</span>
+                <span style={{ fontSize:12, color:'#777' }}>Joined {fmtJoined(draft.joined)}</span>
+              </div>
+            )}
+          </div>
+
+          {/* ── Season Summary ── */}
+          <div style={{ margin:'10px 16px 0', background:'#111111', borderRadius:14, border:'1px solid #1E1E1E', padding:'14px 8px' }}>
+            <div style={{ fontSize:9, fontWeight:700, color:'#777', letterSpacing:1.5, textTransform:'uppercase', marginBottom:12, paddingLeft:8 }}>Season Summary</div>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)' }}>
+              {[
+                ['⚽', playerGoals,    'Goals'],
+                ['👕', appearances,    'Matches'],
+                ['⭐', potmList.length,'Awards'],
+                [availability+'%', null, 'Availability'],
+              ].map(([icon, val, label], i) => (
+                <div key={label} style={{ textAlign:'center', padding:'4px', borderRight:i<3?'1px solid #1E1E1E':'none' }}>
+                  <div style={{ fontSize:val===null?0:20, lineHeight:1 }}>{val===null?'':icon}</div>
+                  <div style={{ fontSize:20, fontWeight:600, color:'#FFF', lineHeight:1.1, marginTop:val===null?0:6 }}>{val===null?icon:val}</div>
+                  <div style={{ fontSize:10, color:'#666', marginTop:4, fontWeight:500 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Positions | Recognition ── */}
+          <div style={{ margin:'10px 16px 0', display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+
+            {/* Preferred + Secondary */}
+            <div style={{ background:'#111111', borderRadius:14, border:'1px solid #1E1E1E', padding:'14px' }}>
+              <div style={{ fontSize:9, fontWeight:700, color:'#777', letterSpacing:1.3, textTransform:'uppercase', marginBottom:10 }}>Positions</div>
+              {preferredPos.length > 0 && <>
+                <div style={{ fontSize:9, color:'#555', fontWeight:600, letterSpacing:1, textTransform:'uppercase', marginBottom:8 }}>Preferred</div>
+                {preferredPos.map((pid,i) => {
+                  const pg=ALL_POSITIONS.find(p=>p.id===pid);
+                  return (
+                    <div key={i} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:i<preferredPos.length-1?8:0, paddingBottom:i<preferredPos.length-1?8:0, borderBottom:i<preferredPos.length-1?'1px solid #1A1A1A':'none' }}>
+                      <span style={{ color:'#F5C04A', fontSize:13 }}>★</span>
+                      <div>
+                        <div style={{ fontSize:13, fontWeight:600, color:'#FFF', lineHeight:1 }}>{pg?pg.short:pid.toUpperCase()}</div>
+                        <div style={{ fontSize:10, color:'#555', marginTop:2 }}>{pg?pg.label:''}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>}
+              {secondaryPos.length > 0 && <>
+                <div style={{ fontSize:9, color:'#555', fontWeight:600, letterSpacing:1, textTransform:'uppercase', margin:'12px 0 8px' }}>Secondary</div>
+                {secondaryPos.map((pid,i) => {
+                  const pg=ALL_POSITIONS.find(p=>p.id===pid);
+                  return (
+                    <div key={i} style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <div style={{ fontSize:13, fontWeight:600, color:'#BBB', minWidth:32, lineHeight:1 }}>{pg?pg.short:pid.toUpperCase()}</div>
+                      <div style={{ fontSize:10, color:'#555' }}>{pg?pg.label:''}</div>
+                    </div>
+                  );
+                })}
+              </>}
+              {!preferredPos.length && !secondaryPos.length && (
+                <div style={{ fontSize:11, color:'#444', textAlign:'center', padding:'8px 0' }}>No positions set</div>
+              )}
+            </div>
+
+            {/* Recent Recognition */}
+            <div style={{ background:'#111111', borderRadius:14, border:'1px solid #1E1E1E', padding:'14px' }}>
+              <div style={{ fontSize:9, fontWeight:700, color:'#777', letterSpacing:1.3, textTransform:'uppercase', marginBottom:10 }}>Recognition</div>
+              {potmList.length === 0 ? (
+                <div style={{ fontSize:11, color:'#444', textAlign:'center', padding:'16px 0' }}>No awards yet</div>
+              ) : potmList.slice(0,3).map((g,i) => (
+                <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:8, marginBottom:i<Math.min(potmList.length,3)-1?10:0 }}>
+                  <span style={{ fontSize:15, flexShrink:0 }}>{['🥇','🥈','🥉'][i]||'🏅'}</span>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:11, fontWeight:600, color:'#EEE', lineHeight:1.2 }}>Player of the Match</div>
+                    <div style={{ fontSize:10, color:'#666' }}>vs {g.opponent||'—'}</div>
+                    <div style={{ fontSize:9, color:'#444', marginTop:1 }}>{fmtDate(g.date)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Coach Notes | Development Focus — always shown ── */}
+          <div style={{ margin:'10px 16px 0', display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+            <div style={{ background:'#111111', borderRadius:14, border:'1px solid #1E1E1E', padding:'14px' }}>
+              <div style={{ fontSize:9, fontWeight:700, color:'#777', letterSpacing:1.3, textTransform:'uppercase', marginBottom:10 }}>Coach Notes</div>
+              {coachLines.length === 0 ? (
+                <div style={{ fontSize:11, color:'#444', fontStyle:'italic', padding:'8px 0' }}>No notes yet</div>
+              ) : coachLines.map((note,i)=>(
+                <div key={i} style={{ display:'flex', gap:6, marginBottom:6 }}>
+                  <span style={{ color:'#F5C04A', flexShrink:0, fontSize:10, marginTop:2 }}>•</span>
+                  <span style={{ fontSize:11, color:'#CCC', lineHeight:1.4 }}>{note.trim()}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ background:'#111111', borderRadius:14, border:'1px solid #1E1E1E', padding:'14px' }}>
+              <div style={{ fontSize:9, fontWeight:700, color:'#777', letterSpacing:1.3, textTransform:'uppercase', marginBottom:10 }}>Dev Focus</div>
+              {devLines.length === 0 ? (
+                <div style={{ fontSize:11, color:'#444', fontStyle:'italic', padding:'8px 0' }}>None set</div>
+              ) : devLines.map((item,i)=>(
+                <div key={i} style={{ display:'flex', gap:8, marginBottom:8, alignItems:'center' }}>
+                  <div style={{ width:17, height:17, borderRadius:'50%', border:'1.5px solid rgba(245,192,74,0.5)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <span style={{ fontSize:9, color:'#F5C04A', lineHeight:1 }}>✓</span>
+                  </div>
+                  <span style={{ fontSize:11, color:'#CCC', lineHeight:1.3 }}>{item.trim()}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Recent Matches — always shown ── */}
+          <div style={{ margin:'10px 16px 0' }}>
+            <div style={{ fontSize:9, fontWeight:700, color:'#777', letterSpacing:1.5, textTransform:'uppercase', marginBottom:10 }}>Recent Matches</div>
+            <div style={{ background:'#111111', borderRadius:14, border:'1px solid #1E1E1E', overflow:'hidden' }}>
+              {recentMatches.length === 0 ? (
+                <div style={{ padding:'20px', textAlign:'center', fontSize:12, color:'#444', fontStyle:'italic' }}>No match data recorded yet</div>
+              ) : recentMatches.map((g,idx) => {
+                const us   = g.scoreUs ?? (g.goals||[]).filter(x=>x.team==='us').length;
+                const them = g.scoreThem ?? (g.goals||[]).filter(x=>x.team==='them').length;
+                const nm   = displayName;
+                const pg   = (g.goals||[]).filter(x=>x.scorer===nm).length;
+                const win  = us>them; const draw = us===them;
+                const col  = win?'#22c55e':draw?'#F5C04A':'#ef4444';
+                return (
+                  <div key={idx} style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 14px', borderBottom:idx<recentMatches.length-1?'1px solid #1A1A1A':'none' }}>
+                    <TeamBadge name={g.opponent||'?'} size={30} radius={6} />
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:500, color:'#EEE', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{g.opponent||'Unknown'}</div>
+                      <div style={{ fontSize:10, color:'#555' }}>{fmtDate(g.date)}</div>
+                    </div>
+                    <div style={{ textAlign:'center', minWidth:56 }}>
+                      <span style={{ fontSize:13, fontWeight:600, color:col }}>{us} – {them}</span>
+                      <span style={{ fontSize:10, fontWeight:500, color:col, marginLeft:4 }}>({win?'W':draw?'D':'L'})</span>
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:3, minWidth:36 }}>
+                      <span style={{ fontSize:12 }}>⚽</span>
+                      <span style={{ fontSize:12, fontWeight:500, color:'#CCC' }}>{pg}</span>
+                    </div>
+                    <div style={{ color:'#444', fontSize:18, lineHeight:1 }}>›</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── ADD / EDIT FORM ────────────────────────────────────────────────────── */
+  return (
+    <div style={{ background:'#0D0D0D', minHeight:'100dvh', display:'flex', flexDirection:'column' }}>
+      <KhulaHeader rightEl={!isNew ? (
+        <button onClick={()=>{ setDraft(loadPlayer()); setEditing(false); }}
+          style={{ background:'none', border:'none', color:'#666', fontSize:13, cursor:'pointer', padding:0 }}>Cancel</button>
+      ) : null} />
+
+      <div style={{ flex:1, overflowY:'auto', paddingBottom:'calc(84px + env(safe-area-inset-bottom))' }}>
+
+        {/* Hero avatar */}
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'24px 16px 20px', background:'#111111', borderBottom:'1px solid #1E1E1E' }}>
+          <div style={{ position:'relative', marginBottom:14 }}>
+            <div style={{ width:90, height:90, borderRadius:'50%', overflow:'hidden', background:'rgba(245,192,74,0.1)', border:'2px solid rgba(245,192,74,0.35)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              {draft.photo ? <img src={draft.photo} alt={displayName} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <span style={{ fontSize:30, fontWeight:700, color:'#F5C04A' }}>{initials}</span>}
+            </div>
+            <button onClick={pickPhoto} style={{ position:'absolute', bottom:0, right:0, width:28, height:28, borderRadius:'50%', background:'#F5C04A', border:'2px solid #0D0D0D', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', fontSize:13, padding:0, lineHeight:1 }}>📷</button>
+            <input ref={photoRef} type="file" accept="image/*" capture="environment" style={{ display:'none' }} onChange={onPhotoChange} />
+          </div>
+          <div style={{ fontSize:19, fontWeight:600, color:'#FFF', textAlign:'center' }}>{displayName}</div>
+          {draft.nickname && <div style={{ fontSize:13, color:'#F5C04A', marginTop:3 }}>"{draft.nickname}"</div>}
+          <div style={{ display:'flex', gap:6, marginTop:10, flexWrap:'wrap', justifyContent:'center' }}>
+            {[draft.pos,draft.pos2,draft.pos3].filter(Boolean).map((pid,i)=>{
+              const pg=ALL_POSITIONS.find(p=>p.id===pid);
+              return <div key={i} style={{ background:i===0?'rgba(245,192,74,0.2)':'rgba(255,255,255,0.07)', border:`1px solid ${i===0?'rgba(245,192,74,0.5)':'#333'}`, borderRadius:8, padding:'5px 12px', fontSize:12, fontWeight:600, color:i===0?'#F5C04A':'#A1A1A1' }}>{pg?pg.short:pid.toUpperCase()}</div>;
+            })}
+          </div>
+        </div>
+
+        <div style={{ padding:'16px 16px 0' }}>
+
+          {/* Player Information */}
+          <div style={{ background:'#111111', borderRadius:14, padding:'16px', border:'1px solid #1E1E1E', marginBottom:12 }}>
+            <div style={{ fontSize:10, fontWeight:700, color:'#777', letterSpacing:1.5, textTransform:'uppercase', marginBottom:14 }}>Player Information</div>
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                <div><div style={labelStyle}>First Name</div><input value={draft.firstName||''} onChange={e=>upd('firstName',e.target.value)} placeholder="First name" style={inputStyle} autoFocus={!!isNew} /></div>
+                <div><div style={labelStyle}>Last Name</div><input value={draft.lastName||''} onChange={e=>upd('lastName',e.target.value)} placeholder="Last name" style={inputStyle} /></div>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                <div><div style={labelStyle}>Nickname</div><input value={draft.nickname||''} onChange={e=>upd('nickname',e.target.value)} placeholder='e.g. "Syd"' style={inputStyle} /></div>
+                <div><div style={labelStyle}>Jersey #</div><input value={draft.number||''} onChange={e=>upd('number',e.target.value)} placeholder="#" style={inputStyle} /></div>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                <div><div style={labelStyle}>Date of Birth</div><input type="date" value={draft.dob||''} onChange={e=>upd('dob',e.target.value)} style={inputStyle} /></div>
+                <div><div style={labelStyle}>Preferred Foot</div>
+                  <select value={draft.foot||'right'} onChange={e=>upd('foot',e.target.value)} style={{ ...inputStyle, padding:'10px 14px' }}>
+                    <option value="right">Right</option><option value="left">Left</option><option value="both">Both</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <div style={labelStyle}>Date Joined (Month)</div>
+                <input type="month" value={draft.joined||''} onChange={e=>upd('joined',e.target.value)} style={inputStyle} />
+              </div>
+            </div>
+          </div>
+
+          {/* Preferred Positions */}
+          <div style={{ background:'#111111', borderRadius:14, padding:'16px', border:'1px solid #1E1E1E', marginBottom:12 }}>
+            <div style={{ fontSize:10, fontWeight:700, color:'#777', letterSpacing:1.5, textTransform:'uppercase', marginBottom:4 }}>Preferred Positions</div>
+            <div style={{ fontSize:11, color:'#555', marginBottom:12 }}>Select primary + up to 2 others (tap to toggle)</div>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
+              {ALL_POSITIONS.map(pos=>{
+                const sel=[draft.pos,draft.pos2,draft.pos3].filter(Boolean).includes(pos.id);
+                const isPrimary=draft.pos===pos.id;
+                return (
+                  <button key={pos.id} onClick={()=>togglePosition(pos.id)}
+                    style={{ background:sel?(isPrimary?'rgba(245,192,74,0.18)':'rgba(255,255,255,0.07)'):'#1A1A1A', border:`2px solid ${sel?(isPrimary?'#F5C04A':'rgba(245,192,74,0.3)'):'#2A2A2A'}`, borderRadius:10, padding:'10px 4px 8px', cursor:'pointer', textAlign:'center', position:'relative', transition:'all 0.15s' }}>
+                    {sel && <div style={{ position:'absolute', top:4, right:4, width:14, height:14, borderRadius:'50%', background:isPrimary?'#F5C04A':'rgba(245,192,74,0.5)', display:'flex', alignItems:'center', justifyContent:'center' }}><span style={{ fontSize:9, color:'#000', fontWeight:700 }}>✓</span></div>}
+                    <div style={{ fontSize:15, fontWeight:600, color:sel?(isPrimary?'#F5C04A':'#DDD'):'#555', lineHeight:1 }}>{pos.short}</div>
+                    <div style={{ fontSize:9, color:sel?(isPrimary?'rgba(245,192,74,0.7)':'#777'):'#3A3A3A', marginTop:4, lineHeight:1.2, fontWeight:500 }}>{pos.label}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Can play GK */}
+          <div style={{ background:'#111111', borderRadius:14, padding:'16px', border:'1px solid #1E1E1E', marginBottom:12 }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <div>
+                <div style={{ fontSize:14, fontWeight:600, color:'#EEE' }}>Can play Goalkeeper</div>
+                <div style={{ fontSize:11, color:'#666', marginTop:2 }}>{draft.canPlayGK?'Can cover in goal if needed':'Not a goalkeeper option'}</div>
+              </div>
+              <button onClick={()=>upd('canPlayGK',!draft.canPlayGK)}
+                style={{ width:50, height:28, borderRadius:14, background:draft.canPlayGK?'#22c55e':'#333', border:'none', cursor:'pointer', position:'relative', transition:'background 0.2s', flexShrink:0, padding:0 }}>
+                <div style={{ width:22, height:22, borderRadius:'50%', background:'#FFF', position:'absolute', top:3, left:draft.canPlayGK?24:3, transition:'left 0.2s' }} />
+              </button>
+            </div>
+          </div>
+
+          {/* Coach Notes */}
+          <div style={{ background:'#111111', borderRadius:14, padding:'16px', border:'1px solid #1E1E1E', marginBottom:12 }}>
+            <div style={{ fontSize:10, fontWeight:700, color:'#777', letterSpacing:1.5, textTransform:'uppercase', marginBottom:8 }}>Coach Notes</div>
+            <div style={{ fontSize:11, color:'#555', marginBottom:8 }}>One note per line (shown as bullet points)</div>
+            <textarea value={draft.coachNotes||''} onChange={e=>upd('coachNotes',e.target.value)}
+              placeholder={"Strong attacking runs\nGood first touch\nNeeds to track back more"}
+              rows={4} style={{ ...inputStyle, resize:'vertical', lineHeight:1.5 }} />
+          </div>
+
+          {/* Development Focus */}
+          <div style={{ background:'#111111', borderRadius:14, padding:'16px', border:'1px solid #1E1E1E', marginBottom:12 }}>
+            <div style={{ fontSize:10, fontWeight:700, color:'#777', letterSpacing:1.5, textTransform:'uppercase', marginBottom:8 }}>Development Focus</div>
+            <div style={{ fontSize:11, color:'#555', marginBottom:8 }}>One focus area per line</div>
+            <textarea value={draft.devFocus||''} onChange={e=>upd('devFocus',e.target.value)}
+              placeholder={"Finishing\nFirst Touch\nDecision Making"}
+              rows={3} style={{ ...inputStyle, resize:'vertical', lineHeight:1.5 }} />
+          </div>
+
+          {/* Save */}
+          <button onClick={save}
+            style={{ width:'100%', padding:'16px', background:'#F5C04A', color:'#000', border:'none', borderRadius:12, fontSize:15, fontWeight:700, cursor:'pointer', marginBottom:8 }}>
+            {isNew ? 'Add Player' : 'Save Changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+function SquadScreen({ mode, onNext, onBack, onViewOpponent, onViewPlayer, onAddPlayer }) {
   const [squad, setSquad]   = useState(()=>loadSquad());
   const [config, setConfig] = useState(()=>{ const cx=loadContextData(contextKey); return cx.config || loadConfig(); });
   const [search, setSearch] = useState('');
@@ -3650,19 +4122,14 @@ function SquadScreen({ mode, onNext, onBack, onViewOpponent }) {
       {/* ── Scrollable body ── */}
       <div style={{ flex:1, overflowY:'auto', padding:'16px 14px 12px' }}>
 
-        {/* Search + Add */}
-        <div style={{ display:'flex', gap:8, marginBottom:14 }}>
+        {/* Search */}
+        <div style={{ marginBottom:14 }}>
           <input
-            style={{ flex:1, background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:10, padding:'12px 14px', color:'#FFFFFF', fontSize:14, outline:'none' }}
-            placeholder="Search player name..."
+            style={{ width:'100%', background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:10, padding:'12px 14px', color:'#FFFFFF', fontSize:14, outline:'none', boxSizing:'border-box' }}
+            placeholder="🔍  Search players..."
             value={search}
             onChange={e=>setSearch(e.target.value)}
           />
-          <button
-            onClick={()=>{ setNewName(''); setShowAdd(s=>!s); }}
-            style={{ background:'#F5C04A', color:'#0D0D0D', border:'none', borderRadius:10, padding:'12px 16px', fontSize:13, fontWeight:800, cursor:'pointer', whiteSpace:'nowrap' }}>
-            + Add Player
-          </button>
         </div>
 
         {/* Inline add form */}
@@ -3699,44 +4166,67 @@ function SquadScreen({ mode, onNext, onBack, onViewOpponent }) {
               {search ? 'No players match your search.' : 'No players yet. Tap + Add Player to get started.'}
             </div>
           )}
-          {filtered.map((p,i)=>{
-            const realIdx = squad.indexOf(p);
+          {filtered.map((p) => {
+            const pInitials = (p.name||'?').split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
+            const positions = [p.pos, p.pos2, p.pos3].filter(Boolean);
             return (
-              <div key={p.name} style={{ background:'#1A1A1A', borderRadius:12, padding:'12px 12px 12px 12px', border:'1px solid #222222' }}>
-                {/* Top row: number · avatar · name/badge · trash */}
-                <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
-                  <span style={{ fontSize:13, fontWeight:700, color:'#666', minWidth:18, textAlign:'right', flexShrink:0 }}>{realIdx+1}</span>
-                  <div style={{ width:38, height:38, borderRadius:'50%', overflow:'hidden', flexShrink:0, background:'#111' }}>
-                    <TeamBadge name={myTeam||'Team'} size={38} />
+              <div key={p.name}
+                onClick={() => onViewPlayer && onViewPlayer(p.name)}
+                style={{ background:'#111111', borderRadius:14, padding:'14px 16px', border:'1px solid #1E1E1E', display:'flex', alignItems:'center', gap:12, cursor: onViewPlayer ? 'pointer' : 'default', transition:'background 0.1s', WebkitTapHighlightColor:'transparent' }}>
+
+                {/* Jersey number (only if set) */}
+                {p.number ? (
+                  <div style={{ width:36, height:36, borderRadius:'50%', background:'rgba(245,192,74,0.12)', border:'2px solid rgba(245,192,74,0.35)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <span style={{ fontSize:13, fontWeight:900, color:'#F5C04A' }}>{p.number}</span>
                   </div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:14, fontWeight:800, color:'#FFFFFF', lineHeight:1.2 }}>{p.name}</div>
-                    <div style={{ fontSize:9, fontWeight:800, color:'#F5C04A', letterSpacing:1.5, textTransform:'uppercase', marginTop:2 }}>PRIMARY</div>
+                ) : (
+                  <div style={{ width:36, height:36, borderRadius:'50%', background:'#1A1A1A', border:'1px solid #2A2A2A', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <span style={{ fontSize:12, fontWeight:800, color:'#555' }}>{pInitials}</span>
                   </div>
-                  <button
-                    onClick={()=>remove(p.name)}
-                    style={{ background:'none', border:'none', color:'#444', cursor:'pointer', fontSize:17, padding:'4px 6px', lineHeight:1, flexShrink:0 }}>
-                    🗑
-                  </button>
+                )}
+
+                {/* Photo avatar (only if set) */}
+                {p.photo && (
+                  <div style={{ width:36, height:36, borderRadius:'50%', overflow:'hidden', flexShrink:0 }}>
+                    <img src={p.photo} alt={p.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                  </div>
+                )}
+
+                {/* Name + nickname */}
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:15, fontWeight:500, color:'#FFF', lineHeight:1.2 }}>{p.name}</div>
+                  {p.nickname && (
+                    <div style={{ fontSize:12, color:'#F5C04A', marginTop:1 }}>"{p.nickname}"</div>
+                  )}
                 </div>
-                {/* Position dropdowns */}
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:6, paddingLeft:66 }}>
-                  <div>
-                    <div style={{ fontSize:9, color:'#F5C04A', fontWeight:800, textTransform:'uppercase', letterSpacing:1, marginBottom:4 }}>Primary</div>
-                    <select style={selStyle} value={p.pos||''} onChange={e=>setPos(p.name,'pos',e.target.value)}>{posOpts}</select>
+
+                {/* Position chips (right side) */}
+                {positions.length > 0 && (
+                  <div style={{ display:'flex', gap:4, flexWrap:'wrap', justifyContent:'flex-end', maxWidth:100 }}>
+                    {positions.map((pid, i) => {
+                      const pg = ALL_POSITIONS.find(x => x.id === pid);
+                      return (
+                        <div key={i} style={{ background: i===0 ? 'rgba(245,192,74,0.15)' : 'rgba(255,255,255,0.05)', border:`1px solid ${i===0?'rgba(245,192,74,0.4)':'#2A2A2A'}`, borderRadius:6, padding:'3px 8px', fontSize:11, fontWeight:800, color: i===0 ? '#F5C04A' : '#555' }}>
+                          {pg ? pg.short : pid.toUpperCase()}
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div>
-                    <div style={{ fontSize:9, color:'#A1A1A1', fontWeight:800, textTransform:'uppercase', letterSpacing:1, marginBottom:4 }}>Alt 1</div>
-                    <select style={selStyle} value={p.pos2||''} onChange={e=>setPos(p.name,'pos2',e.target.value)}>{posOpts}</select>
-                  </div>
-                  <div>
-                    <div style={{ fontSize:9, color:'#A1A1A1', fontWeight:800, textTransform:'uppercase', letterSpacing:1, marginBottom:4 }}>Alt 2</div>
-                    <select style={selStyle} value={p.pos3||''} onChange={e=>setPos(p.name,'pos3',e.target.value)}>{posOpts}</select>
-                  </div>
-                </div>
+                )}
+
+                {/* Chevron */}
+                <div style={{ color:'#444', fontSize:18, flexShrink:0, lineHeight:1 }}>›</div>
               </div>
             );
           })}
+
+          {/* Add New Player button */}
+          <button
+            onClick={() => { if(onAddPlayer){onAddPlayer();}else{setNewName('');setShowAdd(s=>!s);} }}
+            style={{ width:'100%', marginTop:4, padding:'16px', background:'transparent', color:'#F5C04A', border:'2px dashed rgba(245,192,74,0.35)', borderRadius:14, fontSize:14, fontWeight:800, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8, boxSizing:'border-box' }}>
+            <span style={{ fontSize:20, lineHeight:1 }}>＋</span>
+            <span>Add New Player</span>
+          </button>
         </div>
 
 
@@ -3831,17 +4321,28 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
   const myTeam = localStorage.getItem('soccerCoach_fixtureTeam') || '';
 
   const [squad,  setSquad]  = useState(()=>{
+    const base=loadSquad();
     if(contextKey){
       const cx=loadContextData(contextKey);
       const mp=cx.matchPlayers;
       if(mp){
-        const base=loadSquad();
         const sts=mp.statuses||{};
         const guests=(mp.guests||[]).map(g=>typeof g==='string'?{name:g,pos:'',age:''}:{name:g.name||'',pos:g.pos||'',age:''});
-        return [...base.filter(p=>(sts[p.name]||'not_set')!=='unavailable'),...guests];
+        return [...base.filter(p=>(sts[p.name]||'available')!=='unavailable'),...guests];
       }
+      // No matchPlayers yet — still exclude anyone explicitly marked unavailable
+      try {
+        const allKeys=Object.keys(localStorage).filter(k=>k.startsWith('soccerCoach_ctx_'));
+        for(const k of allKeys){
+          const d=JSON.parse(localStorage.getItem(k)||'{}')||{};
+          if(d.matchPlayers?.statuses){
+            const sts=d.matchPlayers.statuses;
+            return base.filter(p=>(sts[p.name]||'available')!=='unavailable');
+          }
+        }
+      } catch {}
     }
-    return loadSquad();
+    return base;
   });
   const [config, setConfig] = useState(()=>loadConfig());
 
@@ -3878,17 +4379,29 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
   };
   const clearDraft = () => { try { localStorage.removeItem(DRAFT_KEY); } catch {} };
 
+  // Sanitize: strip any slot values that are no longer in the current squad
+  function sanitizePeriods(periods, validNames) {
+    return periods.map(p => {
+      const next = {};
+      posIds.forEach(id => { next[id] = validNames.includes(p[id]) ? p[id] : ''; });
+      return next;
+    });
+  }
+  const validNames = squad.map(p=>p.name);
+
   const [h1Periods, setH1Periods] = useState(()=>{
     const cx=loadContextData(contextKey).lineup;
-    if(cx?.h1Periods?.length) return cx.h1Periods;
+    if(cx?.h1Periods?.length) return sanitizePeriods(cx.h1Periods, squad.map(p=>p.name));
     const d = loadDraft();
-    return (d.h1Periods && d.h1Periods.length) ? d.h1Periods : makePeriods(squad, positions, config.numPeriods||3);
+    const raw = (d.h1Periods && d.h1Periods.length) ? d.h1Periods : makePeriods(squad, positions, config.numPeriods||3);
+    return sanitizePeriods(raw, squad.map(p=>p.name));
   });
   const [h2Periods, setH2Periods] = useState(()=>{
     const cx=loadContextData(contextKey).lineup;
-    if(cx?.h2Periods?.length) return cx.h2Periods;
+    if(cx?.h2Periods?.length) return sanitizePeriods(cx.h2Periods, squad.map(p=>p.name));
     const d = loadDraft();
-    return (d.h2Periods && d.h2Periods.length) ? d.h2Periods : makePeriods(squad, positions, config.numPeriods||3);
+    const raw = (d.h2Periods && d.h2Periods.length) ? d.h2Periods : makePeriods(squad, positions, config.numPeriods||3);
+    return sanitizePeriods(raw, squad.map(p=>p.name));
   });
   const [activeHalf,   setActiveHalf]   = useState(()=>{ const d=loadDraft(); return d.activeHalf||0; });
   const [activePeriod, setActivePeriod] = useState(()=>{ const d=loadDraft(); return d.activePeriod||0; });
@@ -3950,16 +4463,21 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
 
   function assignToSlot(posId, playerName) {
     updateActivePeriods(prev=>{
-      // cascade: update current + future periods that still have the same player in this slot
       const prevOccupant = prev[activePeriod]?.[posId];
       return prev.map((p,i)=>{
         if(i < activePeriod) return p;
-        // Only cascade to future periods if they still had the same occupant
+        // Only cascade to future periods where this slot still has the same occupant
         if(i > activePeriod && p[posId] !== prevOccupant) return p;
         const next=cloneSlots(p);
-        // Remove playerName from any other slot they occupy
-        Object.keys(next).forEach(k=>{if(k!==posId && next[k]===playerName)next[k]='';});
-        // Also remove the old occupant from bench if they're being placed on field
+        // Find where playerName currently sits in this period
+        const playerOldSlot = posIds.find(k=>k!==posId && next[k]===playerName);
+        const occupantHere  = next[posId];
+        // Swap: if playerName was somewhere on field, put displaced occupant there
+        if(playerOldSlot && occupantHere && occupantHere !== playerName) {
+          next[playerOldSlot] = occupantHere;
+        } else if(playerOldSlot) {
+          next[playerOldSlot] = '';
+        }
         if(Array.isArray(next.bench)) next.bench=next.bench.filter(n=>n!==playerName);
         next[posId]=playerName;
         return next;
@@ -4184,7 +4702,8 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
                   else cy=rawPct*280;
                   const W=30,H=38,lx=cx-W/2,ty=cy-H/2;
                   const initials=name?name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase():'';
-                  const shortName=name?(name.split(' ')[0][0]+'. '+name.split(' ').slice(-1)[0]).slice(0,9):'';
+                  const _sqP=squad.find(p=>p.name===name);
+                  const shortName=name?(_sqP?.nickname||name.split(' ').slice(-1)[0]).slice(0,8):'';
                   return (
                     <g key={pos.id} onClick={()=>{
                       if(selectedBench){assignToSlot(pos.id,selectedBench);setSelectedBench(null);setSelectedSlot(null);}
@@ -4197,9 +4716,9 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
                         strokeWidth={isSel||isBenchTarget?1.8:subPairColors[name]?2:1}/>
                       {!empty&&<text x={cx} y={ty+13} textAnchor="middle" fontSize="11" fontWeight="600" fill="#FFF" fontFamily="Outfit,sans-serif">{initials}</text>}
                       {empty&&<text x={cx} y={cy+1} textAnchor="middle" dominantBaseline="middle" fontSize="13" fill="rgba(255,255,255,0.15)" fontFamily="Outfit,sans-serif">+</text>}
-                      {!empty&&<text x={cx} y={ty+H-10} textAnchor="middle" fontSize="4.8" fontWeight="600" fill="rgba(255,255,255,0.75)" fontFamily="Outfit,sans-serif">{shortName}</text>}
+                      {!empty&&<text x={cx} y={ty+H-10} textAnchor="middle" fontSize="6" fontWeight="700" fill="rgba(255,255,255,0.85)" fontFamily="Outfit,sans-serif">{shortName}</text>}
                       <text x={cx} y={ty+H-3} textAnchor="middle" fontSize="4" fill={empty?'rgba(255,255,255,0.2)':'rgba(255,255,255,0.45)'} fontFamily="Outfit,sans-serif">{posLbl[pos.id]||pos.id}</text>
-                      {!empty&&<circle cx={lx+W-5} cy={ty+5} r="2.5" fill="#22c55e"/>}
+                
                       <text x={lx+4} y={ty+9} fontSize="5.5" fontWeight="700" fill={isSel?'#F5C04A':empty?'#444':'rgba(255,255,255,0.45)'} fontFamily="Outfit,sans-serif">{pidx+1}</text>
                     </g>
                   );
@@ -4220,7 +4739,8 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
                   {bench.map((n,bidx)=>{
                     const isBSel=selectedBench===n;
                     const init=n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-                    const shortN=n.split(' ').length>1?(n.split(' ')[0][0]+'. '+n.split(' ').slice(-1)[0]).slice(0,9):n.slice(0,9);
+                    const _bqP=squad.find(p=>p.name===n);
+                    const shortN=(_bqP?.nickname||n.split(' ').slice(-1)[0]).slice(0,8);
                     return (
                       <div key={n} onClick={()=>{
                         if(selectedSlot){assignToSlot(selectedSlot,n);setSelectedSlot(null);setSelectedBench(null);}
@@ -4232,9 +4752,9 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
                             stroke={isBSel?'#F5C04A':subPairColors[n]||'#3a3a3a'}
                             strokeWidth={isBSel?1.8:subPairColors[n]?2:1}/>
                           <text x="15" y="13" textAnchor="middle" fontSize="11" fontWeight="600" fill={isBSel?'#F5C04A':'#FFF'} fontFamily="Outfit,sans-serif">{init}</text>
-                          <text x="15" y="28" textAnchor="middle" fontSize="4.8" fontWeight="600" fill="rgba(255,255,255,0.75)" fontFamily="Outfit,sans-serif">{shortN}</text>
+                          <text x="15" y="28" textAnchor="middle" fontSize="6" fontWeight="700" fill="rgba(255,255,255,0.85)" fontFamily="Outfit,sans-serif">{shortN}</text>
                           <text x="15" y="35" textAnchor="middle" fontSize="4" fill={isBSel?'rgba(245,192,74,0.6)':'rgba(255,255,255,0.35)'} fontFamily="Outfit,sans-serif">BENCH</text>
-                          <circle cx="25" cy="5" r="2.5" fill="#22c55e"/>
+                
                           <text x="4" y="9" fontSize="5.5" fontWeight="700" fill={isBSel?'#F5C04A':'rgba(255,255,255,0.45)'} fontFamily="Outfit,sans-serif">{bidx+1}</text>
                         </svg>
                       </div>
@@ -8897,6 +9417,9 @@ export default function App() {
   const [squadBackTo, setSquadBackTo] = useState("home");
   const [settingsBackTo, setSettingsBackTo] = useState("account");
   const [playerStatsName, setPlayerStatsName] = useState(null);
+  const [playerProfileName, setPlayerProfileName] = useState(null);
+  const [playerProfileIsNew, setPlayerProfileIsNew] = useState(false);
+  const [playerProfileBackTo, setPlayerProfileBackTo] = useState("squad");
   const [pickerInitialTab, setPickerInitialTab] = useState('squad');
   const [postMatchGame,    setPostMatchGame]    = useState(null);
   const [quickPlayData,    setQuickPlayData]    = useState({ opponent:'', linkedFixKey:null, fixIsHome:true });
@@ -8933,12 +9456,13 @@ export default function App() {
     if(screen==="importExport") return <ImportExportScreen onBack={()=>setScreen("account")} />;
     if(screen==="season")       return <SeasonHubScreen games={games} onBack={()=>goTab("home")} onOpenGame={id=>{setOpenGameId(id);setScreen("gameDetail");}} onDeleteGame={deleteGame} onScout={t=>{setScoutTeam(t);setSquadBackTo("season");setScreen("opponentStats");}} />;
     if(screen==="gameDetail"){  const game=games.find(g=>g.id===openGameId); return <GameDetailScreen game={game} onBack={()=>{_pendingSeasonSub='log';setScreen("season");}} onUpdateGame={updateGame} />; }
-    if(screen==="teamScreen")   return <TeamScreen onBack={()=>goTab("home")} onViewStats={()=>setScreen("stats")} onGoMatch={()=>{setSquadMode("newGame");setSquadBackTo("home");goTab("match");}} onGoFixtures={()=>{_pendingSeasonSub="fixtures";setActiveTab("season");setScreen("season");}} games={games} settings={settings} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("teamSquad");setScreen("squad");}} onEditTeam={()=>{setSettingsBackTo("teamScreen");setScreen("settings");}} onViewSquad={()=>setScreen("teamSquad")} />;
-    if(screen==="teamSquad")    return <TeamSquadScreen onBack={()=>setScreen("teamScreen")} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("teamSquad");setScreen("squad");}} />;
+    if(screen==="teamScreen")   return <TeamScreen onBack={()=>goTab("home")} onViewStats={()=>setScreen("stats")} onGoMatch={()=>{setSquadMode("newGame");setSquadBackTo("home");goTab("match");}} onGoFixtures={()=>{_pendingSeasonSub="fixtures";setActiveTab("season");setScreen("season");}} games={games} settings={settings} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("teamSquad");setScreen("squad");}} onEditTeam={()=>{setSettingsBackTo("teamScreen");setScreen("settings");}} onViewSquad={(name)=>{if(name==='__add__'){setPlayerProfileName(null);setPlayerProfileIsNew(true);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}else if(name){setPlayerProfileName(name);setPlayerProfileIsNew(false);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}else setScreen("teamSquad");}} />;
+    if(screen==="teamSquad")    return <TeamSquadScreen onBack={()=>setScreen("teamScreen")} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("teamSquad");setScreen("squad");}} onViewPlayer={name=>{setPlayerProfileName(name);setPlayerProfileIsNew(false);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}} onAddPlayer={()=>{setPlayerProfileName(null);setPlayerProfileIsNew(true);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}} />;
     if(screen==="stats")        return <StatsScreen games={games} onBack={()=>setScreen("teamScreen")} />;
     if(screen==="opponentStats") return <OpponentStatsScreen opponent={scoutTeam} onBack={()=>setScreen(squadBackTo==="matchDay"?"matchDay":squadBackTo==="picker"?"picker":squadBackTo==="season"?"season":"squad")} />;
-    if(screen==="squad")        return <SquadScreen mode={squadMode} onNext={(s,c,opp,lfk,fih)=>{setSquad(s);setConfig(c);setOpponent(opp);setLinkedFixKey(lfk);setFixIsHome(fih);setScreen("picker");}} onBack={()=>setScreen(squadBackTo||"teamScreen")} onViewOpponent={t=>{setScoutTeam(t);setScreen("opponentStats");}} />;
+    if(screen==="squad")        return <SquadScreen mode={squadMode} onNext={(s,c,opp,lfk,fih)=>{setSquad(s);setConfig(c);setOpponent(opp);setLinkedFixKey(lfk);setFixIsHome(fih);setScreen("picker");}} onBack={()=>setScreen(squadBackTo||"teamScreen")} onViewOpponent={t=>{setScoutTeam(t);setScreen("opponentStats");}} onViewPlayer={name=>{setPlayerProfileName(name);setPlayerProfileIsNew(false);setPlayerProfileBackTo("squad");setScreen("playerProfile");}} onAddPlayer={()=>{setPlayerProfileName(null);setPlayerProfileIsNew(true);setPlayerProfileBackTo("squad");setScreen("playerProfile");}} />;
     if(screen==="playerStats") return <PlayerStatsScreen playerName={playerStatsName} onBack={()=>setScreen("picker")} games={games} squad={squad} />;
+    if(screen==="playerProfile") return <PlayerProfileScreen playerName={playerProfileName} isNew={playerProfileIsNew} games={games} onBack={()=>setScreen(playerProfileBackTo)} onSave={()=>setScreen(playerProfileBackTo)} />;
     if(screen==="matchDay")     return <MatchDayScreen settings={settings}
       onStartMatch={(sl,mdOpp)=>{
         const cfg={...(sl.config||{}),teamName:settings?.teamName||''};
