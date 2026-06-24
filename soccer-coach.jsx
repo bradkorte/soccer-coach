@@ -152,6 +152,956 @@ const SAVED_LINEUP_KEY = 'soccerCoach_savedLineup';
 function loadSavedLineup() { try { return JSON.parse(localStorage.getItem(SAVED_LINEUP_KEY)||'null'); } catch { return null; } }
 function saveSavedLineup(data) { try { localStorage.setItem(SAVED_LINEUP_KEY, JSON.stringify(data)); } catch {} }
 const CONTEXTS_KEY = 'soccerCoach_contexts';
+
+
+// ════════════════════════════════════════════════════════════════════════════════
+//  TRAINING MODULE — Constants & Default Library
+// ════════════════════════════════════════════════════════════════════════════════
+const TRAINING_LIB_KEY  = 'soccerCoach_trainingLibrary';
+const TRAINING_LOGS_KEY = 'soccerCoach_trainingLogs';
+
+function loadTrainingLibrary() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TRAINING_LIB_KEY)||'null');
+    if (saved && saved.topics && saved.topics.length) return saved;
+  } catch {}
+  return DEFAULT_TRAINING_LIBRARY;
+}
+function saveTrainingLibrary(lib) {
+  try { localStorage.setItem(TRAINING_LIB_KEY, JSON.stringify(lib)); } catch {}
+}
+function loadTrainingLogs() {
+  try { return JSON.parse(localStorage.getItem(TRAINING_LOGS_KEY)||'[]'); } catch { return []; }
+}
+function saveTrainingLogs(logs) {
+  try { localStorage.setItem(TRAINING_LOGS_KEY, JSON.stringify(logs)); } catch {}
+}
+
+const DEFAULT_TRAINING_LIBRARY = {
+  version: "1.0",
+  updated: "2025-06-22",
+  topics: [
+    {
+      id: "pressing",
+      title: "Pressing",
+      icon: "⚡",
+      category: "defending",
+      ageGroup: "U9–U13",
+      principle: "Win the ball back as quickly as possible, as close to goal as possible",
+      behaviour: "Sprint after the ball immediately",
+      moments: [
+        "After a turnover in the attacking or midfield third",
+        "On the opponent's first touch under pressure",
+        "When the opposition's back is to goal"
+      ],
+      keyPoints: [
+        "Closest player sprints to the ball immediately",
+        "Other players prevent forward play first, then anticipate next pass",
+        "Work together — stay connected, close the gaps",
+        "Man-mark press: 1 player per attacker"
+      ],
+      sessions: [
+        {
+          number: 1,
+          phases: [
+            {
+              name: "Rondo 4v2",
+              type: "rondo",
+              duration: 20,
+              setup: "10×8m rectangle. 3 × 4 min sets with Dual Force between each set.",
+              rules: ["Defenders hold bibs — drop when they retain ball or closest when it's kicked out", "If defender drops bib outside area and new defender catches it, they're back in", "Defenders steal ball, drop bib and play. Any defender kicking out stays defender"],
+              progressions: ["Attackers complete 8 passes — last 2 must be chipped & caught — keeps defenders in for another round", "Defenders win ball and dribble out to remove all players"],
+              dualForce: "Push Offs: face partner, hands on shoulders, push back 3 steps for a point (30s). Hop n Pull: hold same hand, stand same leg, pull partner until standing leg touches ground (30s)",
+              coaching: ["Sprint to ball if directly in front of you", "Anticipate where ball may go if you're not the sprinting player", "Work together and keep connected"]
+            },
+            {
+              name: "Pressing Game 4v4v4",
+              type: "positioning",
+              duration: 20,
+              setup: "Two 15×20m rectangles, 3 teams, 60 sec per round.",
+              rules: ["One team outside pressing first 30s, other 2 join to make 4 defenders at 30s", "After 60s swap chasing team and restart immediately", "Defending team wins ball → score from the side they won it"],
+              progressions: ["Set 1: Win ball and score in mini goal", "Set 2: Chasers win ball → other teams now chase to steal it back", "Set 3: All 3 teams inside, team that loses ball becomes chasers"],
+              coaching: ["Closest player sprints towards ball immediately", "Others prevent forward play first, then anticipate next pass", "Work all together — don't get split or played around"]
+            },
+            {
+              name: "Small Sided Game 4v4",
+              type: "game",
+              duration: 25,
+              setup: "20×15 yards, 4 teams, king of court, 3-min games.",
+              rules: ["Winner stays on, teams move up or down pitches", "All players must be in attacking half to score", "No GKs — play as sweeper keeper (like match day)"],
+              coaching: ["Observe players compacting forward into opposition's half", "Praise successful pressing actions"]
+            }
+          ]
+        },
+        {
+          number: 2,
+          phases: [
+            {
+              name: "Pressing Rondo 3v3v3",
+              type: "rondo",
+              duration: 20,
+              setup: "25×15m, 3 equal groups: 2 attacking, 1 defending.",
+              rules: ["2 teams attack together, 1 team defends", "Attackers: 8 passes = 1 point for both teams", "Defenders: each pass completed after winning ball = 3 pts", "Final round: last team to touch ball before it goes out becomes defenders"],
+              progressions: ["Add/reduce defenders for difficulty", "Mini goals for defenders to score into (worth 10 pts)", "Any split pass between defenders worth double"],
+              coaching: ["Sprint to ball if directly in front of you", "Work together to cover the split pass", "Stay connected — decrease distance between defenders"]
+            },
+            {
+              name: "Half Field Pressing Game",
+              type: "positioning",
+              duration: 25,
+              setup: "Half pitch, 20 min (2×10 min), swap sides at halftime.",
+              rules: ["Red scores by driving into end zone OR finding the yellow neutral", "Blue scores in big goal", "Swap neutral for pressing team every 2–3 minutes"],
+              progressions: ["Double points if scored within 8 seconds of winning possession"],
+              coaching: ["Man-marked press: 1 player per attacker", "Sprint toward ball if your player has it", "Cover forward pass and anticipate where next pass goes", "Follow teammates to close any gaps"]
+            },
+            {
+              name: "Medium Game 5+GK v 5+GK",
+              type: "game",
+              duration: 25,
+              setup: "Half pitch length, full width. 3 × 6 min games.",
+              rules: ["Both teams score in big goals", "Man-marked press organisation"],
+              coaching: ["Observe individual pressing actions", "Observe team compactness when pressing", "Watch next action after stealing — attack forward", "Encourage and praise successful chasing"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      id: "defensive-block",
+      title: "Defensive Block",
+      icon: "🛡️",
+      category: "defending",
+      ageGroup: "U9–U13",
+      principle: "Compact defensive shape, wait patiently, then steal the ball",
+      behaviour: "Reduce space, be patient, win the ball at the right moment",
+      moments: [
+        "When opposition ball or player enters our half",
+        "As opposition enters our defensive third"
+      ],
+      keyPoints: [
+        "Prevent forward play: where can we direct the opposition?",
+        "Trap the opposition into predictable positions to win the ball",
+        "Don't leave the ground — be patient",
+        "When you know you can win it — be crazy and go get it"
+      ],
+      sessions: [
+        {
+          number: 1,
+          phases: [
+            {
+              name: "Rondo 4v2",
+              type: "rondo",
+              duration: 20,
+              setup: "10×8m rectangle, 3×4 min sets with Dual Force between.",
+              rules: ["Round 1: if defender touches ball they drop bib and become attacker", "Round 2: defender must steal ball and dribble outside area to become attacker", "Round 3: attackers can steal ball back when defender tries to dribble out"],
+              progressions: ["Round 3 competition — award points for each successful exit or steal"],
+              dualForce: "Gang Up: players push each other outside the area together — once out, player can return (30s). King of the Ring: ball each, once your ball is out steal another, play until one ball remains (2–3 rounds)",
+              coaching: ["Observe players compacting space, waiting, then stealing the ball", "Ensure players don't leave the ground and are patient when defending"]
+            },
+            {
+              name: "2v2+2 Positioning Game",
+              type: "positioning",
+              duration: 25,
+              setup: "25×15m, 6 × 2 min games, 3-min rest between sets.",
+              rules: ["Attacking team progresses ball from one side to another for 1 point", "Defending team wins ball and plays to a neutral for 1 point", "Play restarts with neutral playing to team in possession"],
+              progressions: ["Defending team earns a point if they force attackers to play back to same neutral twice in a row", "3v2+1 neutral with added mini goal to score", "2v3+1 (extra defender)"],
+              coaching: ["Prevent forward play at all times", "Trap the opposition somewhere predictable", "When is the right time to go and win the ball?"]
+            },
+            {
+              name: "Small Game Tournament",
+              type: "game",
+              duration: 30,
+              setup: "20×20 yards, 4 teams, World Cup format, 3-min pool games + semi/final.",
+              rules: ["3 points for win, 1 point for draw", "Bonus point for a clean sheet", "Kick-in or dribble-in on the side"],
+              coaching: ["Reinforce the session focus: defending", "Ensure team entering the field defends immediately", "Create a tournament environment — get a team photo with winners!"]
+            }
+          ]
+        },
+        {
+          number: 2,
+          phases: [
+            {
+              name: "Rondo 4v2 (Compact variation)",
+              type: "rondo",
+              duration: 20,
+              setup: "10×8m, same bib rules. Focus on trapping the ball.",
+              rules: ["Defenders must trap attacker into a corner before going to win ball", "Point scored when defenders win ball AND dribble out to top line together"],
+              progressions: ["Defenders must win ball with a tackle (not just intercept)"],
+              dualForce: "Back Pushes: back to back, push partner back 3 steps for a point. Side Pushes: shoulder to shoulder, push partner sideways.",
+              coaching: ["Direct the attack into the corner — trap, wait, pounce", "Both defenders move as one unit"]
+            },
+            {
+              name: "Half Field Defensive Game",
+              type: "positioning",
+              duration: 25,
+              setup: "Half pitch, 3 teams, 2 defend and 1 attacks with a neutral.",
+              rules: ["Attacking team tries to score in big goal", "Defending team scores by winning ball and hitting target player on halfway", "Swap defending team every 5 minutes"],
+              progressions: ["Attacking team get double points if they score within 3 passes of receiving from the neutral"],
+              coaching: ["Compact shape — don't let them play through easily", "Patience — wait for the right moment to press"]
+            },
+            {
+              name: "Small Sided Game 5v5",
+              type: "game",
+              duration: 25,
+              setup: "Half pitch, 2 × 10 min halves.",
+              rules: ["Normal game", "Defensive team must have all players behind ball when opponent is in their half"],
+              coaching: ["Observe compactness", "Praise clean defensive organisation"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      id: "recovery-runs",
+      title: "Recovery Runs",
+      icon: "🔄",
+      category: "defending",
+      ageGroup: "U9–U13",
+      principle: "Organise defence behind the ball quickly after losing possession",
+      behaviour: "Sprint back behind the ball as a unit immediately",
+      moments: [
+        "When opposition plays a long ball down the pitch",
+        "When the opposition is in our half of the field"
+      ],
+      keyPoints: [
+        "Sprint back behind the ball immediately after losing possession",
+        "Recover together with your teammates",
+        "Compact and prevent forward play once back in shape",
+        "Don't coach during the rondo — max 30 seconds between sets"
+      ],
+      sessions: [
+        {
+          number: 1,
+          phases: [
+            {
+              name: "Recovery Rondo 4v2 Transfer",
+              type: "rondo",
+              duration: 20,
+              setup: "20×10m rectangular, two areas. 3 × 4 min sets with Speed Agility between.",
+              rules: ["Normal bib rules for defenders", "Attackers must play through to the other side — always have 3v2 in the area"],
+              progressions: ["Attackers not in the square must play first-time when ball is transferred", "Defenders get back behind ball before chasing to steal it"],
+              dualForce: "Return the Bib: 6 bibs on yellow cone line — both groups sprint in from red baseline to steal bibs and return them. Most bibs wins (3 rounds). Round 2: teams can steal from opposition's line but must not be tagged on return.",
+              coaching: ["Observe players recovering together as a pair", "Do not coach when rondo is on — max 30 seconds between sets"]
+            },
+            {
+              name: "Shooting Game (Recovery)",
+              type: "positioning",
+              duration: 25,
+              setup: "25×15m rectangle, 4 equal teams, 3-min games with 1 min between.",
+              rules: ["Starts 3v1 — 3 attackers aim to score, 1 defender tries to steal or force out", "When ball goes out: 2 resting players join to create 3v1 the other way, attacker who last touched it becomes sole defender", "After 2 rounds becomes 3v2"],
+              progressions: ["When defender steals, resting defenders join to create 3v3 transition moment"],
+              coaching: ["Observe recovery action — getting back behind the ball", "Motivate players to recover and help their team", "Sprint back immediately after losing the ball to compact and prevent forward play"]
+            },
+            {
+              name: "Small Sided Game 5+GK v 5+GK",
+              type: "game",
+              duration: 30,
+              setup: "20×20 yards, 5 × 3 min games.",
+              rules: ["Both teams score in big goals", "Outside players only allowed in side area — run to goal line and cross", "Players can only pass to their outside colour"],
+              progressions: ["If a team scores with all players in attacking half, double points", "Outside players must also recover"],
+              coaching: ["Observe who isn't recovering to get back behind the ball", "Be encouraging and energetic in support"]
+            }
+          ]
+        },
+        {
+          number: 2,
+          phases: [
+            {
+              name: "Rondo Transfer (Recovery focus)",
+              type: "rondo",
+              duration: 20,
+              setup: "Two 10×10m areas side by side. 3 × 4 min with Speed Agility between.",
+              rules: ["Same bib rules, attackers transfer ball between areas", "Defender who is beaten must sprint to recover behind the ball in the next area before play reaches there"],
+              progressions: ["Add a 3rd area — each recovery run must now cover more ground"],
+              coaching: ["Look for commitment in recovery runs", "Praise the effort of recovering — not just the outcome"]
+            },
+            {
+              name: "Counter + Recovery Positioning Game",
+              type: "positioning",
+              duration: 25,
+              setup: "40×30 yards, 3 teams, continuous rotation.",
+              rules: ["Team in possession attacks, team out defends, 3rd team recovers into position", "When possession is lost, immediate recovery before counter press"],
+              coaching: ["Sprint back first — reorganise later", "Shape before pressing — don't leave gaps"]
+            },
+            {
+              name: "Game with Recovery Rule",
+              type: "game",
+              duration: 25,
+              setup: "Half pitch, 2 × 10 min halves.",
+              rules: ["Normal game", "Any goal scored within 5 seconds of winning possession is worth double"],
+              coaching: ["Reward quick transitions both ways", "Observe recovery discipline when the ball is lost"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      id: "counter-attacking",
+      title: "Counter Attacking",
+      icon: "⚡",
+      category: "transition",
+      ageGroup: "U9–U13",
+      principle: "Break forward quickly after winning the ball",
+      behaviour: "Flood forward with numbers at speed together",
+      moments: [
+        "After stealing ball from opposition attack or set play",
+        "When recovering ball during recovery runs",
+        "After chasing opposition in their build-out"
+      ],
+      keyPoints: [
+        "Flood forward with numbers immediately",
+        "Attack with width and depth — always 1 player back",
+        "Create 2v1 overloads with overlaps and underlaps",
+        "Speed of transition — think flood moment"
+      ],
+      sessions: [
+        {
+          number: 1,
+          phases: [
+            {
+              name: "Speed Rondo 4v1+1 Transfer",
+              type: "rondo",
+              duration: 20,
+              setup: "Two rectangular areas side by side. 3 × 4 min with Dual Force/Speed Agility between.",
+              rules: ["Normal bib rules", "Attackers pass to the end player (baseline) in the other area to play on that side"],
+              progressions: ["If attacker passes to end player who then plays first-time back to a supporting attacker — defenders stay in"],
+              dualForce: "Knights n Horses: in pairs, piggyback, each pair rams/pushes others out of the rondo area (30s). Chain Race: teams race to end line and back, grabbing next player's hand each time — first team sitting in line wins.",
+              coaching: ["Observe speed of players getting into the other area together", "Encourage the flood — get numbers forward fast"]
+            },
+            {
+              name: "Counter Game (Escalating)",
+              type: "positioning",
+              duration: 25,
+              setup: "40×30 yards, 5 min non-stop, 2 min recovery, 3 sets.",
+              rules: ["Starts 1v1 from baseline — escalates to 2v1, 2v2, 3v2, 3v3, 4v3, 4v4, 5v5 after each goal/miss", "Once all players on, work back down 5v5, 4v4, 3v3...", "Defenders steal ball → counter the other goal"],
+              progressions: ["All players must be in attacking half for a goal to count"],
+              coaching: ["Flood with numbers on the counter", "Attack with width and depth — 1 player always back", "Create 2v1s — use overlaps and underlaps"]
+            },
+            {
+              name: "Small Sided Game 3 teams",
+              type: "game",
+              duration: 30,
+              setup: "25×25 yards (double box), 3 teams, rotate after 5 min.",
+              rules: ["2 teams play on big field, 1 team plays 2v2 on smaller field inside", "GKs in big goals, sweeper keeper in 7-a-side goals (no hands)"],
+              coaching: ["Encourage the flood moment", "Players still perform defensive behaviours — chase, trap, recover"]
+            }
+          ]
+        },
+        {
+          number: 2,
+          phases: [
+            {
+              name: "Transfer Rondo (Speed)",
+              type: "rondo",
+              duration: 20,
+              setup: "Two areas, faster tempo, 2 min per team.",
+              rules: ["Same as Session 1 but players must sprint to next area within 3 seconds of the ball being transferred"],
+              progressions: ["Countdown timer — double points if team transitions in under 2 seconds"],
+              coaching: ["Urgency — every second counts on the counter", "Spread wide immediately to create space"]
+            },
+            {
+              name: "Counter Attack Positioning Game",
+              type: "positioning",
+              duration: 25,
+              setup: "Half pitch, 2 teams + neutral players on wide channels.",
+              rules: ["Neutrals trigger a counter — play ball to them to launch attack", "Defending team must have 2 players back at all times"],
+              progressions: ["Double points if scored within 6 seconds of winning possession"],
+              coaching: ["Wide players make runs to stretch defence", "Central players support — create 2v1"]
+            },
+            {
+              name: "Game with Counter Rule",
+              type: "game",
+              duration: 25,
+              setup: "Half pitch, 2 × 10 min halves.",
+              rules: ["Normal game", "Goals scored within 5 seconds of winning possession worth double"],
+              coaching: ["Observe speed of transition", "Praise the players who flood forward immediately"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      id: "building-out",
+      title: "Building Out",
+      icon: "🏗️",
+      category: "attacking",
+      ageGroup: "U9–U13",
+      principle: "Build from the back — drag opposition out of position and play forward",
+      behaviour: "Exploit the space created by drawing opponents in",
+      moments: [
+        "When the GK has possession of the ball",
+        "As we build out from our defensive third"
+      ],
+      keyPoints: [
+        "Always scan: where is the defender? Where are teammates? Where is the space?",
+        "Play around and through the defender",
+        "Reposition to find the ball — connect the neutrals",
+        "Receive between neutrals to give time to play through"
+      ],
+      sessions: [
+        {
+          number: 1,
+          phases: [
+            {
+              name: "Rondo 3v1",
+              type: "rondo",
+              duration: 20,
+              setup: "8×5m rectangle. 6 × 90 sec sets with Dual Force between sets of 2.",
+              rules: ["Same bib rules as standard rondo", "Outside players remain on your side", "Rotate defenders and attackers after each set"],
+              progressions: ["10 passes and catch to keep the defender in for another round"],
+              dualForce: "Arm Wrestle: squat position, normal arm wrestling rules (30s). Pinky Wrestle: same but pinky fingers only. Back Pushes: back to back, push partner 3 steps for a point.",
+              coaching: ["Encourage players to play around and through the defender", "Always scanning — defender position, teammates, space where defender isn't"]
+            },
+            {
+              name: "2v2+2 EndZone Game",
+              type: "positioning",
+              duration: 25,
+              setup: "20×15m with 2m end zones each end. 6 × 2 min games.",
+              rules: ["2v2 in the middle + neutral on each end", "Attacking team works ball from one neutral to the other for a point", "Defending team wins ball → plays to neutral for a point", "Neutrals can be tackled for instant change of possession"],
+              progressions: ["Defensive team earns a point if they force attacking team to play back to same neutral twice in a row", "First-time pass for goal scored = double points"],
+              coaching: ["Reinforce repositioning to find the ball and connect the neutrals", "Receive with space in between neutrals to give time to play through", "Motivate defensive recovery if ball is lost in build-up"]
+            },
+            {
+              name: "Small Sided Game 4v4v4",
+              type: "game",
+              duration: 30,
+              setup: "20×20 yards, 30 min continuous, rotate teams.",
+              rules: ["Last Man Back GKs", "Outside players can be tackled", "You can only score first-time after receiving from an outside player", "Winner stays on (one goal)"],
+              coaching: ["Encourage players to play through, around or over effectively", "Observe repositioning to find the ball", "Reinforce passing forward to exploit space quickly"]
+            }
+          ]
+        },
+        {
+          number: 2,
+          phases: [
+            {
+              name: "Rondo 3v1 (Pressure variation)",
+              type: "rondo",
+              duration: 20,
+              setup: "Same 8×5m areas but now defender can call in a second defender after 5 passes.",
+              rules: ["Attacker who makes 5th pass can also call a teammate from outside to help", "Explore 2v2 moments within the rondo"],
+              progressions: ["GK joins as an extra attacker — practice GK distributing under pressure"],
+              coaching: ["Scan before receiving — open body position", "Use the GK as an extra passing option"]
+            },
+            {
+              name: "GK Build-Out Positioning Game",
+              type: "positioning",
+              duration: 25,
+              setup: "Half pitch, GK builds out against pressing team. Neutral player available wide.",
+              rules: ["GK starts every phase", "Pressing team of 3 presses as soon as GK touches ball", "Defending team scores by playing through to target player at halfway"],
+              progressions: ["Add second pressing player after 3 seconds"],
+              coaching: ["GK — quick decision, don't hold the ball", "Field players — show for the ball, give the GK options"]
+            },
+            {
+              name: "Game with Build-Out Rule",
+              type: "game",
+              duration: 25,
+              setup: "Full training pitch, 2 × 10 min halves.",
+              rules: ["Normal game", "Any attack that starts from the GK and results in a goal = double points", "GK must distribute by hand or foot — no big kicks"],
+              coaching: ["Reward the teams that build from the back successfully", "Praise the GK who makes the correct decision under pressure"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      id: "playing-through-midfield",
+      title: "Playing Through Midfield",
+      icon: "➡️",
+      category: "attacking",
+      ageGroup: "U9–U13",
+      principle: "Play through or around opposition to progress the ball forward",
+      behaviour: "Find space in passing lanes, play forward through midfield",
+      moments: [
+        "As a defender drives into midfield",
+        "When in possession in the midfield third"
+      ],
+      keyPoints: [
+        "Rope analogy: we're all connected — defenders are scissors; constantly reposition to receive and play forward",
+        "Correct body profile to receive and play forward quickly",
+        "Sequential thought: Over → Through → Beside → Behind",
+        "Look for the furthest forward pass first, check down if not available"
+      ],
+      sessions: [
+        {
+          number: 1,
+          phases: [
+            {
+              name: "Rondo 4v2 Diamond",
+              type: "rondo",
+              duration: 20,
+              setup: "Diamond shape 10×10m. 3 × 4 min with Dual Force between.",
+              rules: ["Standard bib rules", "Players inside the diamond only"],
+              progressions: ["10 passes and catch to keep defenders in", "Defenders can win ball and drive out of the square"],
+              dualForce: "Side Pushes: shoulder to shoulder, push partner sideways 3 steps for a point (30s). Side Pushes 2: can now target any player to push out the area. Bib Steal: in threes, one player has bib in shorts, partner defends while 3rd tries to steal.",
+              coaching: ["Observe players finding space inside", "Observe player body profile to play forward effectively"]
+            },
+            {
+              name: "4v4+4 Positioning Game",
+              type: "positioning",
+              duration: 25,
+              setup: "25×20m, 3 sets of 7, 6, and 5 minutes with 2 min rest between.",
+              rules: ["Play ball from one neutral (red) to another for a point", "Once a team finds end player, try to find the other end for another point", "End players reposition along the whole end line", "Swap neutrals after each round"],
+              progressions: ["5v5+2 neutrals", "Place a member of each team on each end (6v6)"],
+              coaching: ["Can we play through to the end player effectively?", "Rope analogy: constantly reposition to receive the ball", "Over – Through – Beside – Behind as sequential decision process"]
+            },
+            {
+              name: "Training Game 5v5 (2-1-2)",
+              type: "game",
+              duration: 30,
+              setup: "35×20 yards, 2 × 13 min halves. Set up in 2-1-2 formation.",
+              rules: ["Players score in big goals", "Play through the central yellow zone"],
+              coaching: ["Observe players finding space in central area (passing lane)", "Reinforce the rope analogy", "Ask: is your profile correct to play forward quickly?"]
+            }
+          ]
+        },
+        {
+          number: 2,
+          phases: [
+            {
+              name: "Rondo 4v2 (Profile focus)",
+              type: "rondo",
+              duration: 20,
+              setup: "Same 10×10m diamond. Focus on receiving profile.",
+              rules: ["Attackers can only play forward — no backward passes", "Defender earns a point for forcing a backward pass"],
+              progressions: ["Points only count if received on the half-turn (open body)"],
+              coaching: ["Half-turn to see the full picture before receiving", "Weight and direction of pass critical"]
+            },
+            {
+              name: "Midfield Channels Game",
+              type: "positioning",
+              duration: 25,
+              setup: "Two 5m-wide central channels marked in a 30×20m area.",
+              rules: ["Goals only count if the ball was played through a central channel before scoring", "One touch in the channel, free to play after"],
+              progressions: ["Channel player can be tackled", "Both teams must use the channel within 4 passes of winning possession"],
+              coaching: ["Find the gap in the midfield block", "Timing of run to receive in channel is critical"]
+            },
+            {
+              name: "Game (Midfield focus)",
+              type: "game",
+              duration: 25,
+              setup: "Half pitch, 2 × 10 min halves.",
+              rules: ["Normal game", "Goal scored via a central pass through midfield = double points"],
+              coaching: ["Reinforce playing through the thirds", "Praise players who find space in central areas"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      id: "getting-in-behind",
+      title: "Getting in Behind",
+      icon: "🚀",
+      category: "attacking",
+      ageGroup: "U9–U13",
+      principle: "Play through or over the defence — exploit the space behind",
+      behaviour: "Look for runs into space behind; attack depth and width",
+      moments: [
+        "When in the middle or attacking third",
+        "When the opposition has left space in behind"
+      ],
+      keyPoints: [
+        "Constantly scan — where is the furthest pass available?",
+        "Play a pass that lets the receiver control comfortably",
+        "Move the ball to move defenders and create gaps",
+        "Key directions: Behind, Beside, Through, Over"
+      ],
+      sessions: [
+        {
+          number: 1,
+          phases: [
+            {
+              name: "Rondo 4v2 Diamond",
+              type: "rondo",
+              duration: 20,
+              setup: "Diamond 10×10m (or 6×6m for 4v1). 3 × 4 min with Dual Force between.",
+              rules: ["Standard bib rules", "10 passes and catch to keep defenders in for another round", "Swap defenders if in longer than 90 seconds"],
+              progressions: ["Defenders can win ball and dribble out to remove both defenders, closest player to exit becomes defender"],
+              dualForce: "Knee Ball: press-up position, knee ball through partner's arms to score (30s). Head Ball: same position, head ball through partner's arms. Leg Wrestling: on ground, raise same leg each and wrestle it down. Knee Wrestling: on knees, pin partner for 3 seconds.",
+              coaching: ["Observe players playing through and over defenders", "Look for players adjusting distances and arriving in space on time"]
+            },
+            {
+              name: "Cross the River",
+              type: "positioning",
+              duration: 25,
+              setup: "Three-zone area 15×20 yards (middle zone 5 yards wide). 6-min sets with 2-min rests.",
+              rules: ["3 teams in 3 sections; middle team defends first", "One defender chases in, coach calls another every 5 seconds", "Attacking team plays through or over defenders to reach other side for a point", "Once through, same team defends in the other section", "Defenders who win ball transfer to attackers on other side"],
+              progressions: ["Any time: defenders can send as many as they like", "Set 2: defenders chase after 2 passes (not on coach's call)", "Set 3: attackers can position in defender's middle zone"],
+              coaching: ["Players constantly scanning for furthest pass", "Pass played so receiver controls comfortably", "Look for gaps: Behind, Beside, Through, Over"]
+            },
+            {
+              name: "Small Sided Game 4v4",
+              type: "game",
+              duration: 30,
+              setup: "Length 20 yards, width 30 yards. Continuous 30 min. 3 teams.",
+              rules: ["Teams score in mini goals (big goals if you have GK)", "Two teams on, one around outside", "Outside players: 3 sec to play ball, must move as ball moves, can be tackled", "One goal = losing team off, teams count wins"],
+              coaching: ["Praise players who run in behind to exploit space", "Praise players who play balls in behind quickly", "Reinforce past principles: chasing, trapping, building out, recovering, counter-attacking"]
+            }
+          ]
+        },
+        {
+          number: 2,
+          phases: [
+            {
+              name: "Rondo 4v2 (Over the top)",
+              type: "rondo",
+              duration: 20,
+              setup: "Same diamond, but now ball played over defenders scores double.",
+              rules: ["Chip or lofted pass that goes over defender and is controlled = 2 points", "Normal pass through = 1 point"],
+              progressions: ["Defender can intercept aerial balls — adds realism"],
+              coaching: ["Timing of ball and run must match", "Weight of lofted pass — not too high or too heavy"]
+            },
+            {
+              name: "Zones Behind Game",
+              type: "positioning",
+              duration: 25,
+              setup: "30×20m with 5m end zones. 3 teams.",
+              rules: ["Score by receiving ball while in the end zone behind the defence", "Defender must track runners into the zone — if they leave, space opens"],
+              progressions: ["Only the 'striker' position can receive in the zone", "Double points if ball played first-time into zone"],
+              coaching: ["Timing of run into zone — arrive as ball arrives", "Passer must play ball early enough for runner to reach it"]
+            },
+            {
+              name: "Game (Space in Behind)",
+              type: "game",
+              duration: 25,
+              setup: "Half pitch, 2 × 10 min halves.",
+              rules: ["Normal game", "Any goal where the scorer received the ball behind the defensive line = double points"],
+              coaching: ["Observe how often the team looks over the top", "Praise runs in behind even if the pass isn't played"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      id: "final-third",
+      title: "Final Third",
+      icon: "⚽",
+      category: "attacking",
+      ageGroup: "U9–U13",
+      principle: "Creative decision making to find and take goal-scoring opportunities",
+      behaviour: "Be ruthless — create and finish every opportunity",
+      moments: [
+        "When entering the attacking third",
+        "When delivering into the opposition's box"
+      ],
+      keyPoints: [
+        "Speed of thought: perceive and execute quickly",
+        "Disguise intentions before executing",
+        "Clear shooting line → shoot. No shooting line → find a clear passing line",
+        "Drive players to shoot and finish off every ball"
+      ],
+      sessions: [
+        {
+          number: 1,
+          phases: [
+            {
+              name: "Rondo 4v2 Team Competition",
+              type: "rondo",
+              duration: 20,
+              setup: "16×10m, 3 × 4 min with Speed Agility between. Divide into 2 teams.",
+              rules: ["Attacking team: score in mini goal for 1 point", "Defending team: win ball and dribble beyond top line for 1 point"],
+              progressions: ["First-time finish is worth double", "Offside applies within attacking half of rondo"],
+              dualForce: "Agility Square (20×20m, coloured cones): pairs race to colour called by coach (2–3 rounds). Solo then compete. Pairs drag each other out of area on GO (30s). No partners — drag anyone out (30s).",
+              coaching: ["Observe speed of thought: perceive and execute", "Encourage players to disguise intentions before finishing"]
+            },
+            {
+              name: "4v4+4 Servers Game",
+              type: "positioning",
+              duration: 25,
+              setup: "18-yard area, 3 goals, 12 balls per round, each team 4–5 rounds.",
+              rules: ["3 equal teams: servers (greens), attackers, defenders; GKs if applicable", "Servers have 4 balls each and play to attackers to score", "Defenders win ball and play through a gate to score", "Attackers cannot play back to servers", "30 sec between rounds to reload ball stations", "Servers become attackers → attackers become defenders → defenders become servers"],
+              progressions: ["Attackers can play back to servers who can shoot or cross"],
+              coaching: ["What do we need to score? Clear shooting line", "Where to receive if you can't shoot? Clear passing line", "Reinforce creativity — risk to score!", "Drive players to finish off every ball"]
+            },
+            {
+              name: "Small Sided Game 4v4",
+              type: "game",
+              duration: 30,
+              setup: "20×15 yards, 4 teams, king of court, 3-min games.",
+              rules: ["King of court — winner stays, loser moves down", "No GKs — sweeper keeper", "Designate a King Court"],
+              coaching: ["Encourage players to always be in goal-scoring positions", "Encourage all players to attack and score goals", "Ensure players still perform defensive actions"]
+            }
+          ]
+        },
+        {
+          number: 2,
+          phases: [
+            {
+              name: "Finishing Rondo",
+              type: "rondo",
+              duration: 20,
+              setup: "Same 16×10m but now with 2 mini goals at one end.",
+              rules: ["Attackers must shoot to score — no dribbling through", "Defenders: intercept and hit the top cone for a point"],
+              progressions: ["Volley or first-time finish only = 2 points", "GK can join as extra defender in last round"],
+              coaching: ["Shoot early — don't overthink it", "Pick your spot before the ball arrives"]
+            },
+            {
+              name: "Crossing and Finishing Game",
+              type: "positioning",
+              duration: 25,
+              setup: "Half penalty box + wide channels. 3 teams.",
+              rules: ["Wide players deliver crosses, strikers finish", "Defenders win ball → dribble out of box to score", "Rotate every 5 minutes"],
+              progressions: ["First-time finish only after cross = double points", "Second post runs rewarded — extra point if scorer ran to far post"],
+              coaching: ["Timing of cross and run must match", "Commit to the finish — don't stall"]
+            },
+            {
+              name: "Game (Finishing focus)",
+              type: "game",
+              duration: 25,
+              setup: "Half pitch, 2 × 10 min halves.",
+              rules: ["Normal game", "Any first-time finish = double points", "Any volley or header = triple points"],
+              coaching: ["Observe shot quality — not just goals scored", "Praise the attempt, not just the outcome"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      id: "adapting",
+      title: "Adapting",
+      icon: "🧠",
+      category: "tactical",
+      ageGroup: "U9–U13",
+      principle: "Adjust to the opponent or situation to control game moments",
+      behaviour: "Read the game and change strategy based on context",
+      moments: [
+        "When we need to control the game",
+        "When adapting to influence the outcome"
+      ],
+      keyPoints: [
+        "Question players on actions they'd change — don't give commands",
+        "Players adjust angles, distance, timing, and lines",
+        "Max 10-second interventions during the game",
+        "Use previous session principles (actions, behaviours, moments)"
+      ],
+      sessions: [
+        {
+          number: 1,
+          phases: [
+            {
+              name: "Adapting Rondo 4v2 (3 rounds)",
+              type: "rondo",
+              duration: 20,
+              setup: "Rectangle shape. 3 × 4 min with Dual Force between. Different rules each round.",
+              rules: ["Round 1: 30 passes + catch to keep defenders in. First split pass when new defender comes in = worth 29. Any other split pass = 10 pts", "Round 2: 2 teams — each sends 3 invaders to other rondo. 6 passes = 1 pt for attackers. Win ball + 2 passes or dribble out = 1 pt for invaders", "Round 3: 3 teams. 1 defends, 2 attack in separate rondos. 10 passes + catch for defenders. Defenders can move any number of players between squares anytime. 3×90 sec games"],
+              progressions: ["GK version: GK acts as an extra attacker in each round"],
+              dualForce: "Ball Hold: one player holds ball against chest, partner tries to pull it off without turning away (30s). Lying Ball Hold: player lies flat with ball on chest, partner tries to take it. Covering Ball: one player covers ball between them and ground, partner tries to take it.",
+              coaching: ["Question players on what they'd change based on different rules", "Players must adjust angles, distance, timing, and lines to the situation"]
+            },
+            {
+              name: "2v2+2 Adapting Game",
+              type: "positioning",
+              duration: 25,
+              setup: "30×20m, 6 × 3 min sets with 1 min rest, 3 teams of 2 in each area.",
+              rules: ["Play from one neutral to another for a point", "Neutrals can be tackled — instant change of possession", "Change neutral team after each game", "Rotate so teams play 3–4 different opponents"],
+              progressions: ["Attacking team plays back to same neutral twice in a row = 1 pt for them", "End zone game: neutrals come inside and score by driving across end zone", "Add mini goals"],
+              coaching: ["Ask questions about strategies to earn more points using our playing principles", "Ensure players adjust to changing players", "Maintain controlled chaos and high quality"]
+            },
+            {
+              name: "Game 6v6 Scenario Sets",
+              type: "game",
+              duration: 30,
+              setup: "4 × 5 min sets, 2 min rest between. Normal game rules but coach creates match situations.",
+              rules: ["Set 1: '10 min to go, your team is ahead' — coach the defensive team", "Set 2: '10 min to go, need 2 goals to win' — coach the attacking team", "Set 3: 'Nil-all — decide to defend or attack' — coach both", "Set 4: Normal game. Call out time every 3 minutes then every last minute."],
+              coaching: ["Set 1: recover, compact, patience, steal and counter (defend your lead)", "Set 2: be direct, creative to score, get in behind, box occupation", "Set 3: reinforce defensive/attacking principles based on situation", "Max 10 second intervention"]
+            }
+          ]
+        },
+        {
+          number: 2,
+          phases: [
+            {
+              name: "Adapting Rondo (New rules)",
+              type: "rondo",
+              duration: 20,
+              setup: "Same areas. This time rules change every 90 seconds without warning.",
+              rules: ["Coach announces new rule mid-game — e.g., 'only left foot', 'two touch max', 'no talking'", "Players must adapt immediately", "Point for the team that adapts fastest"],
+              coaching: ["Celebrate quick adaptation", "Question: what did you change and why?"]
+            },
+            {
+              name: "Scenario Positioning Game",
+              type: "positioning",
+              duration: 25,
+              setup: "Half pitch, 3 teams. Coach assigns a match scenario to each team.",
+              rules: ["Team A: attacking, need to score (start of game)", "Team B: defending a 1-0 lead (game almost over)", "Team C: neutral — plays to whoever is losing to make game realistic"],
+              coaching: ["Reinforce tactical decision-making in different scenarios", "Ask: is your team doing what they should based on the situation?"]
+            },
+            {
+              name: "Game (Coach-controlled scenarios)",
+              type: "game",
+              duration: 25,
+              setup: "Half pitch, continuous play. Coach introduces scenarios every 5 min.",
+              rules: ["Normal game, coach can reset scenarios", "Double points for goals in the last 5 min"],
+              coaching: ["Players must communicate the strategy within their team", "Minimal coaching from sideline — let them problem-solve"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      id: "restarting",
+      title: "Restarting",
+      icon: "🎯",
+      category: "set-pieces",
+      ageGroup: "U9–U13",
+      principle: "Win the ball or score from set-piece restarts",
+      behaviour: "Organised, decisive, and purposeful at every restart",
+      moments: [
+        "At free kicks, corners, kick-ins, and goal kicks",
+        "When defending opposition restarts"
+      ],
+      keyPoints: [
+        "Everyone knows their role before the restart",
+        "Attackers: movement to create space before the ball is played",
+        "Defenders: set shape and mark before restart is taken",
+        "Quick restarts can catch the opposition off guard"
+      ],
+      sessions: [
+        {
+          number: 1,
+          phases: [
+            {
+              name: "Restart Rondo",
+              type: "rondo",
+              duration: 20,
+              setup: "Standard rondo but ball is always restarted from a dead-ball position.",
+              rules: ["Every time the ball goes out, restart from a set position (corner/free kick style)", "Attackers must set up a routine before playing", "Defenders must organise before ball is played"],
+              progressions: ["Introduce specific set piece routines the team uses on match day"],
+              coaching: ["Quick decision at the restart — don't give defence time to organise", "Runners time their movement to the ball"]
+            },
+            {
+              name: "Set Piece Game",
+              type: "positioning",
+              duration: 25,
+              setup: "Half pitch. Each team gets 5 restarts each in rotation.",
+              rules: ["Team A takes corners from right side, team B defends", "Swap roles after 5 corners, then practice free kicks, then goal kicks", "GK restarts count — must distribute to a teammate's feet"],
+              progressions: ["Add defending pressure — 2 players allowed to press at restart", "Time limit: restart must be taken within 5 seconds"],
+              coaching: ["Runners — vary your movement to create different options", "GK — scan options before distributing, commit to your pass"]
+            },
+            {
+              name: "Game with Restart Tracking",
+              type: "game",
+              duration: 30,
+              setup: "Half pitch, 2 × 12 min halves.",
+              rules: ["Normal game", "Tally all restarts — which team uses them better?", "Goal direct from a corner or free kick = triple points"],
+              coaching: ["Observe if the set piece routines transfer from practice", "Reward clever quick restarts"]
+            }
+          ]
+        },
+        {
+          number: 2,
+          phases: [
+            {
+              name: "Defensive Restarts Rondo",
+              type: "rondo",
+              duration: 20,
+              setup: "Standard rondo but focus on defensive shape at restarts.",
+              rules: ["When ball goes out, defenders must be in position within 3 seconds", "If not set up in time, attackers can restart freely and score directly"],
+              coaching: ["Sprint to your defensive position at every restart", "Communicate — call your marking assignment"]
+            },
+            {
+              name: "Corners & Free Kicks Practice",
+              type: "positioning",
+              duration: 25,
+              setup: "Full corner setup and free kick positions. 3 attacking + 2 defending players, GK.",
+              rules: ["Teams run their rehearsed routines", "Swap attack/defence after each set", "Track how many routines result in a shot on goal"],
+              coaching: ["Delivery must be accurate — pace and placement", "Near post runner creates space for far post runner"]
+            },
+            {
+              name: "Game (Set pieces only to restart)",
+              type: "game",
+              duration: 25,
+              setup: "Half pitch. Every restart (including throw-ins) must be treated as a set piece with deliberate movement.",
+              rules: ["Normal game", "But every restart: players must take up position before ball is played", "Goal from restart = double points"],
+              coaching: ["Transfer the discipline to the game environment", "Praise teams that organise quickly at every restart"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      id: "trapping",
+      title: "Trapping",
+      icon: "🪤",
+      category: "defending",
+      ageGroup: "U9–U13",
+      principle: "Funnel the opposition into a predictable zone to win the ball",
+      behaviour: "Direct, force, close, and trap as a team unit",
+      moments: [
+        "When the opposition has possession in our half",
+        "When we can guide them into a corner or touchline"
+      ],
+      keyPoints: [
+        "The trap only works if everyone executes at the same time",
+        "First defender: show inside or outside — channel the opposition",
+        "Second defender: cover the space you're funnelling into",
+        "Trigger moment: when ball is played into the trap zone — press hard and fast"
+      ],
+      sessions: [
+        {
+          number: 1,
+          phases: [
+            {
+              name: "Trapping Rondo 4v2",
+              type: "rondo",
+              duration: 20,
+              setup: "10×8m rectangle. 3 × 4 min sets with Dual Force between.",
+              rules: ["Defenders work together to force attacker into a corner of the rondo", "Point for defenders when they win ball in the corner zone", "Attackers: 1 pt for 6 passes without going into corners"],
+              progressions: ["Mark specific corner zones with cones — must win ball there", "Attackers get point for dribbling out of the corner zone once trapped"],
+              coaching: ["Work together — one channels, one covers", "Patience — wait until both are in position before pressing hard"]
+            },
+            {
+              name: "Trapping Positioning Game",
+              type: "positioning",
+              duration: 25,
+              setup: "25×20m with touchlines. 3 teams. 2v2 + neutrals.",
+              rules: ["Defending team aims to trap possession player against a touchline", "Attacking team tries to play through the press", "Point for defenders: win ball within 2 metres of touchline"],
+              progressions: ["Corner zones count double", "3rd defender can join to close out after trap is set"],
+              coaching: ["Channel early — before they turn", "Time the press — both defenders must go at the same moment"]
+            },
+            {
+              name: "Game with Trapping Focus",
+              type: "game",
+              duration: 30,
+              setup: "Half pitch, 2 × 12 min halves.",
+              rules: ["Normal game", "Any ball won in wide channels or corners = double points for defending team"],
+              coaching: ["Observe if trapping transfers to the full game", "Praise coordinated pressing near the touchline"]
+            }
+          ]
+        },
+        {
+          number: 2,
+          phases: [
+            {
+              name: "Trapping Rondo (Zones)",
+              type: "rondo",
+              duration: 20,
+              setup: "Same area but marked into 4 quadrants. Defenders must trap into a specific called quadrant.",
+              rules: ["Coach calls a quadrant before each rondo round", "Defenders must trap attacker into that quadrant within 8 passes", "Attackers: escape the quadrant = 1 point"],
+              coaching: ["Channel earlier — anticipate which way they want to go", "Communication between defenders — verbal cues before pressing"]
+            },
+            {
+              name: "Half-Field Trapping Game",
+              type: "positioning",
+              duration: 25,
+              setup: "Half pitch. One team defends in a low block, one attacks with a neutral.",
+              rules: ["Defending team must try to trap in wide areas before winning ball", "Bonus point if ball won in the corner quadrant", "Attacking team: 3 pts for playing through the defensive block"],
+              coaching: ["Compact shape draws them wide — then trap", "Trigger word or hand signal as the press cue"]
+            },
+            {
+              name: "Game (Trapping + Pressing combined)",
+              type: "game",
+              duration: 25,
+              setup: "Half pitch, 2 × 10 min halves.",
+              rules: ["Normal game", "Combine trapping + pressing — one team starts every phase from their GK", "Trapping team: bonus if they win ball in wide zones"],
+              coaching: ["Observe trapping instincts — do they funnel or just chase?", "Celebrate coordinated trapping moments"]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+};
 function loadContextData(key) { if(!key) return {}; try { return (JSON.parse(localStorage.getItem(CONTEXTS_KEY)||'{}')||{})[key]||{}; } catch { return {}; } }
 function saveContextData(key, patch) { if(!key) return; try { const all=JSON.parse(localStorage.getItem(CONTEXTS_KEY)||'{}')||{}; all[key]={...(all[key]||{}),...patch}; localStorage.setItem(CONTEXTS_KEY,JSON.stringify(all)); } catch {} }
 function makeContextKey(fixOrNull, opponent) { return fixOrNull ? fixtureKey(fixOrNull) : (opponent ? 'friendly_'+opponent : ''); }
@@ -353,7 +1303,8 @@ async function generateAIReport(game) {
   const potmArr=Array.isArray(game.potm)?game.potm:(game.potm?[game.potm]:[]);
   const potmLine=potmArr.length?`\nMost Valuable Player (MVP): ${potmArr.join(", ")}`:"";
   const oppLine=game.oppNotes&&game.oppNotes.trim()?`\n\nOpposition notes:\n${game.oppNotes.trim()}`:"";
-  const prompt=`You are writing a match report for a U11 girls soccer match.\n\nOpponent: ${game.opponent||"Opposition"}\nFormation: ${game.config?.formation||"1-3-2-3"}\nFinal score: Us ${us} – Them ${them}${potmLine}\n\nGoals:\n${goalSummary}\n\nCoach's notes:\n${noteSummary}${oppLine}\n\nWrite a warm, encouraging match report (3-5 short paragraphs): result, key moments with goal scorers and their positions, observations from notes, positive takeaways and one or two development areas, and a short motivational closing. Age-appropriate and supportive. Refer to players by name where known.`;
+  const voiceLine = game.voiceNotes && game.voiceNotes.trim() ? `\n\nVoice note transcription:\n${game.voiceNotes.trim()}` : "";
+  const prompt=`Generate a detailed match review for a U11 girls soccer match. Be direct and factual. Do not embellish with fluff.\n\nOpponent: ${game.opponent||"Opposition"}\nFormation: ${game.config?.formation||"1-3-2-3"}\nFinal score: Us ${us} – Them ${them}${potmLine}\n\nGoals:\n${goalSummary}\n\nMatch events:\n${noteSummary}${voiceLine}${oppLine}\n\nWrite 3-4 focused paragraphs: result and key moments, what worked well (with specific player names), 1-2 clear development areas, brief next steps. Keep it grounded and specific.`;
   const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,messages:[{role:"user",content:prompt}]})});
   const data=await resp.json();const text=data?.content?.[0]?.text;if(!text)throw new Error("no text");return text;
 }
@@ -612,8 +1563,8 @@ function FixturesScreen({ onBack, embedded, games=[], onViewGame=null }) {
   }
 
   const tabBtn = (active) => ({
-    flex: 1, padding: '8px 0', border: 'none', borderRadius: 8, fontSize: 13,
-    fontWeight: 600, cursor: 'pointer', background: active ? '#3D2000' : '#1A1A1A', color: active ? '#fff' : '#A1A1A1',
+    flex: 1, padding: '8px 0', border: `1px solid ${active ? '#F5C04A44' : '#2A2A2A'}`, borderRadius: 8, fontSize: 13,
+    fontWeight: 700, cursor: 'pointer', background: active ? '#F5C04A18' : '#111111', color: active ? '#F5C04A' : '#A1A1A1',
   });
 
   const numInp = { width: 56, padding: '10px 0', textAlign: 'center', fontSize: 24, fontWeight: 700,
@@ -637,8 +1588,8 @@ function FixturesScreen({ onBack, embedded, games=[], onViewGame=null }) {
             <input type="number" min="0" value={ag} onChange={e=>setAg(e.target.value)} style={numInp} />
           </div>
         </div>
-        <button onClick={saveScore} disabled={hg===''||ag===''} style={{ width:'100%', padding:'11px 0', borderRadius:9, border:'none', fontSize:15, fontWeight:700, cursor:'pointer', background:'#3D2000', color:'#fff', marginBottom:8, opacity:hg===''||ag===''?0.5:1 }}>Save Score</button>
-        <button onClick={savePostponed} style={{ width:'100%', padding:'9px 0', borderRadius:9, border:'1px solid #92400e', fontSize:13, fontWeight:700, cursor:'pointer', background:'#431407', color:'#fb923c', marginBottom:8 }}>🚫 Bye / Postponed</button>
+        <button onClick={saveScore} disabled={hg===''||ag===''} style={{ width:'100%', padding:'11px 0', borderRadius:9, border:'none', fontSize:15, fontWeight:700, cursor:'pointer', background:'#F5C04A', color:'#000', marginBottom:8, opacity:hg===''||ag===''?0.5:1 }}>Save Score</button>
+        <button onClick={savePostponed} style={{ width:'100%', padding:'9px 0', borderRadius:9, border:'1px solid #ef444433', fontSize:13, fontWeight:700, cursor:'pointer', background:'#1A0A0A', color:'#ef4444', marginBottom:8 }}>🚫 Bye / Postponed</button>
         {scores[fixtureKey(editing)] && (
           <button onClick={clearScore} style={{ width:'100%', padding:'9px 0', borderRadius:9, border:'1px solid #2A2A2A', fontSize:13, fontWeight:600, cursor:'pointer', background:'transparent', color:'#f87171', marginBottom:8 }}>Clear</button>
         )}
@@ -648,7 +1599,7 @@ function FixturesScreen({ onBack, embedded, games=[], onViewGame=null }) {
   );
 
   const controls = (
-    <div style={{ padding: embedded ? '0 0 12px' : '16px 16px 12px', borderBottom:'1px solid #1E1400', flexShrink:0 }}>
+    <div style={{ padding: embedded ? '0 0 12px' : '16px 16px 12px', borderBottom:'1px solid #1E1E1E', flexShrink:0 }}>
       {!embedded && <h2 style={{ margin:'8px 0 12px', fontSize:18, fontWeight:800, color:'#FFFFFF' }}>📅 Fixtures — 2026 Season</h2>}
       <select value={myTeam} onChange={e=>pickTeam(e.target.value)}
         style={{ width:'100%', padding:'8px 10px', borderRadius:8, background:'#0D0D0D', color:'#FFFFFF', border:'1px solid #2A2A2A', fontSize:13, marginBottom:10 }}>
@@ -684,7 +1635,7 @@ function FixturesScreen({ onBack, embedded, games=[], onViewGame=null }) {
               const canEdit  = true;
               let scoreBadge;
               if (sc?.postponed) {
-                scoreBadge = <span style={{ fontSize:11, background:'#431407', color:'#fb923c', borderRadius:5, padding:'2px 7px', fontWeight:700 }}>Postponed</span>;
+                scoreBadge = <span style={{ fontSize:11, background:'#1A0A0A', color:'#ef4444', borderRadius:5, padding:'2px 7px', fontWeight:700 }}>Postponed</span>;
               } else if (sc != null) {
                 const hl = sc.home > sc.away ? '#FCD34D' : sc.home < sc.away ? '#f87171' : '#A1A1A1';
                 const al = sc.away > sc.home ? '#FCD34D' : sc.away < sc.home ? '#f87171' : '#A1A1A1';
@@ -734,7 +1685,7 @@ function FixturesScreen({ onBack, embedded, games=[], onViewGame=null }) {
               }
               return (
                 <div key={i} onClick={handleFixtureClick}
-                  style={{ background: ours ? '#110D00' : '#1a2332', border:`1px solid ${canView?'#F5C04A55':ours?'#F5C04A33':isNext?'#F5C04A22':'#1E1400'}`, borderRadius:10, padding:'10px 12px', marginBottom:6, cursor:'pointer' }}>
+                  style={{ background: ours ? '#110D00' : '#111111', border:`1px solid ${canView?'#F5C04A55':ours?'#F5C04A33':isNext?'#F5C04A22':'#1E1E1E'}`, borderRadius:10, padding:'10px 12px', marginBottom:6, cursor:'pointer' }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
                     <span style={{ fontSize:12, color:'#A1A1A1' }}>{f.date} · {f.time}</span>
                     <div style={{ display:'flex', alignItems:'center', gap:8 }}>
@@ -767,7 +1718,7 @@ function FixturesScreen({ onBack, embedded, games=[], onViewGame=null }) {
       <div style={{ ...S.card, padding: 0, display: 'flex', flexDirection: 'column', maxHeight:'calc(100vh - max(env(safe-area-inset-top),16px) - max(env(safe-area-inset-bottom),16px) - 32px)' }}>
         {modal}{controls}
         <div style={{ overflowY:'auto', flex:1 }}>{list}</div>
-        {!embedded && <div style={{borderTop:"1px solid #1E1400",padding:"10px 14px",paddingBottom:"max(10px,env(safe-area-inset-bottom))",flexShrink:0}}><button onClick={onBack} style={S.backBtn}>← Back</button></div>}
+        {!embedded && <div style={{borderTop:"1px solid #1E1E1E",padding:"10px 14px",paddingBottom:"max(10px,env(safe-area-inset-bottom))",flexShrink:0}}><button onClick={onBack} style={S.backBtn}>← Back</button></div>}
       </div>
     </div>
   );
@@ -906,7 +1857,7 @@ function OpponentStatsScreen({ opponent, onBack, embedded, teamNotes }) {
   const resultBadge = (res) => ({W:'#FCD34D',L:'#f87171',D:'#fcd34d','?':'#A1A1A1'}[res]||'#A1A1A1');
 
   const statsContent = (
-    <div style={{ padding: embedded ? '0' : '14px 16px 36px' }}>
+    <div style={{ padding: 0 }}>
       {p > 0 ? (
         <>
           <div style={{display:'flex', gap:6, marginBottom:6}}>
@@ -928,23 +1879,23 @@ function OpponentStatsScreen({ opponent, onBack, embedded, teamNotes }) {
           No scores recorded for this team yet.
         </div>
       )}
-      <div style={{background:'#0a1929', border:'1px solid #3b82f644', borderRadius:12, padding:'14px', marginBottom:16}}>
+      <div style={{background:'#111111', border:'1px solid #38bdf833', borderRadius:12, padding:'14px', marginBottom:16}}>
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
-          <div style={{fontSize:11, fontWeight:700, color:'#60a5fa', textTransform:'uppercase', letterSpacing:1}}>✨ Scout Report</div>
+          <div style={{fontSize:11, fontWeight:700, color:'#38bdf8', textTransform:'uppercase', letterSpacing:1}}>✨ Scout Report</div>
           <button
             onClick={() => setTick(t => t + 1)}
-            style={{background:'#1E1400', border:'1px solid #F5C04A33', color:'#93c5fd', borderRadius:6, padding:'3px 9px', fontSize:11, cursor:'pointer'}}
+            style={{background:'#1E1E1E', border:'1px solid #F5C04A33', color:'#93c5fd', borderRadius:6, padding:'3px 9px', fontSize:11, cursor:'pointer'}}
           >↻ Refresh</button>
         </div>
-        <div style={{fontSize:13, color:'#cbd5e1', lineHeight:1.75, whiteSpace:'pre-wrap'}}>{insights}</div>
+        <div style={{fontSize:13, color:'#A1A1A1', lineHeight:1.75, whiteSpace:'pre-wrap'}}>{insights}</div>
       </div>
       {uqfcGames.length > 0 && (
         <div style={{marginBottom:16}}>
           <div style={{fontSize:11, fontWeight:700, color:'#A1A1A1', textTransform:'uppercase', letterSpacing:1, marginBottom:8}}>vs UQFC Teams</div>
           {uqfcGames.map((r,i)=>(
-            <div key={i} style={{background:'#1A1A1A', borderRadius:9, padding:'10px 12px', marginBottom:6, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+            <div key={i} style={{background:'#111111', border:'1px solid #1E1E1E', borderRadius:9, padding:'10px 12px', marginBottom:6, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
               <div>
-                <div style={{fontSize:13, color:'#e2e8f0'}}>{r.vs}</div>
+                <div style={{fontSize:13, color:'#FFFFFF'}}>{r.vs}</div>
                 <div style={{fontSize:11, color:'#A1A1A1'}}>{r.f.date} · {r.f.round}</div>
               </div>
               {r.result!=='?' ? (
@@ -961,9 +1912,9 @@ function OpponentStatsScreen({ opponent, onBack, embedded, teamNotes }) {
         <div>
           <div style={{fontSize:11, fontWeight:700, color:'#A1A1A1', textTransform:'uppercase', letterSpacing:1, marginBottom:8}}>All Results This Season</div>
           {results.map((r,i)=>(
-            <div key={i} style={{background:'#121212', borderRadius:8, padding:'8px 12px', marginBottom:4, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+            <div key={i} style={{background:'#111111', border:'1px solid #1E1E1E', borderRadius:8, padding:'8px 12px', marginBottom:4, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
               <div>
-                <div style={{fontSize:12, color:'#e2e8f0'}}>{r.vs}</div>
+                <div style={{fontSize:12, color:'#FFFFFF'}}>{r.vs}</div>
                 <div style={{fontSize:10, color:'#A1A1A1'}}>{r.f.date} · {r.f.round}</div>
               </div>
               {r.result!=='?' ? (
@@ -982,19 +1933,18 @@ function OpponentStatsScreen({ opponent, onBack, embedded, teamNotes }) {
   if (embedded) return statsContent;
 
   return (
-    <div style={S.page}>
-      <div style={{...S.card, padding:0, display:'flex', flexDirection:'column', maxHeight:'calc(100vh - max(env(safe-area-inset-top),16px) - max(env(safe-area-inset-bottom),16px) - 32px)'}}>
-        <div style={{padding:'16px 16px 10px', borderBottom:'1px solid #1E1400', flexShrink:0}}>
-          <div style={{display:'flex',alignItems:'center',gap:10,margin:'4px 0 2px'}}>
-            <TeamBadge name={opponent} size={40} radius={8} />
-            <h2 style={{margin:0, fontSize:18, fontWeight:700, color:'#FFFFFF'}}>{opponent}</h2>
-          </div>
-          <div style={{fontSize:12, color:'#A1A1A1'}}>2026 Season · Scouting Report</div>
+    <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
+      {/* Header */}
+      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', background:'#111111', borderBottom:'1px solid #1E1E1E', flexShrink:0 }}>
+        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', color:'#F5C04A', fontSize:22, padding:0, lineHeight:1 }}>‹</button>
+        <TeamBadge name={opponent} size={34} radius={7} />
+        <div>
+          <div style={{ fontSize:17, fontWeight:800, color:'#FFFFFF' }}>{opponent}</div>
+          <div style={{ fontSize:11, color:'#A1A1A1' }}>2026 Season · Scout Report</div>
         </div>
-        <div style={{overflowY:'auto', flex:1, padding:'14px 16px 36px'}}>
-          {statsContent}
-        </div>
-        <div style={{borderTop:"1px solid #1E1400",padding:"10px 14px",paddingBottom:"max(10px,env(safe-area-inset-bottom))",flexShrink:0}}><button onClick={onBack} style={S.backBtn}>← Back</button></div>
+      </div>
+      <div style={{ flex:1, overflowY:'auto', padding:'14px 16px 20px' }}>
+        {statsContent}
       </div>
     </div>
   );
@@ -1125,16 +2075,16 @@ function LadderScreen({ onBack, embedded }) {
   const hasData     = ladder.some(t=>t.p>0);
 
   const cell = (content, style={}) => (
-    <td style={{ padding:'8px 5px', textAlign:'center', fontSize:12, borderBottom:'1px solid #1E1400', ...style }}>{content}</td>
+    <td style={{ padding:'8px 5px', textAlign:'center', fontSize:12, borderBottom:'1px solid #1E1E1E', ...style }}>{content}</td>
   );
 
   const ladderTable = (rows, showAssumed) => (
     <div style={{ overflowX:'auto' }}>
       <table style={{ width:'100%', borderCollapse:'collapse', minWidth:380 }}>
         <thead>
-          <tr style={{ background:'#0a0f1a' }}>
+          <tr style={{ background:'#111111' }}>
             {['#','Team','P','W','D','L','GF','GA','GD','Pts'].map(h=>(
-              <th key={h} style={{ padding:'7px 5px', fontSize:10, fontWeight:700, color:'#A1A1A1', textTransform:'uppercase', letterSpacing:0.5, textAlign:h==='Team'?'left':'center', borderBottom:'1px solid #1E1400', whiteSpace:'nowrap' }}>{h}</th>
+              <th key={h} style={{ padding:'7px 5px', fontSize:10, fontWeight:700, color:'#A1A1A1', textTransform:'uppercase', letterSpacing:0.5, textAlign:h==='Team'?'left':'center', borderBottom:'1px solid #1E1E1E', whiteSpace:'nowrap' }}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -1143,14 +2093,14 @@ function LadderScreen({ onBack, embedded }) {
             const isUs  = myTeam && t.name === myTeam;
             const gd    = t.gf - t.ga;
             const hasAssumptions = showAssumed && (t.assumedPts || 0) > 0;
-            const rowBg = isUs ? '#110D00' : hasAssumptions ? '#16120a' : i%2===0 ? '#121212' : '#0d1420';
+            const rowBg = isUs ? '#110D00' : i%2===0 ? '#111111' : '#0D0D0D';
             return (
               <tr key={t.name} style={{ background:rowBg }}>
-                <td style={{ padding:'8px 5px', textAlign:'center', fontSize:12, borderBottom:'1px solid #1E1400', color:'#A1A1A1', fontWeight:700 }}>{i+1}</td>
-                <td style={{ padding:'6px 7px', fontSize:12, borderBottom:'1px solid #1E1400', color:isUs?'#FCD34D':'#e2e8f0', fontWeight:isUs?700:400, maxWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                <td style={{ padding:'8px 5px', textAlign:'center', fontSize:12, borderBottom:'1px solid #1E1E1E', color:'#A1A1A1', fontWeight:700 }}>{i+1}</td>
+                <td style={{ padding:'6px 7px', fontSize:12, borderBottom:'1px solid #1E1E1E', color:isUs?'#FCD34D':'#e2e8f0', fontWeight:isUs?700:400, maxWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                   <div style={{display:'flex',alignItems:'center',gap:5}}>
                     <TeamBadge name={t.name} size={20} radius={4} />
-                    <span>{isUs ? '⭐ ' : ''}{t.name}{hasAssumptions && <span style={{fontSize:9,color:'#f59e0b',marginLeft:3,fontWeight:700}}>~{t.assumedPts}est</span>}</span>
+                    <span>{isUs ? '⭐ ' : ''}{t.name}{hasAssumptions && <span style={{fontSize:9,color:'#a78bfa',marginLeft:3,fontWeight:700}}>~{t.assumedPts}est</span>}</span>
                   </div>
                 </td>
                 {cell(t.p, {color:'#A1A1A1'})}
@@ -1160,7 +2110,7 @@ function LadderScreen({ onBack, embedded }) {
                 {cell(t.gf, {color:'#A1A1A1'})}
                 {cell(t.ga, {color:'#A1A1A1'})}
                 {cell((gd>0?'+':'')+gd, {color:gd>0?'#FCD34D':gd<0?'#f87171':'#A1A1A1'})}
-                {cell(t.pts, {color: hasAssumptions?'#f59e0b':'#FFFFFF', fontWeight:700, fontSize:14})}
+                {cell(t.pts, {color: hasAssumptions?'#a78bfa':'#FFFFFF', fontWeight:700, fontSize:14})}
               </tr>
             );
           })}
@@ -1173,13 +2123,15 @@ function LadderScreen({ onBack, embedded }) {
     <div style={{ display:'flex', gap:6, margin:'10px 0 12px' }}>
       <button onClick={()=>setView('current')} style={{
         flex:1, padding:'8px 0', borderRadius:8, border:'none', fontSize:13, fontWeight:700, cursor:'pointer',
-        background: view==='current' ? '#3D2000' : '#1A1A1A',
-        color: view==='current' ? '#fff' : '#A1A1A1',
+        background: view==='current' ? '#F5C04A18' : '#111111',
+        color: view==='current' ? '#F5C04A' : '#A1A1A1',
+        border: view==='current' ? '1px solid #F5C04A33' : '1px solid #2A2A2A',
       }}>📊 Current</button>
       <button onClick={()=>setView('extrapolated')} style={{
         flex:1, padding:'8px 0', borderRadius:8, border:'none', fontSize:13, fontWeight:700, cursor:'pointer',
-        background: view==='extrapolated' ? '#78350f' : '#1A1A1A',
-        color: view==='extrapolated' ? '#fcd34d' : '#A1A1A1',
+        background: view==='extrapolated' ? '#a78bfa18' : '#111111',
+        color: view==='extrapolated' ? '#a78bfa' : '#A1A1A1',
+        border: view==='extrapolated' ? '1px solid #a78bfa33' : '1px solid #2A2A2A',
       }}>🔮 Extrapolated</button>
     </div>
   );
@@ -1201,10 +2153,10 @@ function LadderScreen({ onBack, embedded }) {
 
       {view === 'extrapolated' && (
         <>
-          <div style={{ fontSize:11, color:'#78350f', background:'#1c1007', border:'1px solid #92400e44', borderRadius:8, padding:'8px 12px', marginBottom:10 }}>
-            <span style={{color:'#f59e0b',fontWeight:700}}>🔮 Extrapolated</span> — games played up to today.
+          <div style={{ fontSize:11, color:'#A1A1A1', background:'#111111', border:'1px solid #a78bfa33', borderRadius:8, padding:'8px 12px', marginBottom:10 }}>
+            <span style={{color:'#a78bfa',fontWeight:700}}>🔮 Extrapolated</span> — games played up to today.
             Unknown scores estimated from each team's scoring record.
-            <span style={{color:'#f59e0b'}}> ~N est</span> = estimated points.
+            <span style={{color:'#a78bfa'}}> ~N est</span> = estimated points.
           </div>
           {extLadder.length === 0
             ? <p style={{ fontSize:13, color:'#A1A1A1' }}>No past fixtures found to extrapolate.</p>
@@ -1223,11 +2175,11 @@ function LadderScreen({ onBack, embedded }) {
   return (
     <div style={S.page}>
       <div style={{ ...S.card, padding:0, display:'flex', flexDirection:'column', maxHeight:'calc(100vh - max(env(safe-area-inset-top),16px) - max(env(safe-area-inset-bottom),16px) - 32px)' }}>
-        <div style={{ padding:'16px 16px 12px', borderBottom:'1px solid #1E1400', flexShrink:0 }}>
+        <div style={{ padding:'16px 16px 12px', borderBottom:'1px solid #1E1E1E', flexShrink:0 }}>
           <h2 style={{ margin:'4px 0 4px', fontSize:18, fontWeight:800, color:'#FFFFFF' }}>🏅 Ladder — 2026 Season</h2>
         </div>
         <div style={{ overflowY:'auto', flex:1, padding:'0 16px 20px' }}>{tableContent}</div>
-        <div style={{borderTop:"1px solid #1E1400",padding:"10px 14px",paddingBottom:"max(10px,env(safe-area-inset-bottom))",flexShrink:0}}><button onClick={onBack} style={S.backBtn}>← Back</button></div>
+        <div style={{borderTop:"1px solid #1E1E1E",padding:"10px 14px",paddingBottom:"max(10px,env(safe-area-inset-bottom))",flexShrink:0}}><button onClick={onBack} style={S.backBtn}>← Back</button></div>
       </div>
     </div>
   );
@@ -1338,7 +2290,7 @@ function SeasonScreen({ games, onBack, onOpenGame, onDeleteGame }) {
         {games.slice().reverse().map(g=>{
           const sc=getScore(g, fxScores);
           const res=sc.us>sc.them?"W":sc.us<sc.them?"L":"D";
-          const resColor=res==="W"?"#F5C04A":res==="L"?"#ef4444":"#f59e0b";
+          const resColor=res==="W"?"#F5C04A":res==="L"?"#ef4444":"#A1A1A1";
           return (
             <div key={g.id} style={S.gameRow} onClick={()=>onOpenGame(g.id)}>
               <div style={{...S.resultBadge,background:resColor+"22",color:resColor,border:`1px solid ${resColor}55`}}>{res}</div>
@@ -1384,47 +2336,34 @@ function GameLogScreen({ onBack, onOpenGame, onDeleteGame }) {
   }
 
   return (
-    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
+    <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
 
-      {/* Header */}
-      <div style={{ position:'relative', display:'flex', alignItems:'center', padding:'14px 16px 8px', background:'#111111', borderBottom:'1px solid #1A1A1A', flexShrink:0 }}>
-        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', color:'#A1A1A1', fontSize:22, padding:0, lineHeight:1, position:'absolute', left:16 }}>←</button>
-        <div style={{ flex:1, textAlign:'center' }}>
-          <div style={{ fontSize:15, fontWeight:700, color:'#FFFFFF', letterSpacing:2, textTransform:'uppercase' }}>Game Log</div>
-          <div style={{ fontSize:11, color:'#A1A1A1', marginTop:2 }}>{allRes.length} result{allRes.length!==1?'s':''} — fixture results + standalone games</div>
-        </div>
-        <button style={{ background:'none', border:'none', cursor:'pointer', padding:0, position:'absolute', right:16 }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-          </svg>
-        </button>
+      {/* Header — breadcrumb style */}
+      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', background:'#111111', borderBottom:'1px solid #1E1E1E', flexShrink:0 }}>
+        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', color:'#F5C04A', fontSize:22, padding:0, lineHeight:1 }}>‹</button>
+        <div style={{ fontSize:17, fontWeight:800, color:'#FFFFFF' }}>Season</div>
+        <div style={{ fontSize:13, color:'#A1A1A1' }}>/ Game Log</div>
+        <div style={{ flex:1 }} />
+        <div style={{ fontSize:12, color:'#A1A1A1' }}>{allRes.length} result{allRes.length!==1?'s':''}</div>
       </div>
 
       {/* Stats bar */}
-      <div style={{ display:'flex', alignItems:'center', background:'#111111', borderBottom:'1px solid #1A1A1A', padding:'10px 12px', gap:6, flexShrink:0 }}>
-        <div style={{ width:36, height:36, borderRadius:8, background:'#F5C04A18', border:'1px solid #F5C04A33', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
-            <path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
-            <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
-            <path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/>
-          </svg>
-        </div>
-        {[['WON',wins,'#F5C04A'],['DRAWN',draws,'#A1A1A1'],['LOST',losses,'#ef4444'],['GOALS FOR',gf,'#22c55e'],['GOALS AG.',ga,'#A1A1A1'],['GOAL DIFF',(gd>=0?'+':'')+gd,gd>=0?'#F5C04A':'#ef4444']].map(([label,val,color])=>(
-          <div key={label} style={{ flex:1, textAlign:'center' }}>
-            <div style={{ fontSize:15, fontWeight:700, color, lineHeight:1 }}>{val}</div>
-            <div style={{ fontSize:8, color:'#A1A1A1', fontWeight:600, letterSpacing:0.3, marginTop:2, lineHeight:1 }}>{label}</div>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-around', background:'#111111', borderBottom:'1px solid #1E1E1E', padding:'10px 16px', flexShrink:0 }}>
+        {[['W', wins, '#22c55e'], ['D', draws, '#F5C04A'], ['L', losses, '#ef4444'], ['GF', gf, '#FFFFFF'], ['GA', ga, '#A1A1A1'], ['GD', (gd>=0?'+':'')+gd, gd>0?'#22c55e':gd<0?'#ef4444':'#A1A1A1']].map(([label,val,color])=>(
+          <div key={label} style={{ textAlign:'center' }}>
+            <div style={{ fontSize:17, fontWeight:800, color, lineHeight:1 }}>{val}</div>
+            <div style={{ fontSize:9, color:'#555', fontWeight:600, letterSpacing:0.5, marginTop:3, textTransform:'uppercase' }}>{label}</div>
           </div>
         ))}
       </div>
 
       {/* Filter bar */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 16px', background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', flexShrink:0 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 16px', background:'#111111', borderBottom:'1px solid #1E1E1E', flexShrink:0 }}>
         <span style={{ fontSize:11, fontWeight:700, color:'#A1A1A1', letterSpacing:1 }}>ALL MATCHES</span>
         <select value={sortOrder} onChange={e=>setSortOrder(e.target.value)}
-          style={{ background:'transparent', border:'none', color:'#A1A1A1', fontSize:11, cursor:'pointer', outline:'none' }}>
-          <option value="recent">Most Recent ∨</option>
-          <option value="oldest">Oldest First ∨</option>
+          style={{ background:'#0D0D0D', border:'1px solid #2A2A2A', borderRadius:6, color:'#A1A1A1', fontSize:11, cursor:'pointer', outline:'none', padding:'4px 8px' }}>
+          <option value="recent">Most Recent</option>
+          <option value="oldest">Oldest First</option>
         </select>
       </div>
 
@@ -1490,8 +2429,8 @@ function GameLogScreen({ onBack, onOpenGame, onDeleteGame }) {
 // ════════════════════════════════════════════════════════════════════════════════
 //  SCREEN: SEASON HUB (tabbed)
 // ════════════════════════════════════════════════════════════════════════════════
-function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame }) {
-  const [subScreen, setSubScreen] = useState(() => { const s = _pendingSeasonSub; _pendingSeasonSub = null; return s; }); // null | 'log' | 'fixtures' | 'ladder' | 'teams'
+function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout }) {
+  const [subScreen, setSubScreen] = useState(() => { const s = _pendingSeasonSub; _pendingSeasonSub = null; return s; });
   const [teamNotes, setTeamNotes] = useState(() => loadTeamNotes());
   const [selectedTeam, setSelected] = useState('');
   const [noteText, setNoteText]   = useState('');
@@ -1506,107 +2445,305 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame }) {
   }
 
   const { played, wins, draws, losses, gf, ga, gd } = computeSeasonStats();
-  const fxScores = loadFxScores();
+
+  // Shared sub-screen page wrapper
+  const subPage = (title, children) => (
+    <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', background:'#111111', borderBottom:'1px solid #1E1E1E', flexShrink:0 }}>
+        <button onClick={()=>setSubScreen(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'#F5C04A', fontSize:22, padding:0, lineHeight:1 }}>‹</button>
+        <div style={{ fontSize:17, fontWeight:800, color:'#FFFFFF' }}>Season</div>
+        <div style={{ fontSize:13, color:'#A1A1A1' }}>/ {title}</div>
+      </div>
+      {children}
+    </div>
+  );
 
   // Fixture match report overlay
   if (fixtureDetailGame) {
     return <GameDetailScreen game={fixtureDetailGame} onBack={()=>setFixtureDetailGame(null)} onUpdateGame={null} />;
   }
 
-  // Sub-screen: Game Log
+  // ── Game Log ────────────────────────────────────────────────────────────────
   if (subScreen === 'log') {
     return <GameLogScreen onBack={()=>setSubScreen(null)} onOpenGame={onOpenGame} onDeleteGame={onDeleteGame} />;
   }
 
-  // Sub-screen: Fixtures
-  if (subScreen === 'fixtures') return (
-    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
-      <div style={{ position:'relative', display:'flex', alignItems:'center', padding:'14px 16px 10px', background:'#111111', borderBottom:'1px solid #1A1A1A', flexShrink:0 }}>
-        <button onClick={()=>setSubScreen(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'#A1A1A1', fontSize:22, padding:0, lineHeight:1, position:'absolute', left:16 }}>←</button>
-        <div style={{ flex:1, textAlign:'center', fontSize:14, fontWeight:700, color:'#FFFFFF', letterSpacing:2, textTransform:'uppercase' }}>Fixtures</div>
-      </div>
-      <div style={{ overflowY:'auto', flex:1 }}><FixturesScreen embedded games={games} onViewGame={g=>setFixtureDetailGame(g)} /></div>
+  // ── Fixtures ────────────────────────────────────────────────────────────────
+  if (subScreen === 'fixtures') return subPage('Fixtures', (
+    <div style={{ overflowY:'auto', flex:1 }}>
+      <FixturesScreen embedded games={games} onViewGame={g=>setFixtureDetailGame(g)} />
     </div>
-  );
+  ));
 
-  // Sub-screen: Ladder
-  if (subScreen === 'ladder') return (
-    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
-      <div style={{ position:'relative', display:'flex', alignItems:'center', padding:'14px 16px 10px', background:'#111111', borderBottom:'1px solid #1A1A1A', flexShrink:0 }}>
-        <button onClick={()=>setSubScreen(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'#A1A1A1', fontSize:22, padding:0, lineHeight:1, position:'absolute', left:16 }}>←</button>
-        <div style={{ flex:1, textAlign:'center', fontSize:14, fontWeight:700, color:'#FFFFFF', letterSpacing:2, textTransform:'uppercase' }}>Ladder</div>
-      </div>
-      <div style={{ overflowY:'auto', flex:1, padding:'0 16px 20px' }}><LadderScreen embedded /></div>
+  // ── Ladder ──────────────────────────────────────────────────────────────────
+  if (subScreen === 'ladder') return subPage('Ladder', (
+    <div style={{ overflowY:'auto', flex:1, padding:'0 16px 20px' }}>
+      <LadderScreen embedded />
     </div>
-  );
+  ));
 
-  // Sub-screen: Teams
-  if (subScreen === 'teams') return (
-    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
-      <div style={{ position:'relative', display:'flex', alignItems:'center', padding:'14px 16px 10px', background:'#111111', borderBottom:'1px solid #1A1A1A', flexShrink:0 }}>
-        <button onClick={()=>setSubScreen(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'#A1A1A1', fontSize:22, padding:0, lineHeight:1, position:'absolute', left:16 }}>←</button>
-        <div style={{ flex:1, textAlign:'center', fontSize:14, fontWeight:700, color:'#FFFFFF', letterSpacing:2, textTransform:'uppercase' }}>Teams</div>
+  // ── Scout ───────────────────────────────────────────────────────────────────
+  if (subScreen === 'scout') return (
+    <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', background:'#111111', borderBottom:'1px solid #1E1E1E', flexShrink:0 }}>
+        <button onClick={()=>setSubScreen(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'#F5C04A', fontSize:22, padding:0, lineHeight:1 }}>‹</button>
+        <div style={{ fontSize:17, fontWeight:800, color:'#FFFFFF' }}>Season</div>
+        <div style={{ fontSize:13, color:'#A1A1A1' }}>/ Scout</div>
       </div>
-      <div style={{ overflowY:'auto', flex:1, padding:'14px 16px 40px' }}>
-          <select value={selectedTeam} onChange={e => selectTeam(e.target.value)}
-            style={{ width:'100%', padding:'8px 10px', borderRadius:8, background:'#0D0D0D', color:'#FFFFFF', border:'1px solid #2A2A2A', fontSize:13, marginBottom:14 }}>
-            <option value=''>— Select an opponent team —</option>
-            {allTeams.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-          {selectedTeam && (
-            <>
-              <OpponentStatsScreen opponent={selectedTeam} embedded teamNotes={teamNotes[selectedTeam] || ''} />
-              <div style={{ marginTop:16, borderTop:'1px solid #1E1400', paddingTop:16 }}>
-                <div style={{ fontSize:11, fontWeight:700, color:'#A1A1A1', textTransform:'uppercase', letterSpacing:1, marginBottom:8 }}>📝 Coach Notes</div>
-                <textarea value={noteText} onChange={e => setNoteText(e.target.value)}
-                  placeholder="Add scouting notes — included in the AI scout report above."
-                  style={{ width:'100%', minHeight:90, padding:'10px 12px', background:'#0D0D0D', border:'1px solid #2A2A2A', borderRadius:10, color:'#FFFFFF', fontSize:13, lineHeight:1.6, resize:'vertical', fontFamily:'inherit', outline:'none' }}
-                />
-                <button onClick={saveNote} style={{ ...S.btnGreen, width:'100%', padding:'10px 0', marginTop:8, fontSize:13 }}>
-                  Save Notes
-                </button>
-              </div>
-            </>
-          )}
+      <div style={{ flex:1, overflowY:'auto', padding:'16px' }}>
+        <div style={{ fontSize:11, fontWeight:700, color:'#A1A1A1', textTransform:'uppercase', letterSpacing:1, marginBottom:10 }}>Select a team to scout</div>
+        <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+          {allTeams.map((t, i) => (
+            <button key={t} onClick={() => onScout ? onScout(t) : setSelected(t)} style={{
+              width:'100%', padding:'12px 14px', cursor:'pointer', textAlign:'left',
+              background:'#111111',
+              border:'1px solid #1E1E1E',
+              borderRadius: i===0 ? '14px 14px 4px 4px' : i===allTeams.length-1 ? '4px 4px 14px 14px' : '4px',
+              marginBottom:2,
+              display:'flex', alignItems:'center', gap:12,
+            }}>
+              <TeamBadge name={t} size={32} radius={6} />
+              <div style={{ flex:1, fontSize:14, fontWeight:600, color:'#FFFFFF' }}>{t}</div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
 
-  // Default: 4-tile hub
+  // ── Insights ────────────────────────────────────────────────────────────────
+  if (subScreen === 'insights') return subPage('Insights', (
+    <InsightsScreen games={games} />
+  ));
+
+  // ── Hub (list nav) ──────────────────────────────────────────────────────────
+  const allResults = getAllResults();
+  const winRate = played > 0 ? Math.round((wins/played)*100) : null;
+  const nextFix  = FIXTURES.find(f => isUpcoming(f));
+
+  const NAV = [
+    { id:'log',      icon:'📋', label:'Game Log',    sub: played > 0 ? `${played} result${played!==1?'s':''}` : 'No results yet',        color:'#F5C04A' },
+    { id:'fixtures', icon:'📅', label:'Fixtures',    sub: nextFix ? `Next: ${nextFix.opponent||nextFix.away||'TBC'} · ${nextFix.date}` : 'View schedule', color:'#38bdf8' },
+    { id:'ladder',   icon:'🏅', label:'Ladder',      sub: 'Season standings',                                                              color:'#a78bfa' },
+    { id:'scout',    icon:'🔍', label:'Scout',       sub: `${allTeams.length} teams in the competition`,                                  color:'#22c55e' },
+    { id:'insights', icon:'📊', label:'Insights',    sub: played > 0 ? `${winRate}% win rate · GD ${gd>=0?'+':''}${gd}` : 'Season analytics', color:'#F5C04A' },
+  ];
+
   return (
-    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)' }}>
-      <div style={{ padding:'20px 16px 12px' }}>
-        <div style={{ fontSize:24, fontWeight:700, color:'#FFFFFF' }}>Season</div>
+    <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)' }}>
+
+      {/* Header */}
+      <div style={{ padding:'20px 16px 8px' }}>
+        <div style={{ fontSize:26, fontWeight:800, color:'#FFFFFF', letterSpacing:-0.5 }}>Season</div>
+        <div style={{ fontSize:12, color:'#A1A1A1', marginTop:2 }}>2026 · UQFC</div>
       </div>
+
+      {/* Season stat strip */}
       {played > 0 && (
-        <div style={{ margin:'0 16px 16px', background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:14, padding:'14px 16px' }}>
+        <div style={{ margin:'4px 16px 16px', background:'#111111', border:'1px solid #1E1E1E', borderRadius:14, padding:'12px 16px' }}>
           <div style={{ display:'flex', justifyContent:'space-around' }}>
-            <div style={{ textAlign:'center' }}><div style={{ fontSize:22, fontWeight:700, color:'#FFFFFF' }}>{played}</div><div style={{ fontSize:10, color:'#A1A1A1', fontWeight:600, textTransform:'uppercase', letterSpacing:1, marginTop:2 }}>Played</div></div>
-            <div style={{ textAlign:'center' }}><div style={{ fontSize:22, fontWeight:700, color:'#4ADE80' }}>{wins}</div><div style={{ fontSize:10, color:'#A1A1A1', fontWeight:600, textTransform:'uppercase', letterSpacing:1, marginTop:2 }}>Won</div></div>
-            <div style={{ textAlign:'center' }}><div style={{ fontSize:22, fontWeight:700, color:'#FCD34D' }}>{draws}</div><div style={{ fontSize:10, color:'#A1A1A1', fontWeight:600, textTransform:'uppercase', letterSpacing:1, marginTop:2 }}>Drawn</div></div>
-            <div style={{ textAlign:'center' }}><div style={{ fontSize:22, fontWeight:700, color:'#F87171' }}>{losses}</div><div style={{ fontSize:10, color:'#A1A1A1', fontWeight:600, textTransform:'uppercase', letterSpacing:1, marginTop:2 }}>Lost</div></div>
+            {[
+              [played, 'Played', '#FFFFFF'],
+              [wins,   'Won',    '#22c55e'],
+              [draws,  'Drawn',  '#F5C04A'],
+              [losses, 'Lost',   '#ef4444'],
+              [(gd>=0?'+':'')+gd, 'GD',  gd>0?'#22c55e':gd<0?'#ef4444':'#A1A1A1'],
+            ].map(([val, label, color]) => (
+              <div key={label} style={{ textAlign:'center' }}>
+                <div style={{ fontSize:20, fontWeight:800, color, lineHeight:1 }}>{val}</div>
+                <div style={{ fontSize:10, color:'#A1A1A1', fontWeight:600, textTransform:'uppercase', letterSpacing:0.8, marginTop:3 }}>{label}</div>
+              </div>
+            ))}
           </div>
         </div>
       )}
-      <div style={{ padding:'0 16px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-        <button style={{ background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:16, padding:'20px 12px', display:'flex', flexDirection:'column', alignItems:'center', gap:8, cursor:'pointer', aspectRatio:'1' }} onClick={() => setSubScreen('log')}>
-          <span style={{ fontSize:28 }}>📋</span>
-          <span style={{ fontSize:13, fontWeight:600, color:'#FFFFFF', textAlign:'center', lineHeight:1.2 }}>Game Log</span>
-          {games.length > 0 && <span style={{ fontSize:10, color:'#A1A1A1' }}>{games.length} game{games.length!==1?'s':''}</span>}
-        </button>
-        <button style={{ background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:16, padding:'20px 12px', display:'flex', flexDirection:'column', alignItems:'center', gap:8, cursor:'pointer', aspectRatio:'1' }} onClick={() => setSubScreen('fixtures')}>
-          <span style={{ fontSize:28 }}>📅</span>
-          <span style={{ fontSize:13, fontWeight:600, color:'#FFFFFF', textAlign:'center', lineHeight:1.2 }}>Fixtures</span>
-        </button>
-        <button style={{ background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:16, padding:'20px 12px', display:'flex', flexDirection:'column', alignItems:'center', gap:8, cursor:'pointer', aspectRatio:'1' }} onClick={() => setSubScreen('ladder')}>
-          <span style={{ fontSize:28 }}>🏅</span>
-          <span style={{ fontSize:13, fontWeight:600, color:'#FFFFFF', textAlign:'center', lineHeight:1.2 }}>Ladder</span>
-        </button>
-        <button style={{ background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:16, padding:'20px 12px', display:'flex', flexDirection:'column', alignItems:'center', gap:8, cursor:'pointer', aspectRatio:'1' }} onClick={() => setSubScreen('teams')}>
-          <span style={{ fontSize:28 }}>👥</span>
-          <span style={{ fontSize:13, fontWeight:600, color:'#FFFFFF', textAlign:'center', lineHeight:1.2 }}>Teams</span>
-        </button>
+
+      {/* Nav list */}
+      <div style={{ padding:'0 16px' }}>
+        {NAV.map((item, i) => (
+          <button key={item.id} onClick={()=>setSubScreen(item.id)} style={{
+            width:'100%', background:'#111111',
+            border:'1px solid #1E1E1E',
+            borderRadius: i===0 ? '14px 14px 4px 4px' : i===NAV.length-1 ? '4px 4px 14px 14px' : '4px',
+            padding:'14px 16px', marginBottom:2,
+            display:'flex', alignItems:'center', gap:14,
+            cursor:'pointer', textAlign:'left',
+          }}>
+            <div style={{
+              width:42, height:42, borderRadius:12, flexShrink:0,
+              background: item.color + '18', border: `1px solid ${item.color}33`,
+              display:'flex', alignItems:'center', justifyContent:'center', fontSize:20,
+            }}>{item.icon}</div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:15, fontWeight:700, color:'#FFFFFF', marginBottom:2 }}>{item.label}</div>
+              <div style={{ fontSize:12, color:'#A1A1A1', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{item.sub}</div>
+            </div>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 18l6-6-6-6"/>
+            </svg>
+          </button>
+        ))}
       </div>
+    </div>
+  );
+}
+
+// ── InsightsScreen ───────────────────────────────────────────────────────────
+function InsightsScreen({ games }) {
+  const allResults = getAllResults();
+  const { played, wins, draws, losses, gf, ga, gd } = computeSeasonStats();
+
+  if (played === 0) {
+    return (
+      <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'40px 20px', color:'#A1A1A1', textAlign:'center' }}>
+        <div style={{ fontSize:40, marginBottom:12 }}>📊</div>
+        <div style={{ fontSize:16, fontWeight:700, color:'#FFFFFF', marginBottom:6 }}>No data yet</div>
+        <div style={{ fontSize:13 }}>Record your first match result to see season insights.</div>
+      </div>
+    );
+  }
+
+  const winRate  = Math.round((wins/played)*100);
+  const avgGF    = (gf/played).toFixed(1);
+  const avgGA    = (ga/played).toFixed(1);
+
+  // Home / Away split
+  const homeRes  = allResults.filter(r => r.isHome === true);
+  const awayRes  = allResults.filter(r => r.isHome === false);
+  const homeWins = homeRes.filter(r => r.us > r.them).length;
+  const awayWins = awayRes.filter(r => r.us > r.them).length;
+
+  // Last 5 form
+  const last5 = [...allResults].slice(-5).reverse();
+
+  // Top scorers (from game log)
+  const scorerTally = {};
+  games.forEach(g => {
+    (g.goals||[]).filter(x=>x.team==='us' && x.scorer).forEach(gl => {
+      scorerTally[gl.scorer] = (scorerTally[gl.scorer]||0) + 1;
+    });
+  });
+  const topScorers = Object.entries(scorerTally).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  // Biggest wins/losses
+  const byMargin = [...allResults].sort((a,b) => Math.abs(b.us-b.them) - Math.abs(a.us-a.them));
+  const biggestWin  = byMargin.find(r => r.us > r.them);
+  const biggestLoss = byMargin.find(r => r.us < r.them);
+
+  const card = { background:'#111111', border:'1px solid #1E1E1E', borderRadius:14, padding:'14px 16px', marginBottom:10 };
+  const sectionLabel = { fontSize:11, fontWeight:700, color:'#A1A1A1', letterSpacing:1.2, textTransform:'uppercase', marginBottom:10 };
+
+  const FormDot = ({r}) => {
+    const res = r.us > r.them ? 'W' : r.us < r.them ? 'L' : 'D';
+    const col = res==='W' ? '#22c55e' : res==='L' ? '#ef4444' : '#F5C04A';
+    return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+        <div style={{ width:32, height:32, borderRadius:8, background:col+'22', border:`1px solid ${col}55`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, color:col }}>{res}</div>
+        <div style={{ fontSize:9, color:'#A1A1A1', maxWidth:34, textAlign:'center', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.opponent.split(' ')[0]}</div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ flex:1, overflowY:'auto', padding:'14px 16px 40px' }}>
+
+      {/* Key numbers */}
+      <div style={card}>
+        <div style={sectionLabel}>Season Summary</div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
+          {[
+            ['Win Rate',  winRate+'%',  winRate>=50?'#22c55e':'#ef4444'],
+            ['Avg scored', avgGF,       '#F5C04A'],
+            ['Avg conceded', avgGA,     '#A1A1A1'],
+            ['Clean sheets', allResults.filter(r=>r.them===0).length, '#a78bfa'],
+            ['Games won',    wins,      '#22c55e'],
+            ['Goal diff',    (gd>=0?'+':'')+gd, gd>=0?'#F5C04A':'#ef4444'],
+          ].map(([label, val, color]) => (
+            <div key={label} style={{ background:'#0D0D0D', borderRadius:10, padding:'10px 8px', textAlign:'center' }}>
+              <div style={{ fontSize:20, fontWeight:800, color, lineHeight:1 }}>{val}</div>
+              <div style={{ fontSize:10, color:'#A1A1A1', marginTop:4, lineHeight:1.3 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent form */}
+      <div style={card}>
+        <div style={sectionLabel}>Recent Form</div>
+        <div style={{ display:'flex', gap:8 }}>
+          {last5.map((r,i) => <FormDot key={i} r={r} />)}
+          {last5.length === 0 && <div style={{ fontSize:12, color:'#555' }}>No results yet</div>}
+        </div>
+      </div>
+
+      {/* Home / Away */}
+      {(homeRes.length > 0 || awayRes.length > 0) && (
+        <div style={card}>
+          <div style={sectionLabel}>Home vs Away</div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+            {[
+              ['🏠 Home', homeRes.length, homeWins, homeRes.filter(r=>r.us===r.them).length, homeRes.filter(r=>r.us<r.them).length],
+              ['✈️ Away', awayRes.length, awayWins, awayRes.filter(r=>r.us===r.them).length, awayRes.filter(r=>r.us<r.them).length],
+            ].map(([label, p, w, d, l]) => p > 0 && (
+              <div key={label} style={{ background:'#0D0D0D', borderRadius:10, padding:'12px 10px' }}>
+                <div style={{ fontSize:13, fontWeight:700, color:'#FFFFFF', marginBottom:8 }}>{label}</div>
+                <div style={{ display:'flex', gap:8, justifyContent:'center' }}>
+                  {[['W',w,'#22c55e'],['D',d,'#F5C04A'],['L',l,'#ef4444']].map(([lbl,val,col])=>(
+                    <div key={lbl} style={{ textAlign:'center' }}>
+                      <div style={{ fontSize:16, fontWeight:700, color:col }}>{val}</div>
+                      <div style={{ fontSize:10, color:'#A1A1A1' }}>{lbl}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize:11, color:'#A1A1A1', textAlign:'center', marginTop:6 }}>{p} game{p!==1?'s':''}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Top scorers */}
+      {topScorers.length > 0 && (
+        <div style={card}>
+          <div style={sectionLabel}>Top Scorers</div>
+          {topScorers.map(([name, count], i) => (
+            <div key={name} style={{ display:'flex', alignItems:'center', gap:10, paddingBottom:i<topScorers.length-1?8:0, marginBottom:i<topScorers.length-1?8:0, borderBottom:i<topScorers.length-1?'1px solid #1E1E1E':'none' }}>
+              <div style={{ width:24, height:24, borderRadius:6, background:'#1A1A1A', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color:'#A1A1A1', flexShrink:0 }}>{i+1}</div>
+              <div style={{ flex:1, fontSize:14, fontWeight:600, color:'#FFFFFF' }}>{name}</div>
+              <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                <span style={{ fontSize:16, fontWeight:800, color:'#F5C04A' }}>{count}</span>
+                <span style={{ fontSize:11, color:'#A1A1A1' }}>goal{count!==1?'s':''}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Notable results */}
+      {(biggestWin || biggestLoss) && (
+        <div style={card}>
+          <div style={sectionLabel}>Notable Results</div>
+          {biggestWin && (
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:biggestLoss?10:0 }}>
+              <div>
+                <div style={{ fontSize:11, color:'#22c55e', fontWeight:700, marginBottom:2 }}>BIGGEST WIN</div>
+                <div style={{ fontSize:13, color:'#FFFFFF' }}>vs {biggestWin.opponent}</div>
+              </div>
+              <div style={{ fontSize:18, fontWeight:800, color:'#22c55e' }}>{biggestWin.us}–{biggestWin.them}</div>
+            </div>
+          )}
+          {biggestLoss && (
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div>
+                <div style={{ fontSize:11, color:'#ef4444', fontWeight:700, marginBottom:2 }}>BIGGEST LOSS</div>
+                <div style={{ fontSize:13, color:'#FFFFFF' }}>vs {biggestLoss.opponent}</div>
+              </div>
+              <div style={{ fontSize:18, fontWeight:800, color:'#ef4444' }}>{biggestLoss.us}–{biggestLoss.them}</div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -2131,7 +3268,7 @@ function MiniPitch({ slots, positions }) {
         return (
           <div key={pos.id} style={{position:"absolute",left:pos.left,top:pos.top,transform:`translateX(${pos.tx})`,display:"flex",flexDirection:"column",alignItems:"center",gap:2,zIndex:1}}>
             {name
-              ? <div style={{background:"#1E1400",borderRadius:6,padding:"3px 6px",fontSize:9,fontWeight:700,color:"#fff",textAlign:"center",maxWidth:58,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",border:"1px solid #3b82f644"}}>{name}</div>
+              ? <div style={{background:"#1E1E1E",borderRadius:6,padding:"3px 6px",fontSize:9,fontWeight:700,color:"#fff",textAlign:"center",maxWidth:58,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",border:"1px solid #3b82f644"}}>{name}</div>
               : <div style={{width:40,height:18,border:"1.5px dashed #ffffff25",borderRadius:6}}/>
             }
  
@@ -2159,6 +3296,8 @@ function GameDetailScreen({ game, onBack, onUpdateGame }) {
   const [view, setView] = useState("summary");
   const [lineupHalf, setLineupHalf] = useState(0);
   const [lineupPeriod, setLineupPeriod] = useState(0);
+  const [editReport, setEditReport] = useState(false);
+  const [editedReport, setEditedReport] = useState('');
 
   const formation = safeGame.config?.formation || DEFAULT_FORMATION;
   const positions = getPositions(formation);
@@ -2191,22 +3330,22 @@ function GameDetailScreen({ game, onBack, onUpdateGame }) {
   const numPeriods = halves[lineupHalf]?.length || 0;
 
   const res = sc.us > sc.them ? 'W' : sc.us < sc.them ? 'L' : 'D';
-  const resColor = res==='W'?'#F5C04A':res==='L'?'#ef4444':'#f59e0b';
+  const resColor = res==='W'?'#22c55e':res==='L'?'#ef4444':'#F5C04A';
 
   return (
     <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
 
       {/* Header */}
-      <div style={{ position:'relative', display:'flex', alignItems:'center', padding:'14px 16px 10px', background:'#111111', borderBottom:'1px solid #1A1A1A', flexShrink:0 }}>
-        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', color:'#A1A1A1', fontSize:22, padding:0, lineHeight:1, position:'absolute', left:16 }}>←</button>
-        <div style={{ flex:1, textAlign:'center' }}>
-          <div style={{ fontSize:13, fontWeight:700, color:'#A1A1A1', letterSpacing:2, textTransform:'uppercase' }}>Match Report</div>
-          <div style={{ fontSize:16, fontWeight:700, color:'#FFFFFF', marginTop:2 }}>vs {game.opponent||'Opposition'}</div>
+      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'max(env(safe-area-inset-top),14px) 16px 14px', background:'#111111', borderBottom:'1px solid #1E1E1E', flexShrink:0 }}>
+        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', color:'#F5C04A', fontSize:22, padding:0, lineHeight:1 }}>‹</button>
+        <div>
+          <div style={{ fontSize:11, fontWeight:700, color:'#A1A1A1', letterSpacing:1.5, textTransform:'uppercase' }}>Match Report</div>
+          <div style={{ fontSize:17, fontWeight:800, color:'#FFFFFF' }}>vs {game.opponent||'Opposition'}</div>
         </div>
       </div>
 
       {/* Score hero */}
-      <div style={{ background:'#111111', borderBottom:'1px solid #1A1A1A', padding:'16px 20px', display:'flex', alignItems:'center', gap:14, flexShrink:0 }}>
+      <div style={{ background:'#111111', borderBottom:'1px solid #1E1E1E', padding:'16px 20px', display:'flex', alignItems:'center', gap:14, flexShrink:0 }}>
         <TeamBadge name={game.opponent} size={52} radius={10} />
         <div style={{ flex:1 }}>
           <div style={{ fontSize:36, fontWeight:700, color:'#FFFFFF', lineHeight:1 }}>{sc.us} – {sc.them}</div>
@@ -2220,9 +3359,9 @@ function GameDetailScreen({ game, onBack, onUpdateGame }) {
       </div>
 
       {/* Tabs */}
-      <div style={{ display:'flex', gap:0, background:'#111111', borderBottom:'1px solid #1A1A1A', flexShrink:0 }}>
+      <div style={{ display:'flex', gap:0, background:'#111111', borderBottom:'1px solid #1E1E1E', flexShrink:0 }}>
         {[["summary","Summary"],["lineup","Lineup"],["events","Events"]].map(([k,l])=>(
-          <button key={k} style={{ flex:1, padding:'11px 0', background:'none', border:'none', borderBottom: view===k ? '2px solid #F5C04A' : '2px solid transparent', cursor:'pointer', fontSize:13, fontWeight:600, color: view===k ? '#F5C04A' : '#A1A1A1' }} onClick={()=>setView(k)}>{l}</button>
+          <button key={k} style={{ flex:1, padding:'11px 0', background:'none', border:'none', borderBottom: view===k ? '2px solid #F5C04A' : '2px solid transparent', cursor:'pointer', fontSize:13, fontWeight:700, color: view===k ? '#F5C04A' : '#A1A1A1' }} onClick={()=>setView(k)}>{l}</button>
         ))}
       </div>
 
@@ -2276,30 +3415,73 @@ function GameDetailScreen({ game, onBack, onUpdateGame }) {
           )}
 
           {/* Voice notes */}
-          {game.voiceNotes && (
-            <div style={{ background:'#1A1A1A', border:'1px solid #F5C04A22', borderRadius:10, padding:'12px 14px', marginBottom:12 }}>
-              <div style={{ fontSize:11, fontWeight:700, color:'#F5C04A', letterSpacing:1, marginBottom:6 }}>🎙️ VOICE NOTES</div>
-              <div style={{ fontSize:13, color:'#d1fae5', whiteSpace:'pre-wrap', lineHeight:1.6 }}>{game.voiceNotes}</div>
+          {safeGame.voiceNotes && (
+            <div style={{ background:'#111111', border:'1px solid #a78bfa33', borderRadius:12, padding:'12px 14px', marginBottom:10 }}>
+              <div style={{ fontSize:11, fontWeight:800, color:'#a78bfa', letterSpacing:1, textTransform:'uppercase', marginBottom:6 }}>🎙️ Voice Note Transcription</div>
+              <div style={{ fontSize:13, color:'#d1d5db', whiteSpace:'pre-wrap', lineHeight:1.6 }}>{safeGame.voiceNotes}</div>
+            </div>
+          )}
+
+          {/* Match events summary */}
+          {safeGame.matchEvents && safeGame.matchEvents.length > 0 && (
+            <div style={{ background:'#111111', border:'1px solid #38bdf833', borderRadius:12, padding:'12px 14px', marginBottom:10 }}>
+              <div style={{ fontSize:11, fontWeight:800, color:'#38bdf8', letterSpacing:1, textTransform:'uppercase', marginBottom:8 }}>📋 Match Events ({safeGame.matchEvents.length})</div>
+              {safeGame.matchEvents.slice(0,5).map((ev,i) => {
+                const rule = (typeof MATCH_EVENT_RULES !== 'undefined' ? MATCH_EVENT_RULES : []).find(r=>r.type===ev.type) || {icon:'📝',label:ev.type,color:'#A1A1A1'};
+                return (
+                  <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 0',borderBottom:i<Math.min(safeGame.matchEvents.length,5)-1?'1px solid #1E1E1E':'none'}}>
+                    <span style={{fontSize:11,color:'#555',minWidth:22,fontWeight:700}}>{ev.minute}'</span>
+                    <span>{rule.icon}</span>
+                    <span style={{fontSize:12,color:rule.color||'#A1A1A1',fontWeight:600,flex:1}}>{rule.label}</span>
+                    <span style={{fontSize:11,color:'#555'}}>{ev.team==='us'?(safeGame.config?.teamName||'Us'):(game.opponent||'Them')}</span>
+                  </div>
+                );
+              })}
+              {safeGame.matchEvents.length > 5 && <div style={{fontSize:11,color:'#555',paddingTop:6}}>+{safeGame.matchEvents.length-5} more — see Events tab</div>}
             </div>
           )}
 
           {/* Match report */}
           {isFixtureOnly ? (
-            <div style={{ background:'#1A1A1A', borderRadius:10, padding:'16px 14px', marginBottom:12, borderLeft:'3px solid #2A2A2A' }}>
-              <div style={{ fontSize:12, fontWeight:700, color:'#A1A1A1', letterSpacing:1, textTransform:'uppercase', marginBottom:6 }}>📋 Match Report</div>
+            <div style={{ background:'#111111', border:'1px solid #1E1E1E', borderRadius:12, padding:'16px 14px', marginBottom:12 }}>
+              <div style={{ fontSize:11, fontWeight:800, color:'#A1A1A1', letterSpacing:1, textTransform:'uppercase', marginBottom:6 }}>📋 Match Report</div>
               <div style={{ fontSize:13, color:'#555', lineHeight:1.7, fontStyle:'italic' }}>
-                Not enough match data to generate a report.{'\n\n'}This result was recorded from the fixtures schedule. Run a full match session to unlock AI reports, goal scorers, lineup tracking, and events.
+                This result was recorded from fixtures only. Run a full match session to unlock AI reports, goal scorers, lineup tracking, and events.
               </div>
             </div>
           ) : (
             <>
-              <div style={{ background:'#1A1A1A', borderRadius:10, padding:'14px', marginBottom:12, fontSize:13, color:'#A1A1A1', lineHeight:1.7, whiteSpace:'pre-wrap' }}>
-                {loading ? '✨ Generating…' : report}
+              <div style={{ background:'#111111', border:'1px solid #1E1E1E', borderRadius:12, padding:'14px', marginBottom:10 }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                  <div style={{ fontSize:11, fontWeight:800, color:'#A1A1A1', letterSpacing:1, textTransform:'uppercase' }}>📋 Match Report</div>
+                  {!loading && !editReport && (
+                    <button onClick={()=>{ setEditedReport(report); setEditReport(true); }}
+                      style={{ background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:6, padding:'4px 10px', color:'#A1A1A1', fontSize:11, fontWeight:700, cursor:'pointer' }}>
+                      Edit
+                    </button>
+                  )}
+                  {editReport && (
+                    <div style={{ display:'flex', gap:6 }}>
+                      <button onClick={()=>setEditReport(false)}
+                        style={{ background:'none', border:'none', color:'#555', fontSize:11, cursor:'pointer', padding:'4px 6px' }}>Cancel</button>
+                      <button onClick={()=>{ setReport(editedReport); setEditReport(false); if(onUpdateGame) onUpdateGame({...safeGame,potm,report:editedReport}); }}
+                        style={{ background:'#F5C04A', border:'none', borderRadius:6, padding:'4px 10px', color:'#000', fontSize:11, fontWeight:800, cursor:'pointer' }}>Save</button>
+                    </div>
+                  )}
+                </div>
+                {loading ? (
+                  <div style={{ fontSize:13, color:'#555', lineHeight:1.7 }}>✨ Generating…</div>
+                ) : editReport ? (
+                  <textarea value={editedReport} onChange={e=>setEditedReport(e.target.value)}
+                    rows={12} style={{ width:'100%', background:'#0D0D0D', border:'1px solid #2A2A2A', borderRadius:8, padding:'10px 12px', color:'#FFF', fontSize:13, lineHeight:1.7, resize:'vertical', fontFamily:'inherit', outline:'none', boxSizing:'border-box' }}/>
+                ) : (
+                  <div style={{ fontSize:13, color:'#A1A1A1', lineHeight:1.7, whiteSpace:'pre-wrap' }}>{report}</div>
+                )}
               </div>
-              {!loading && (
-                <div style={{ display:'flex', gap:8 }}>
-                  <button style={{ flex:1, padding:'11px 0', background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:10, color:'#FFFFFF', fontSize:13, fontWeight:600, cursor:'pointer' }} onClick={()=>navigator.clipboard?.writeText(report)}>Copy</button>
-                  <button style={{ flex:1, padding:'11px 0', background:'#F5C04A18', border:'1px solid #F5C04A44', borderRadius:10, color:'#F5C04A', fontSize:13, fontWeight:600, cursor:'pointer' }} onClick={regenerateAI}>✨ AI Rewrite</button>
+              {!loading && !editReport && (
+                <div style={{ display:'flex', gap:8, marginBottom:4 }}>
+                  <button style={{ flex:1, padding:'11px 0', background:'#111111', border:'1px solid #1E1E1E', borderRadius:10, color:'#FFFFFF', fontSize:13, fontWeight:600, cursor:'pointer' }} onClick={()=>navigator.clipboard?.writeText(report)}>Copy</button>
+                  <button style={{ flex:1, padding:'11px 0', background:'#a78bfa18', border:'1px solid #a78bfa44', borderRadius:10, color:'#a78bfa', fontSize:13, fontWeight:700, cursor:'pointer' }} onClick={regenerateAI}>✨ AI Rewrite</button>
                 </div>
               )}
             </>
@@ -2570,7 +3752,7 @@ function SquadScreen({ mode, onNext, onBack, onViewOpponent }) {
                   <input style={{ ...selStyle, marginBottom:4, fontSize:14, padding:'11px 12px', borderRadius:10, outline:'none' }} placeholder="Type opponent name…" value={opponent} onChange={e=>setOpponent(e.target.value)} />
                 )}
                 {opponent.trim()&&onViewOpponent&&(
-                  <button style={{ width:'100%', marginTop:6, background:'#1E1400', border:'1px solid #F5C04A33', borderRadius:10, padding:'10px', color:'#F5C04A', fontSize:12, fontWeight:700, cursor:'pointer' }} onClick={()=>onViewOpponent(opponent.trim())}>🔍 Scout {opponent}</button>
+                  <button style={{ width:'100%', marginTop:6, background:'#1E1E1E', border:'1px solid #F5C04A33', borderRadius:10, padding:'10px', color:'#F5C04A', fontSize:12, fontWeight:700, cursor:'pointer' }} onClick={()=>onViewOpponent(opponent.trim())}>🔍 Scout {opponent}</button>
                 )}
               </>);
             })()}
@@ -3707,7 +4889,7 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
 
 
 function Token({ name, color, selected, onTap, onDragStart }) {
-  const bg=color||(selected?"#7c3aed":"#1E1400");
+  const bg=color||(selected?"#7c3aed":"#1E1E1E");
   return (
     <div draggable={!!onDragStart} onDragStart={onDragStart} onClick={onTap}
       style={{...S.token,background:bg,boxShadow:selected?"0 0 0 3px #a78bfa":color?`0 0 0 2.5px ${color}`:"none",transform:selected?"scale(1.1)":"none",cursor:"pointer"}}>
@@ -5052,7 +6234,7 @@ function ImportExportScreen({ onBack }) {
             </div>
           }
         </div>
-        <div style={{borderTop:"1px solid #1E1400",paddingTop:10,marginTop:4}}>
+        <div style={{borderTop:"1px solid #1E1E1E",paddingTop:10,marginTop:4}}>
           <button style={S.btnGhost} onClick={onBack}>← Menu</button>
         </div>
       </div>
@@ -5083,18 +6265,655 @@ function getInitials(name) {
 // ════════════════════════════════════════════════════════════════════════════════
 //  COMPONENT: BOTTOM NAV BAR
 // ════════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════
+//  SCREEN: TRAINING
+// ════════════════════════════════════════════════════════════════════════════════
+function TrainingScreen({ onBack }) {
+  const [view,            setView]    = useState('hub');
+  const [library,         setLibrary] = useState(() => loadTrainingLibrary());
+  const [logs,            setLogs]    = useState(() => loadTrainingLogs());
+  const [activeTopic,     setActiveTopic]   = useState(null);
+  const [activeSession,   setActiveSession] = useState(null);
+  const [expandedPhase,   setExpandedPhase] = useState(null);
+  const [logForm,         setLogForm]   = useState({ players:'', wellDone:'', improve:'', playerNotes:'', toes:{touches:3,organisation:3,enjoyment:3,safety:3} });
+  const [filterCat,       setFilterCat] = useState('all');
+  const [importError,     setImportError] = useState('');
+  const [importSuccess,   setImportSuccess] = useState('');
+  const fileInputRef = useRef(null);
+
+  const CATS = [
+    { id:'all', label:'All' },
+    { id:'attacking', label:'Attacking' },
+    { id:'defending', label:'Defending' },
+    { id:'transition', label:'Transition' },
+    { id:'tactical', label:'Tactical' },
+    { id:'set-pieces', label:'Set Pieces' },
+  ];
+
+  const CAT_COLORS = {
+    attacking:   { bg:'#22c55e22', border:'#22c55e44', text:'#22c55e' },
+    defending:   { bg:'#ef444422', border:'#ef444444', text:'#ef4444' },
+    transition:  { bg:'#a78bfa22', border:'#a78bfa44', text:'#a78bfa' },
+    tactical:    { bg:'#F5C04A22', border:'#F5C04A44', text:'#F5C04A' },
+    'set-pieces':{ bg:'#38bdf822', border:'#38bdf844', text:'#38bdf8' },
+  };
+
+  const PHASE_ICONS = { rondo:'⚽', positioning:'🔵', game:'🏟️' };
+
+  const filteredTopics = (library.topics||[]).filter(t => filterCat==='all' || t.category===filterCat);
+
+  // ── Back navigation ─────────────────────────────────────────────
+  function goBack() {
+    if (view==='detail' || view==='logs' || view==='importexport') { setView('hub'); return; }
+    if (view==='browse') { setView('hub'); return; }
+    if (view==='logger') { setView('detail'); return; }
+    onBack();
+  }
+
+  // ── Export library as JSON ───────────────────────────────────────
+  function doExport() {
+    const data = JSON.stringify(library, null, 2);
+    const blob = new Blob([data], { type:'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'training-library.json'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ── Export logs as JSON ──────────────────────────────────────────
+  function doExportLogs() {
+    const data = JSON.stringify(logs, null, 2);
+    const blob = new Blob([data], { type:'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'training-logs.json'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ── Import library from JSON ────────────────────────────────────
+  function doImport(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImportError(''); setImportSuccess('');
+    const reader = new FileReader();
+    reader.onload = evt => {
+      try {
+        const parsed = JSON.parse(evt.target.result);
+        if (!parsed.topics || !Array.isArray(parsed.topics)) throw new Error('Invalid format — must have a "topics" array');
+        const updated = { ...parsed, updated: new Date().toISOString().slice(0,10) };
+        setLibrary(updated);
+        saveTrainingLibrary(updated);
+        setImportSuccess(`✓ Imported ${parsed.topics.length} topics successfully`);
+      } catch(err) {
+        setImportError('❌ Import failed: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
+  // ── Reset to defaults ────────────────────────────────────────────
+  function doReset() {
+    if (!window.confirm('Reset the training library to the original built-in content? This will overwrite any custom edits.')) return;
+    setLibrary(DEFAULT_TRAINING_LIBRARY);
+    saveTrainingLibrary(DEFAULT_TRAINING_LIBRARY);
+    setImportSuccess('✓ Library reset to built-in defaults');
+  }
+
+  // ── Save a training session log ──────────────────────────────────
+  function doSaveLog() {
+    const newLog = {
+      id: Date.now(),
+      date: new Date().toISOString().slice(0,10),
+      topicId:     activeTopic?.id,
+      topicTitle:  activeTopic?.title,
+      sessionNum:  activeSession?.number,
+      players:     logForm.players,
+      wellDone:    logForm.wellDone,
+      improve:     logForm.improve,
+      playerNotes: logForm.playerNotes,
+      toes: { ...logForm.toes },
+    };
+    const updated = [newLog, ...logs];
+    setLogs(updated);
+    saveTrainingLogs(updated);
+    setLogForm({ players:'', wellDone:'', improve:'', playerNotes:'', toes:{touches:3,organisation:3,enjoyment:3,safety:3} });
+    setView('logs');
+  }
+
+  // ── Delete a log ─────────────────────────────────────────────────
+  function doDeleteLog(id) {
+    if (!window.confirm('Delete this session log?')) return;
+    const updated = logs.filter(l => l.id !== id);
+    setLogs(updated);
+    saveTrainingLogs(updated);
+  }
+
+  // ── Common styles ────────────────────────────────────────────────
+  const pg = {
+    minHeight:'100dvh', background:'#0D0D0D', display:'flex', flexDirection:'column',
+    paddingTop:'max(env(safe-area-inset-top),0px)',
+    paddingBottom:'calc(env(safe-area-inset-bottom) + 80px)',
+  };
+  const hdr = {
+    background:'#111111', borderBottom:'1px solid #1E1E1E',
+    padding:'14px 16px', display:'flex', alignItems:'center', gap:12,
+    position:'sticky', top:0, zIndex:10,
+  };
+  const body = { flex:1, overflowY:'auto', padding:'16px' };
+  const card = {
+    background:'#111111', border:'1px solid #1E1E1E', borderRadius:14,
+    padding:'14px 16px', marginBottom:10,
+  };
+  const inp  = {
+    background:'#0D0D0D', border:'1px solid #2A2A2A', borderRadius:8,
+    color:'#FFFFFF', fontSize:14, padding:'10px 12px', width:'100%',
+    boxSizing:'border-box', fontFamily:'inherit', outline:'none',
+  };
+  const ta   = { ...inp, minHeight:70, resize:'vertical' };
+  const lbl  = { fontSize:12, fontWeight:700, color:'#A1A1A1', marginBottom:4, display:'block' };
+  const btn  = (bg, col='#0D0D0D') => ({
+    background:bg, color:col, border:'none', borderRadius:10,
+    padding:'12px 16px', fontWeight:800, fontSize:14, cursor:'pointer',
+    width:'100%', marginBottom:8, letterSpacing:0.3,
+  });
+  const btnSm = (bg, col='#0D0D0D') => ({
+    background:bg, color:col, border:'none', borderRadius:8,
+    padding:'8px 14px', fontWeight:700, fontSize:13, cursor:'pointer', letterSpacing:0.3,
+  });
+  const backBtn = {
+    background:'none', border:'none', color:'#F5C04A', fontSize:22,
+    cursor:'pointer', padding:0, lineHeight:1,
+  };
+
+  // ════ VIEWS ═══════════════════════════════════════════════════════
+
+  // ── HUB ─────────────────────────────────────────────────────────
+  if (view === 'hub') {
+    const totalSessions = logs.length;
+    const lastDate = logs.length ? logs[0].date : null;
+    const daysSince = lastDate ? Math.floor((Date.now()-new Date(lastDate).getTime())/86400000) : null;
+
+    return (
+      <div style={pg}>
+        <div style={hdr}>
+          <button style={backBtn} onClick={onBack}>‹</button>
+          <div style={{flex:1}}>
+            <div style={{fontSize:18, fontWeight:800, color:'#FFFFFF'}}>Training</div>
+            <div style={{fontSize:11, color:'#A1A1A1'}}>Plan sessions · Log results · Manage content</div>
+          </div>
+        </div>
+        <div style={body}>
+          {/* Stats bar */}
+          <div style={{display:'flex', gap:10, marginBottom:16}}>
+            <div style={{...card, flex:1, marginBottom:0, textAlign:'center'}}>
+              <div style={{fontSize:22, fontWeight:800, color:'#F5C04A'}}>{totalSessions}</div>
+              <div style={{fontSize:11, color:'#A1A1A1', marginTop:2}}>Sessions logged</div>
+            </div>
+            <div style={{...card, flex:1, marginBottom:0, textAlign:'center'}}>
+              <div style={{fontSize:22, fontWeight:800, color:'#a78bfa'}}>{daysSince===null ? '—' : daysSince===0 ? 'Today' : daysSince+'d ago'}</div>
+              <div style={{fontSize:11, color:'#A1A1A1', marginTop:2}}>Last session</div>
+            </div>
+          </div>
+
+          {/* Main actions */}
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:16}}>
+            {[
+              { icon:'📋', title:'Browse Sessions', sub:'All 11 topics', action:()=>setView('browse'), color:'#F5C04A' },
+              { icon:'📝', title:'Session Log', sub:`${totalSessions} recorded`, action:()=>setView('logs'), color:'#22c55e' },
+              { icon:'⬆️', title:'Import / Export', sub:'Edit & reload content', action:()=>setView('importexport'), color:'#a78bfa' },
+            ].map(tile => (
+              <button key={tile.title} onClick={tile.action} style={{
+                background:'#111111', border:`1px solid ${tile.color}33`,
+                borderRadius:14, padding:'16px 14px', cursor:'pointer',
+                textAlign:'left', display:'flex', flexDirection:'column', gap:6,
+                gridColumn: tile.title==='Import / Export' ? 'span 2' : undefined,
+              }}>
+                <span style={{fontSize:24}}>{tile.icon}</span>
+                <span style={{fontSize:14, fontWeight:700, color:'#FFFFFF'}}>{tile.title}</span>
+                <span style={{fontSize:12, color:'#A1A1A1'}}>{tile.sub}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Recent sessions */}
+          {logs.length > 0 && (
+            <div>
+              <div style={{fontSize:13, fontWeight:700, color:'#A1A1A1', marginBottom:8, letterSpacing:1}}>RECENT</div>
+              {logs.slice(0,3).map(log => (
+                <div key={log.id} style={{...card, display:'flex', alignItems:'center', gap:12}}>
+                  <div style={{width:40, height:40, borderRadius:10, background:'#1A1A1A', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0}}>
+                    {(library.topics||[]).find(t=>t.id===log.topicId)?.icon || '⚽'}
+                  </div>
+                  <div style={{flex:1, minWidth:0}}>
+                    <div style={{fontSize:14, fontWeight:700, color:'#FFFFFF', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{log.topicTitle} — Session {log.sessionNum}</div>
+                    <div style={{fontSize:12, color:'#A1A1A1'}}>{log.date} · {log.players || '?'} players</div>
+                  </div>
+                  <div style={{fontSize:18}}>{['','😐','😐','🙂','😄','🤩'][Math.round((log.toes.touches+log.toes.organisation+log.toes.enjoyment+log.toes.safety)/4)]||'⚽'}</div>
+                </div>
+              ))}
+              {logs.length > 3 && (
+                <button onClick={()=>setView('logs')} style={{...btn('#1A1A1A','#A1A1A1'), marginTop:4, border:'1px solid #2A2A2A'}}>
+                  View all {logs.length} sessions →
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── BROWSE ───────────────────────────────────────────────────────
+  if (view === 'browse') {
+    return (
+      <div style={pg}>
+        <div style={hdr}>
+          <button style={backBtn} onClick={goBack}>‹</button>
+          <div style={{fontSize:17, fontWeight:800, color:'#FFFFFF', flex:1}}>Browse Sessions</div>
+        </div>
+        <div style={body}>
+          {/* Category filter */}
+          <div style={{display:'flex', gap:6, overflowX:'auto', marginBottom:14, paddingBottom:4}}>
+            {CATS.map(c => (
+              <button key={c.id} onClick={()=>setFilterCat(c.id)} style={{
+                background: filterCat===c.id ? '#F5C04A' : '#1A1A1A',
+                color: filterCat===c.id ? '#0D0D0D' : '#A1A1A1',
+                border: filterCat===c.id ? 'none' : '1px solid #2A2A2A',
+                borderRadius:20, padding:'6px 14px', fontSize:12, fontWeight:700,
+                cursor:'pointer', whiteSpace:'nowrap', flexShrink:0,
+              }}>{c.label}</button>
+            ))}
+          </div>
+          {/* Topic grid */}
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+            {filteredTopics.map(topic => {
+              const cc = CAT_COLORS[topic.category] || CAT_COLORS.tactical;
+              return (
+                <button key={topic.id} onClick={()=>{setActiveTopic(topic);setActiveSession(null);setExpandedPhase(null);setView('detail');}} style={{
+                  background:'#111111', border:`1px solid ${cc.border}`,
+                  borderRadius:14, padding:'16px 14px', cursor:'pointer',
+                  textAlign:'left', display:'flex', flexDirection:'column', gap:8,
+                }}>
+                  <span style={{fontSize:28}}>{topic.icon}</span>
+                  <span style={{fontSize:14, fontWeight:700, color:'#FFFFFF', lineHeight:1.2}}>{topic.title}</span>
+                  <span style={{
+                    fontSize:10, fontWeight:700, color:cc.text,
+                    background:cc.bg, border:`1px solid ${cc.border}`,
+                    borderRadius:20, padding:'2px 8px', alignSelf:'flex-start',
+                    letterSpacing:0.5, textTransform:'uppercase',
+                  }}>{topic.category}</span>
+                  <span style={{fontSize:11, color:'#A1A1A1'}}>{topic.sessions?.length || 0} session{(topic.sessions?.length||0)!==1?'s':''}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── SESSION DETAIL ───────────────────────────────────────────────
+  if (view === 'detail' && activeTopic) {
+    const cc = CAT_COLORS[activeTopic.category] || CAT_COLORS.tactical;
+    const sessions = activeTopic.sessions || [];
+    const sess = activeSession || sessions[0];
+
+    return (
+      <div style={pg}>
+        <div style={hdr}>
+          <button style={backBtn} onClick={goBack}>‹</button>
+          <div style={{flex:1, minWidth:0}}>
+            <div style={{fontSize:17, fontWeight:800, color:'#FFFFFF', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{activeTopic.icon} {activeTopic.title}</div>
+            <div style={{fontSize:11, color:'#A1A1A1'}}>{activeTopic.ageGroup}</div>
+          </div>
+        </div>
+        <div style={body}>
+          {/* Principle block */}
+          <div style={{...card, borderColor:cc.border, marginBottom:14}}>
+            <div style={{fontSize:11, fontWeight:700, color:cc.text, letterSpacing:1, marginBottom:6, textTransform:'uppercase'}}>Principle</div>
+            <div style={{fontSize:14, fontWeight:600, color:'#FFFFFF', lineHeight:1.5, marginBottom:8}}>{activeTopic.principle}</div>
+            <div style={{fontSize:12, color:'#A1A1A1', fontStyle:'italic', marginBottom:10}}>"{activeTopic.behaviour}"</div>
+
+            {activeTopic.moments?.length > 0 && (
+              <>
+                <div style={{fontSize:11, fontWeight:700, color:'#A1A1A1', letterSpacing:1, marginBottom:4}}>WHEN TO USE IT</div>
+                {activeTopic.moments.map((m,i) => (
+                  <div key={i} style={{fontSize:12, color:'#CBD5E1', paddingLeft:10, borderLeft:`2px solid ${cc.border}`, marginBottom:4}}>{m}</div>
+                ))}
+              </>
+            )}
+
+            {activeTopic.keyPoints?.length > 0 && (
+              <>
+                <div style={{fontSize:11, fontWeight:700, color:'#A1A1A1', letterSpacing:1, marginTop:10, marginBottom:4}}>KEY COACHING POINTS</div>
+                {activeTopic.keyPoints.map((p,i) => (
+                  <div key={i} style={{fontSize:12, color:'#CBD5E1', display:'flex', gap:6, marginBottom:3}}>
+                    <span style={{color:cc.text, flexShrink:0}}>•</span>{p}
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+
+          {/* Session selector */}
+          {sessions.length > 1 && (
+            <div style={{display:'flex', gap:8, marginBottom:12}}>
+              {sessions.map(s => (
+                <button key={s.number} onClick={()=>{setActiveSession(s);setExpandedPhase(null);}} style={{
+                  flex:1, padding:'10px', borderRadius:10, cursor:'pointer', fontWeight:700, fontSize:14,
+                  background: (sess?.number===s.number) ? '#F5C04A' : '#1A1A1A',
+                  color:       (sess?.number===s.number) ? '#0D0D0D'  : '#A1A1A1',
+                  border: (sess?.number===s.number) ? 'none' : '1px solid #2A2A2A',
+                }}>Session {s.number}</button>
+              ))}
+            </div>
+          )}
+
+          {/* Phase blocks */}
+          {(sess?.phases||[]).map((phase, pi) => {
+            const isOpen = expandedPhase === pi;
+            const totalMins = (sess.phases||[]).reduce((a,p)=>a+(p.duration||0),0);
+            return (
+              <div key={pi} style={{...card, marginBottom:8}}>
+                <button onClick={()=>setExpandedPhase(isOpen ? null : pi)} style={{
+                  background:'none', border:'none', width:'100%', textAlign:'left',
+                  cursor:'pointer', padding:0, display:'flex', alignItems:'center', gap:10,
+                }}>
+                  <div style={{
+                    width:36, height:36, borderRadius:10, background:'#1A1A1A',
+                    display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0,
+                  }}>{PHASE_ICONS[phase.type]||'⚽'}</div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:14, fontWeight:700, color:'#FFFFFF'}}>{phase.name}</div>
+                    <div style={{fontSize:11, color:'#A1A1A1'}}>{phase.duration} min · Phase {pi+1} of {sess.phases?.length}</div>
+                  </div>
+                  <div style={{fontSize:16, color:'#A1A1A1'}}>{isOpen ? '▲' : '▼'}</div>
+                </button>
+
+                {isOpen && (
+                  <div style={{marginTop:14, borderTop:'1px solid #1E1E1E', paddingTop:12}}>
+                    {phase.setup && (
+                      <div style={{marginBottom:10}}>
+                        <div style={{...lbl}}>SETUP</div>
+                        <div style={{fontSize:13, color:'#CBD5E1', lineHeight:1.5}}>{phase.setup}</div>
+                      </div>
+                    )}
+                    {phase.rules?.length > 0 && (
+                      <div style={{marginBottom:10}}>
+                        <div style={{...lbl}}>RULES</div>
+                        {phase.rules.map((r,i)=>(
+                          <div key={i} style={{fontSize:12, color:'#CBD5E1', display:'flex', gap:6, marginBottom:4}}>
+                            <span style={{color:'#F5C04A', flexShrink:0}}>{i+1}.</span>{r}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {phase.progressions?.length > 0 && (
+                      <div style={{marginBottom:10}}>
+                        <div style={{...lbl, color:'#22c55e'}}>PROGRESSIONS</div>
+                        {phase.progressions.map((p,i)=>(
+                          <div key={i} style={{fontSize:12, color:'#CBD5E1', display:'flex', gap:6, marginBottom:4}}>
+                            <span style={{color:'#22c55e', flexShrink:0}}>→</span>{p}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {phase.dualForce && (
+                      <div style={{marginBottom:10}}>
+                        <div style={{...lbl, color:'#a78bfa'}}>DUAL FORCE / SPEED AGILITY</div>
+                        <div style={{fontSize:12, color:'#CBD5E1', lineHeight:1.5}}>{phase.dualForce}</div>
+                      </div>
+                    )}
+                    {phase.coaching?.length > 0 && (
+                      <div>
+                        <div style={{...lbl, color:'#F5C04A'}}>COACHING POINTS</div>
+                        {phase.coaching.map((c,i)=>(
+                          <div key={i} style={{fontSize:12, color:'#CBD5E1', display:'flex', gap:6, marginBottom:4}}>
+                            <span style={{color:'#F5C04A', flexShrink:0}}>⭐</span>{c}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Timing summary */}
+          {sess?.phases?.length > 0 && (
+            <div style={{...card, display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:4}}>
+              <span style={{fontSize:12, color:'#A1A1A1'}}>Total session time</span>
+              <span style={{fontSize:16, fontWeight:800, color:'#F5C04A'}}>{(sess.phases||[]).reduce((a,p)=>a+(p.duration||0),0)} min</span>
+            </div>
+          )}
+
+          {/* Log this session */}
+          <button onClick={()=>{setLogForm({players:'',wellDone:'',improve:'',playerNotes:'',toes:{touches:3,organisation:3,enjoyment:3,safety:3}});setView('logger');}} style={{...btn('#F5C04A'), marginTop:12}}>
+            ✏️ Log This Session
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── SESSION LOGGER ───────────────────────────────────────────────
+  if (view === 'logger') {
+    const TOES_LABELS = [
+      { key:'touches', label:'Touches', sub:'Did every player touch the ball often?' },
+      { key:'organisation', label:'Organisation', sub:'Was the session well run?' },
+      { key:'enjoyment', label:'Enjoyment', sub:'Were kids having fun?' },
+      { key:'safety', label:'Safety', sub:'Was it safe throughout?' },
+    ];
+    const RATINGS = ['—','😐','😐','🙂','😄','🤩'];
+
+    return (
+      <div style={pg}>
+        <div style={hdr}>
+          <button style={backBtn} onClick={goBack}>‹</button>
+          <div style={{flex:1}}>
+            <div style={{fontSize:17, fontWeight:800, color:'#FFFFFF'}}>Log Session</div>
+            <div style={{fontSize:11, color:'#A1A1A1'}}>{activeTopic?.title} — Session {(activeSession||activeTopic?.sessions?.[0])?.number}</div>
+          </div>
+        </div>
+        <div style={body}>
+          <div style={card}>
+            <div style={{...lbl}}>DATE</div>
+            <div style={{fontSize:14, color:'#FFFFFF', marginBottom:12}}>{new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'})}</div>
+            <div style={{...lbl}}>NUMBER OF PLAYERS</div>
+            <input style={{...inp, marginBottom:12}} type="number" min="1" max="30" placeholder="How many players today?" value={logForm.players} onChange={e=>setLogForm(f=>({...f,players:e.target.value}))} />
+            <div style={{...lbl}}>WHAT WENT WELL</div>
+            <textarea style={{...ta, marginBottom:12}} placeholder="What worked? Any standout moments?" value={logForm.wellDone} onChange={e=>setLogForm(f=>({...f,wellDone:e.target.value}))} />
+            <div style={{...lbl}}>WHAT TO IMPROVE</div>
+            <textarea style={{...ta, marginBottom:12}} placeholder="What would you change next time?" value={logForm.improve} onChange={e=>setLogForm(f=>({...f,improve:e.target.value}))} />
+            <div style={{...lbl}}>PLAYER NOTES</div>
+            <textarea style={{...ta, marginBottom:16}} placeholder="Individual player observations (optional)" value={logForm.playerNotes} onChange={e=>setLogForm(f=>({...f,playerNotes:e.target.value}))} />
+
+            {/* T.O.E.S */}
+            <div style={{fontSize:12, fontWeight:700, color:'#F5C04A', letterSpacing:1, marginBottom:10}}>CREATE T.O.E.S SELF-REFLECTION</div>
+            {TOES_LABELS.map(({key,label,sub}) => (
+              <div key={key} style={{marginBottom:12}}>
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4}}>
+                  <div>
+                    <span style={{fontSize:13, fontWeight:700, color:'#FFFFFF'}}>{label}</span>
+                    <span style={{fontSize:11, color:'#A1A1A1', display:'block'}}>{sub}</span>
+                  </div>
+                  <span style={{fontSize:20}}>{RATINGS[logForm.toes[key]]}</span>
+                </div>
+                <div style={{display:'flex', gap:4}}>
+                  {[1,2,3,4,5].map(v => (
+                    <button key={v} onClick={()=>setLogForm(f=>({...f,toes:{...f.toes,[key]:v}}))} style={{
+                      flex:1, padding:'8px 0', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:700,
+                      background: logForm.toes[key]>=v ? '#F5C04A' : '#1A1A1A',
+                      color:       logForm.toes[key]>=v ? '#0D0D0D' : '#A1A1A1',
+                      border: logForm.toes[key]>=v ? 'none' : '1px solid #2A2A2A',
+                    }}>{v}</button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <button onClick={doSaveLog} style={btn('#F5C04A')}>✓ Save Session Log</button>
+          <button onClick={goBack} style={{...btn('#1A1A1A','#A1A1A1'), border:'1px solid #2A2A2A'}}>Cancel</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── SESSION LOGS ─────────────────────────────────────────────────
+  if (view === 'logs') {
+    const avgToes = (toes) => {
+      if (!toes) return 0;
+      return Math.round((toes.touches+toes.organisation+toes.enjoyment+toes.safety)/4);
+    };
+    const RATINGS = ['','😐','😐','🙂','😄','🤩'];
+
+    return (
+      <div style={pg}>
+        <div style={hdr}>
+          <button style={backBtn} onClick={goBack}>‹</button>
+          <div style={{fontSize:17, fontWeight:800, color:'#FFFFFF', flex:1}}>Session Log</div>
+          {logs.length > 0 && (
+            <button onClick={doExportLogs} style={{...btnSm('#1A1A1A','#A1A1A1'), border:'1px solid #2A2A2A'}}>Export</button>
+          )}
+        </div>
+        <div style={body}>
+          {logs.length === 0 ? (
+            <div style={{textAlign:'center', padding:'60px 20px', color:'#A1A1A1'}}>
+              <div style={{fontSize:40, marginBottom:12}}>📝</div>
+              <div style={{fontSize:16, fontWeight:600, color:'#FFFFFF', marginBottom:6}}>No sessions logged yet</div>
+              <div style={{fontSize:13}}>Browse sessions and use "Log This Session" after each training.</div>
+            </div>
+          ) : logs.map(log => {
+            const avg = avgToes(log.toes);
+            return (
+              <div key={log.id} style={card}>
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8}}>
+                  <div>
+                    <div style={{fontSize:14, fontWeight:700, color:'#FFFFFF'}}>{log.topicTitle} — Session {log.sessionNum}</div>
+                    <div style={{fontSize:12, color:'#A1A1A1'}}>{log.date} · {log.players||'?'} players</div>
+                  </div>
+                  <div style={{display:'flex', alignItems:'center', gap:6}}>
+                    <span style={{fontSize:20}}>{RATINGS[avg]||'😐'}</span>
+                    <button onClick={()=>doDeleteLog(log.id)} style={{background:'none', border:'none', color:'#ef4444', cursor:'pointer', fontSize:16, padding:0}}>🗑</button>
+                  </div>
+                </div>
+                {log.wellDone && <div style={{fontSize:12, color:'#22c55e', marginBottom:4}}>✓ {log.wellDone}</div>}
+                {log.improve  && <div style={{fontSize:12, color:'#F5C04A', marginBottom:4}}>↑ {log.improve}</div>}
+                {log.playerNotes && <div style={{fontSize:12, color:'#CBD5E1', marginTop:4, fontStyle:'italic'}}>{log.playerNotes}</div>}
+                {log.toes && (
+                  <div style={{display:'flex', gap:8, marginTop:8}}>
+                    {['T','O','E','S'].map((letter,i)=>{
+                      const keys = ['touches','organisation','enjoyment','safety'];
+                      const val = log.toes[keys[i]];
+                      return <div key={letter} style={{flex:1, textAlign:'center', background:'#1A1A1A', borderRadius:8, padding:'6px 0'}}>
+                        <div style={{fontSize:11, fontWeight:700, color:'#F5C04A'}}>{letter}</div>
+                        <div style={{fontSize:14, fontWeight:700, color:'#FFFFFF'}}>{val}/5</div>
+                      </div>;
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ── IMPORT / EXPORT ──────────────────────────────────────────────
+  if (view === 'importexport') {
+    return (
+      <div style={pg}>
+        <div style={hdr}>
+          <button style={backBtn} onClick={goBack}>‹</button>
+          <div style={{fontSize:17, fontWeight:800, color:'#FFFFFF', flex:1}}>Import / Export</div>
+        </div>
+        <div style={body}>
+          {/* Info card */}
+          <div style={{...card, borderColor:'#F5C04A44', marginBottom:16}}>
+            <div style={{fontSize:13, fontWeight:700, color:'#F5C04A', marginBottom:6}}>How it works</div>
+            <div style={{fontSize:13, color:'#CBD5E1', lineHeight:1.6}}>
+              Export the session library as a <strong style={{color:'#FFFFFF'}}>JSON file</strong>, edit it in any text editor or VS Code, then import it back. You can change coaching points, rules, drills, session names — anything.{'\n\n'}The built-in content covers all 11 UQFC topics. Each topic has sessions, phases, rules, progressions and coaching points. Export first to see the structure.
+            </div>
+          </div>
+
+          {/* Library version */}
+          <div style={{...card, marginBottom:16}}>
+            <div style={{fontSize:13, fontWeight:700, color:'#FFFFFF', marginBottom:4}}>Session Library</div>
+            <div style={{fontSize:12, color:'#A1A1A1', marginBottom:12}}>v{library.version} · Updated {library.updated} · {library.topics?.length||0} topics</div>
+            <button onClick={doExport} style={btn('#F5C04A')}>⬇️ Export Library (JSON)</button>
+            <button onClick={()=>fileInputRef.current?.click()} style={{...btn('#22c55e'), marginBottom:8}}>⬆️ Import Library (JSON)</button>
+            <button onClick={doReset} style={{...btn('#1A1A1A','#A1A1A1'), border:'1px solid #2A2A2A', marginBottom:0}}>↺ Reset to Built-in Defaults</button>
+            <input ref={fileInputRef} type="file" accept=".json" style={{display:'none'}} onChange={doImport} />
+            {importSuccess && <div style={{fontSize:13, color:'#22c55e', marginTop:8, fontWeight:600}}>{importSuccess}</div>}
+            {importError   && <div style={{fontSize:13, color:'#ef4444', marginTop:8, fontWeight:600}}>{importError}</div>}
+          </div>
+
+          {/* Logs export */}
+          <div style={{...card, marginBottom:16}}>
+            <div style={{fontSize:13, fontWeight:700, color:'#FFFFFF', marginBottom:4}}>Training Logs</div>
+            <div style={{fontSize:12, color:'#A1A1A1', marginBottom:12}}>{logs.length} session{logs.length!==1?'s':''} recorded</div>
+            <button onClick={doExportLogs} style={{...btn('#a78bfa'), marginBottom:0}}>⬇️ Export Session Logs (JSON)</button>
+          </div>
+
+          {/* JSON structure guide */}
+          <div style={card}>
+            <div style={{fontSize:13, fontWeight:700, color:'#FFFFFF', marginBottom:8}}>JSON Structure</div>
+            <div style={{fontSize:11, color:'#A1A1A1', fontFamily:'monospace', background:'#0D0D0D', borderRadius:8, padding:12, lineHeight:1.7}}>
+              {`{
+  "version": "1.0",
+  "topics": [{
+    "id": "pressing",
+    "title": "Pressing",
+    "icon": "⚡",
+    "category": "defending",
+    "ageGroup": "U9-U13",
+    "principle": "...",
+    "behaviour": "...",
+    "moments": ["..."],
+    "keyPoints": ["..."],
+    "sessions": [{
+      "number": 1,
+      "phases": [{
+        "name": "Rondo 4v2",
+        "type": "rondo",
+        "duration": 20,
+        "setup": "...",
+        "rules": ["..."],
+        "progressions": ["..."],
+        "dualForce": "...",
+        "coaching": ["..."]
+      }]
+    }]
+  }]
+}`}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+
+
 function BottomNav({ activeTab, onTab }) {
   const tabs = [
-    { id:'home',   icon:'⊞',  svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>, label:'Home' },
-    { id:'match',  icon:'⚽', svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="22" height="18" rx="1.5"/><line x1="12" y1="3" x2="12" y2="21"/><circle cx="12" cy="12" r="3"/><path d="M1 8h3.5M1 16h3.5M19.5 8H23M19.5 16H23"/></svg>, label:'Match' },
-    { id:'season', icon:'📅', svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>, label:'Season' },
-    { id:'team',   icon:'👥', svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, label:'Team' },
-    { id:'more',   icon:'···', svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>, label:'More' },
+    { id:'home',     icon:'⊞',  svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>, label:'Home' },
+    { id:'match',    icon:'⚽', svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="22" height="18" rx="1.5"/><line x1="12" y1="3" x2="12" y2="21"/><circle cx="12" cy="12" r="3"/><path d="M1 8h3.5M1 16h3.5M19.5 8H23M19.5 16H23"/></svg>, label:'Match' },
+    { id:'season',   icon:'📅', svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>, label:'Season' },
+    { id:'team',     icon:'👥', svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><circle cx="18" cy="9" r="3"/><path d="M21 21v-2a3 3 0 0 0-2-2.83"/></svg>, label:'Team' },
+    { id:'training', icon:'🏋️', svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="6" y1="12" x2="18" y2="12" strokeLinecap="round"/><rect x="2" y="9.5" width="4" height="5" rx="1"/><rect x="18" y="9.5" width="4" height="5" rx="1"/></svg>, label:'Training' },
+    { id:'more',     icon:'···', svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>, label:'More' },
   ];
   return (
     <nav style={{
       position:'fixed', bottom:0, left:0, right:0, zIndex:200,
-      background:'#0d1526', borderTop:'1px solid #1E1400',
+      background:'#0d1526', borderTop:'1px solid #1E1E1E',
       display:'flex', justifyContent:'space-around', alignItems:'center',
       paddingBottom:'max(env(safe-area-inset-bottom),4px)',
       paddingTop:6,
@@ -5333,7 +7152,7 @@ function MatchPlayersScreen({ contextKey, onBack }) {
   );
 }
 
-function QuickPlayScreen({ opponent, linkedFixKey, fixIsHome, settings, onBack, onSaved }) {
+function QuickPlayScreen({ opponent, linkedFixKey, fixIsHome, settings, onBack, onSaved, onSaveGame }) {
   const myTeam = localStorage.getItem('soccerCoach_fixtureTeam') || settings?.teamName || 'My Team';
   const squad  = React.useMemo(()=>{ try{return JSON.parse(localStorage.getItem('soccerCoach_squad')||'[]');}catch{return[];} },[]);
   const [scoreUs,   setScoreUs]   = React.useState(0);
@@ -5341,7 +7160,19 @@ function QuickPlayScreen({ opponent, linkedFixKey, fixIsHome, settings, onBack, 
   const [scorers,   setScorers]   = React.useState({}); // {name: count}
   const [potm,      setPotm]      = React.useState('');  // player of the match name
   const [notes,     setNotes]     = React.useState('');
-  const [saved,     setSaved]     = React.useState(false);
+  const [listening, setListening] = React.useState(false);
+  const recogRef = React.useRef(null);
+  const SpeechRec = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  function toggleVoice() {
+    if (listening) { recogRef.current && recogRef.current.stop(); setListening(false); return; }
+    if (!SpeechRec) return;
+    const r = new SpeechRec();
+    r.continuous = true; r.interimResults = false; r.lang = 'en-AU';
+    r.onresult = e => { const t = Array.from(e.results).map(x=>x[0].transcript).join(' '); setNotes(prev=>(prev?prev+' ':'')+t); };
+    r.onend = () => setListening(false);
+    recogRef.current = r; r.start(); setListening(true);
+  }
 
   function adjUs(d)   { setScoreUs(s=>Math.max(0,s+d)); }
   function adjThem(d) { setScoreThem(s=>Math.max(0,s+d)); }
@@ -5364,6 +7195,7 @@ function QuickPlayScreen({ opponent, linkedFixKey, fixIsHome, settings, onBack, 
   },[scoreUs]);
 
   function doSave() {
+    if (listening) { recogRef.current && recogRef.current.stop(); setListening(false); }
     const goals = [];
     Object.entries(scorers).forEach(([name,count])=>{
       for(let i=0;i<count;i++) goals.push({team:'us',scorer:name,minute:null});
@@ -5378,21 +7210,24 @@ function QuickPlayScreen({ opponent, linkedFixKey, fixIsHome, settings, onBack, 
       matchEvents: [],
       halves: [],
       config: { teamName: myTeam, periods:2, periodMins:40 },
-      voiceNotes: '',
-      report: notes.trim(),
+      voiceNotes: notes.trim(),
+      report: '',
       quickPlay: true,
       ...(linkedFixKey ? { linkedFixtureKey: linkedFixKey, fixtureIsHome: fixIsHome } : {})
     };
-    const games = JSON.parse(localStorage.getItem('soccerCoach_games')||'[]');
-    games.push(game);
-    localStorage.setItem('soccerCoach_games', JSON.stringify(games));
+    if (onSaveGame) {
+      onSaveGame(game);
+    } else {
+      const games = JSON.parse(localStorage.getItem('soccerCoach_games')||'[]');
+      games.push(game);
+      localStorage.setItem('soccerCoach_games', JSON.stringify(games));
+    }
     if(linkedFixKey) {
       const fxSc = JSON.parse(localStorage.getItem('soccerCoach_fixtureScores')||'{}');
       fxSc[linkedFixKey] = fixIsHome ? { home: scoreUs, away: scoreThem } : { home: scoreThem, away: scoreUs };
       localStorage.setItem('soccerCoach_fixtureScores', JSON.stringify(fxSc));
     }
-    setSaved(true);
-    setTimeout(()=>onSaved(game), 900);
+    onSaved(game);
   }
 
   const scorerTotal = Object.values(scorers).reduce((a,b)=>a+b,0);
@@ -5413,21 +7248,19 @@ function QuickPlayScreen({ opponent, linkedFixKey, fixIsHome, settings, onBack, 
   return (
     <div style={{display:'flex',flexDirection:'column',height:'100dvh',background:'#0D0D0D'}}>
       {/* Header */}
-      <div style={{padding:'54px 16px 14px',background:'#111111',borderBottom:'1px solid #1A1A1A',flexShrink:0}}>
-        <div style={{display:'flex',alignItems:'center',gap:12}}>
-          <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',color:'#A1A1A1',fontSize:22,padding:0,lineHeight:1}}>←</button>
-          <div style={{flex:1}}>
-            <div style={{fontSize:11,fontWeight:700,color:'#A1A1A1',letterSpacing:2,textTransform:'uppercase'}}>Quick Play</div>
-            {opponent&&<div style={{fontSize:15,fontWeight:700,color:'#FFF',marginTop:2}}>vs {opponent}</div>}
-          </div>
-          {result&&<div style={{fontSize:22,fontWeight:700,color:resultColor,letterSpacing:1}}>{result}</div>}
+      <div style={{display:'flex',alignItems:'center',gap:12,padding:'max(env(safe-area-inset-top),14px) 16px 14px',background:'#111111',borderBottom:'1px solid #1E1E1E',flexShrink:0}}>
+        <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',color:'#F5C04A',fontSize:22,padding:0,lineHeight:1}}>‹</button>
+        <div style={{flex:1}}>
+          <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:2,textTransform:'uppercase'}}>Quick Play</div>
+          {opponent&&<div style={{fontSize:17,fontWeight:800,color:'#FFF',marginTop:1}}>vs {opponent}</div>}
         </div>
+        {result&&<div style={{width:40,height:40,borderRadius:10,background:resultColor+'22',border:`1px solid ${resultColor}44`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:700,color:resultColor}}>{result}</div>}
       </div>
 
       <div style={{flex:1,overflowY:'auto',padding:'16px',paddingBottom:'calc(env(safe-area-inset-bottom) + 90px)',display:'flex',flexDirection:'column',gap:12}}>
 
         {/* Score */}
-        <div style={{background:'#111111',borderRadius:14,border:'1px solid #1A1A1A',padding:'18px 20px'}}>
+        <div style={{background:'#111111',borderRadius:14,border:'1px solid #1E1E1E',padding:'18px 20px'}}>
           <SectionTitle label="Score"/>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             {/* Us */}
@@ -5454,7 +7287,7 @@ function QuickPlayScreen({ opponent, linkedFixKey, fixIsHome, settings, onBack, 
 
         {/* Goal scorers — only shown when we scored */}
         {squad.length > 0 && scoreUs > 0 && (
-          <div style={{background:'#111111',borderRadius:14,border:'1px solid #1A1A1A',padding:'16px'}}>
+          <div style={{background:'#111111',borderRadius:14,border:'1px solid #1E1E1E',padding:'16px'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
               <SectionTitle label="Goal Scorers"/>
               {unaccounted > 0 && <div style={{fontSize:10,color:'#F5C04A',fontWeight:600,marginTop:-12}}>{unaccounted} unassigned</div>}
@@ -5487,7 +7320,7 @@ function QuickPlayScreen({ opponent, linkedFixKey, fixIsHome, settings, onBack, 
 
         {/* Player of the Match */}
         {squad.length > 0 && (
-          <div style={{background:'#111111',borderRadius:14,border:'1px solid #1A1A1A',padding:'16px'}}>
+          <div style={{background:'#111111',borderRadius:14,border:'1px solid #1E1E1E',padding:'16px'}}>
             <SectionTitle label="Player of the Match"/>
             <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
               {squad.map(p=>{
@@ -5507,26 +7340,30 @@ function QuickPlayScreen({ opponent, linkedFixKey, fixIsHome, settings, onBack, 
         )}
 
         {/* Match notes */}
-        <div style={{background:'#111111',borderRadius:14,border:'1px solid #1A1A1A',padding:'16px'}}>
-          <SectionTitle label="Coach Notes"/>
-          <textarea value={notes} onChange={e=>setNotes(e.target.value)}
-            placeholder="Key moments, tactical notes, things to work on…"
-            rows={4}
-            style={{width:'100%',background:'#0D0D0D',border:'1px solid #1A1A1A',borderRadius:9,padding:'10px 12px',color:'#FFF',fontSize:13,fontFamily:'inherit',lineHeight:1.6,resize:'vertical',outline:'none',boxSizing:'border-box',fontWeight:400}}/>
-        </div>
-
-        {saved && (
-          <div style={{background:'rgba(34,197,94,0.08)',border:'1px solid #22c55e33',borderRadius:10,padding:'12px',textAlign:'center',fontSize:13,fontWeight:600,color:'#22c55e'}}>
-            ✓ Match saved
+        <div style={{background:'#111111',borderRadius:14,border:'1px solid #1E1E1E',padding:'16px'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+            <SectionTitle label="Coach Notes"/>
+            {SpeechRec && (
+              <button onClick={toggleVoice}
+                style={{background:listening?'#ef444418':'#1A1A1A',border:`1px solid ${listening?'#ef4444':'#2A2A2A'}`,borderRadius:8,padding:'6px 12px',cursor:'pointer',display:'flex',alignItems:'center',gap:6,color:listening?'#ef4444':'#A1A1A1',fontSize:11,fontWeight:700,marginTop:-12}}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                {listening ? 'Stop' : 'Dictate'}
+              </button>
+            )}
           </div>
-        )}
+          <textarea value={notes} onChange={e=>setNotes(e.target.value)}
+            placeholder="Key moments, tactical notes, things to work on… or use Dictate to speak your notes"
+            rows={5}
+            style={{width:'100%',background:'#0D0D0D',border:`1px solid ${listening?'#ef4444':'#2A2A2A'}`,borderRadius:9,padding:'10px 12px',color:'#FFF',fontSize:13,fontFamily:'inherit',lineHeight:1.6,resize:'vertical',outline:'none',boxSizing:'border-box'}}/>
+          {listening && <div style={{fontSize:11,color:'#ef4444',marginTop:6,fontWeight:600}}>🎙️ Recording… speak your notes</div>}
+        </div>
       </div>
 
       {/* Footer */}
       <div style={{position:'fixed',bottom:0,left:0,right:0,padding:'12px 16px',paddingBottom:'calc(env(safe-area-inset-bottom) + 76px)',background:'linear-gradient(transparent,#0D0D0D 40%)',zIndex:50}}>
-        <button onClick={doSave} disabled={saved}
-          style={{width:'100%',padding:'16px',border:'none',borderRadius:14,fontSize:15,fontWeight:800,letterSpacing:0.5,cursor:saved?'default':'pointer',background:saved?'#1A1A1A':'#F5C04A',color:saved?'#555':'#000',transition:'background 0.2s'}}>
-          {saved ? '✓ Saved' : 'Save Match'}
+        <button onClick={doSave}
+          style={{width:'100%',padding:'16px',border:'none',borderRadius:14,fontSize:15,fontWeight:800,letterSpacing:0.5,cursor:'pointer',background:'#F5C04A',color:'#000'}}>
+          Save &amp; Review →
         </button>
       </div>
     </div>
@@ -5727,230 +7564,310 @@ function PostMatchReviewScreen({ game, squad, opponent, config, onDone }) {
   const teamName = config?.teamName || localStorage.getItem('soccerCoach_fixtureTeam') || 'Us';
   const players  = (squad || []).map(p => p.name);
 
-  const [mode,            setMode]           = React.useState(null);
-  const [step,            setStep]           = React.useState(1);
+  const [step,            setStep]           = React.useState(0); // 0=summary, 1=ratings, 2=notes, 3=training
   const [oppR,            setOppR]           = React.useState({});
   const [ourR,            setOurR]           = React.useState({});
   const [notes,           setNotes]          = React.useState({ oppProblems:'', oppDidWell:'', oppAdvice:'', ourPleased:'', ourImprove:'' });
   const [priorities,      setPriorities]     = React.useState([]);
   const [mostImproved,    setMostImproved]   = React.useState('');
   const [playerNotes,     setPlayerNotes]    = React.useState({});
-  const [showPlayerNotes, setShowPlayerNotes]= React.useState(false);
   const [generating,      setGenerating]     = React.useState(false);
   const [outputs,         setOutputs]        = React.useState(null);
   const [copiedKey,       setCopiedKey]      = React.useState(null);
   const [listeningField,  setListeningField] = React.useState(null);
+  const [aiReview,        setAiReview]       = React.useState('');
   const recogRef = React.useRef(null);
 
-  const isQuick = mode === 'quick';
   const won  = game.scoreUs > game.scoreThem;
   const drew = game.scoreUs === game.scoreThem;
+  const resultColor = won ? '#22c55e' : drew ? '#F5C04A' : '#ef4444';
+  const resultLabel = won ? 'WIN' : drew ? 'DRAW' : 'LOSS';
+
+  const voiceNotes   = game.voiceNotes || '';
+  const matchEvents  = game.matchEvents || [];
+  const goals        = game.goals || [];
+
+  // Format match events for display/AI
+  function fmtEvents(evts) {
+    return evts.map(e => {
+      const rule = (typeof MATCH_EVENT_RULES !== 'undefined' ? MATCH_EVENT_RULES : []).find(r => r.type === e.type) || { icon:'📝', label: e.type };
+      const team = e.team === 'us' ? teamName : (opponent || 'Them');
+      return `${rule.icon} ${e.minute}' ${rule.label}${e.team ? ` (${team})` : ''}${e.notes ? ` — ${e.notes}` : ''}`;
+    }).join('\n');
+  }
 
   // ── Voice dictation ──────────────────────────────────────────────────────────
   const SpeechRec = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
   function toggleVoice(field) {
-    if (listeningField === field) {
-      recogRef.current && recogRef.current.stop();
-      setListeningField(null); return;
-    }
+    if (listeningField === field) { recogRef.current && recogRef.current.stop(); setListeningField(null); return; }
     if (!SpeechRec) return;
     const r = new SpeechRec();
     r.continuous = true; r.interimResults = false; r.lang = 'en-AU';
-    r.onresult = e => {
-      const t = Array.from(e.results).map(x=>x[0].transcript).join(' ');
-      setNotes(prev => ({ ...prev, [field]: (prev[field] ? prev[field]+' ' : '') + t }));
-    };
+    r.onresult = e => { const t = Array.from(e.results).map(x=>x[0].transcript).join(' '); setNotes(prev=>({...prev,[field]:(prev[field]?prev[field]+' ':'')+t})); };
     r.onend = () => setListeningField(null);
-    recogRef.current = r;
-    r.start();
-    setListeningField(field);
+    recogRef.current = r; r.start(); setListeningField(field);
   }
 
   // ── Star rating ──────────────────────────────────────────────────────────────
   function StarRow({ label, field, ratings, setRatings }) {
     const val = ratings[field] || 0;
     return (
-      <div style={{display:'flex',alignItems:'center',padding:'10px 0',borderBottom:'1px solid #1A1A1A'}}>
-        <div style={{flex:1,fontSize:13,color:'#A1A1A1',fontWeight:500}}>{label}</div>
+      <div style={{display:'flex',alignItems:'center',padding:'10px 0',borderBottom:'1px solid #1E1E1E'}}>
+        <div style={{flex:1,fontSize:13,color:'#A1A1A1'}}>{label}</div>
         <div style={{display:'flex',gap:2}}>
           {[1,2,3,4,5].map(n=>(
             <button key={n} onClick={()=>setRatings(prev=>({...prev,[field]:n}))}
-              style={{background:'none',border:'none',cursor:'pointer',padding:'2px',fontSize:26,lineHeight:1,
-                color: n<=val ? '#F5C04A' : '#2A2A2A', transition:'color 0.1s'}}>
-              ★
-            </button>
+              style={{background:'none',border:'none',cursor:'pointer',padding:'2px',fontSize:26,lineHeight:1,color:n<=val?'#F5C04A':'#2A2A2A',transition:'color 0.1s'}}>★</button>
           ))}
         </div>
       </div>
     );
   }
 
-  // ── Training priorities ──────────────────────────────────────────────────────
-  const ALL_PRIORITIES = [
-    'Building Out','Playing Through Midfield','Final Third','Finishing','Width','Switching Play',
-    'First Touch','Passing','Communication','Team Shape','Pressing','Recovery Runs',
-    'Counter Attacking','1v1 Attacking','1v1 Defending','Throw Ins','Corners','Goal Kicks','Goalkeeping'
-  ];
-  function togglePriority(p) {
-    setPriorities(prev => prev.includes(p) ? prev.filter(x=>x!==p) : prev.length<3 ? [...prev,p] : prev);
-  }
-
   // ── Note field with mic ──────────────────────────────────────────────────────
   function NoteField({ label, field, placeholder, rows=3 }) {
     const isLive = listeningField === field;
     return (
-      <div style={{marginBottom:16}}>
+      <div style={{marginBottom:14}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
-          <div style={{fontSize:13,fontWeight:500,color:'#A1A1A1'}}>{label}</div>
+          <div style={{fontSize:12,fontWeight:700,color:'#A1A1A1',textTransform:'uppercase',letterSpacing:0.8}}>{label}</div>
           {SpeechRec && (
             <button onClick={()=>toggleVoice(field)}
-              style={{background:isLive?'rgba(239,68,68,0.15)':'none',border:isLive?'1px solid #ef4444':'none',
-                borderRadius:8,padding:'4px 8px',cursor:'pointer',display:'flex',alignItems:'center',gap:4,
-                color:isLive?'#ef4444':'#555'}}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-              </svg>
+              style={{background:isLive?'#ef444418':'none',border:isLive?'1px solid #ef4444':'none',borderRadius:6,padding:'3px 8px',cursor:'pointer',display:'flex',alignItems:'center',gap:4,color:isLive?'#ef4444':'#555'}}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
               <span style={{fontSize:10,fontWeight:700}}>{isLive?'Stop':'Dictate'}</span>
             </button>
           )}
         </div>
         <textarea value={notes[field]} onChange={e=>setNotes(prev=>({...prev,[field]:e.target.value}))}
           placeholder={placeholder} rows={rows}
-          style={{width:'100%',background:'#0D0D0D',border:`1px solid ${isLive?'#ef4444':'#2A2A2A'}`,
-            borderRadius:10,padding:'10px 12px',color:'#FFF',fontSize:13,outline:'none',
-            resize:'none',fontFamily:'inherit',boxSizing:'border-box',lineHeight:1.5}}/>
+          style={{width:'100%',background:'#0D0D0D',border:`1px solid ${isLive?'#ef4444':'#2A2A2A'}`,borderRadius:10,padding:'10px 12px',color:'#FFF',fontSize:13,outline:'none',resize:'vertical',fontFamily:'inherit',boxSizing:'border-box',lineHeight:1.5}}/>
       </div>
     );
   }
 
-  // ── Generate outputs ─────────────────────────────────────────────────────────
-  function handleGenerate() {
+  // ── Training priorities ──────────────────────────────────────────────────────
+  const ALL_PRIORITIES = ['Building Out','Playing Through Midfield','Final Third','Finishing','Width','Switching Play','First Touch','Passing','Communication','Team Shape','Pressing','Recovery Runs','Counter Attacking','1v1 Attacking','1v1 Defending','Throw Ins','Corners','Goal Kicks','Goalkeeping'];
+  function togglePriority(p) { setPriorities(prev=>prev.includes(p)?prev.filter(x=>x!==p):prev.length<3?[...prev,p]:prev); }
+
+  // ── Delete voice transcript from saved game ──────────────────────────────────
+  const [localVoiceNotes, setLocalVoiceNotes] = React.useState(voiceNotes);
+  function deleteTranscript() {
+    setLocalVoiceNotes('');
+    try {
+      const games = loadGames();
+      const updated = games.map(g => g.id === game.id ? { ...g, voiceNotes: '' } : g);
+      saveGames(updated);
+    } catch {}
+  }
+
+  // ── Build AI prompt ────────────────────────────────────────────────────────────
+  function buildAIPrompt() {
+    const us = goals.filter(g=>g.team==='us').length;
+    const them = goals.filter(g=>g.team==='them').length;
+    const goalSummary = goals.map(g=>`${g.team==='us'?`${g.scorer||'Unknown'}${g.position?` (${g.position})`:''} (us)`:'Opponent'} — H${g.half} ${g.timeStr}`).join('\n') || 'No goals logged';
+    const evtSummary = matchEvents.length ? fmtEvents(matchEvents) : 'No match events recorded';
+    const coachNotes = [
+      notes.ourPleased ? `What pleased us: ${notes.ourPleased}` : '',
+      notes.ourImprove ? `Areas to improve: ${notes.ourImprove}` : '',
+      notes.oppProblems ? `Opposition caused problems with: ${notes.oppProblems}` : '',
+      notes.oppAdvice ? `Advice for playing them: ${notes.oppAdvice}` : '',
+      priorities.length ? `Training priorities: ${priorities.join(', ')}` : '',
+      mostImproved ? `Most improved: ${mostImproved}` : '',
+    ].filter(Boolean).join('\n');
+    const pNotes = Object.entries(playerNotes).filter(([,v])=>v.trim()).map(([n,v])=>`${n}: ${v}`).join('\n');
+    return `Generate a detailed match review for a U11 girls soccer match. Be direct and factual. Do not embellish with fluff.
+
+Opponent: ${opponent || 'Opposition'}
+Formation: ${game.config?.formation || '1-3-2-3'}
+Final score: Us ${us} – Them ${them}
+Result: ${won?'Win':drew?'Draw':'Loss'}
+
+Goals:
+${goalSummary}
+
+Match events:
+${evtSummary}
+${localVoiceNotes.trim() ? `\nVoice note transcription from coach:\n${localVoiceNotes.trim()}` : ''}
+${coachNotes ? `\nCoach notes:\n${coachNotes}` : ''}
+${pNotes ? `\nPlayer observations:\n${pNotes}` : ''}
+
+Write 3-4 focused paragraphs covering: result and key moments, what worked well (with player names where known), 1-2 clear development areas, and brief next steps. Be specific and grounded.`;
+  }
+
+  // ── Generate match notes (AI + local outputs) ─────────────────────────────────
+  async function handleGenerate() {
     setGenerating(true);
-    setTimeout(() => {
-      const result = generatePostMatchOutputs({ game, opponent, teamName, oppR, ourR, notes, priorities, mostImproved, playerNotes, isQuick });
-      // Save to localStorage
-      try {
-        const key = 'soccerCoach_postMatch_' + (game.id || Date.now());
-        const stored = JSON.parse(localStorage.getItem('soccerCoach_allPostMatch') || '[]');
-        stored.unshift({ id: key, gameId: game.id, opponent, date: Date.now(), oppR, ourR, notes, priorities, mostImproved, playerNotes, outputs: result });
-        localStorage.setItem('soccerCoach_allPostMatch', JSON.stringify(stored.slice(0, 50)));
-      } catch {}
-      setOutputs(result);
-      setGenerating(false);
-    }, 1800);
+    // Run local outputs
+    const result = generatePostMatchOutputs({ game, opponent, teamName, oppR, ourR, notes, priorities, mostImproved, playerNotes, isQuick: true });
+    // Run AI review
+    let ai = '';
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01'},
+        body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:900, messages:[{role:'user',content:buildAIPrompt()}] })
+      });
+      const data = await resp.json();
+      ai = data?.content?.[0]?.text || '';
+    } catch {}
+    setAiReview(ai);
+    try {
+      const key = 'soccerCoach_postMatch_' + (game.id || Date.now());
+      const stored = JSON.parse(localStorage.getItem('soccerCoach_allPostMatch') || '[]');
+      stored.unshift({ id:key, gameId:game.id, opponent, date:Date.now(), oppR, ourR, notes, priorities, mostImproved, playerNotes, aiReview:ai, outputs:result });
+      localStorage.setItem('soccerCoach_allPostMatch', JSON.stringify(stored.slice(0,50)));
+    } catch {}
+    setOutputs(result);
+    setGenerating(false);
   }
 
   function copyOutput(key, text) {
     try { navigator.clipboard.writeText(text); } catch {}
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 2000);
+    setCopiedKey(key); setTimeout(()=>setCopiedKey(null), 2000);
   }
 
-  // ── OPP rating categories ─────────────────────────────────────────────────────
-  const oppCatsFull = [
-    ['overallStrength','Overall Strength'],['attacking','Attacking'],['defending','Defending'],
-    ['passing','Passing'],['pressing','Pressing'],['physicality','Physicality'],['goalkeeper','Goalkeeper']
-  ];
-  const oppCatsQuick = [['overallStrength','Overall Strength'],['attacking','Attacking'],['defending','Defending'],['pressing','Pressing']];
-  const ourCatsFull  = [
-    ['overallPerformance','Overall Performance'],['attacking','Attacking'],['defending','Defending'],
-    ['passing','Passing'],['teamShape','Team Shape'],['communication','Communication'],
-    ['workRate','Work Rate'],['decisionMaking','Decision Making'],['composure','Composure'],['finishing','Finishing']
-  ];
-  const ourCatsQuick = [['overallPerformance','Overall Performance'],['attacking','Attacking'],['defending','Defending'],['teamShape','Team Shape']];
-  const oppCats = isQuick ? oppCatsQuick : oppCatsFull;
-  const ourCats = isQuick ? ourCatsQuick : ourCatsFull;
+  const oppCats = [['overallStrength','Overall Strength'],['attacking','Attacking'],['defending','Defending'],['pressing','Pressing']];
+  const ourCats = [['overallPerformance','Overall Performance'],['attacking','Attacking'],['defending','Defending'],['teamShape','Team Shape']];
 
-  const TOTAL_STEPS = 3;
-  const resultColor = won ? '#22c55e' : drew ? '#F5C04A' : '#A1A1A1';
-  const resultLabel = won ? 'Win' : drew ? 'Draw' : 'Loss';
-
-  // ── Mode select ──────────────────────────────────────────────────────────────
-  if (!mode) return (
-    <div style={{minHeight:'100vh',background:'#0D0D0D',display:'flex',flexDirection:'column'}}>
-      <div style={{padding:'54px 20px 20px',background:'#111111',borderBottom:'1px solid #1A1A1A'}}>
-        <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:2,textTransform:'uppercase',marginBottom:4}}>POST MATCH</div>
-        <div style={{fontSize:24,fontWeight:800,color:'#FFF'}}>Match Review</div>
-        <div style={{display:'flex',alignItems:'center',gap:10,marginTop:12}}>
-          <TeamBadge name={teamName} size={36} radius={8}/>
-          <div style={{fontSize:20,fontWeight:800,color:resultColor}}>{game.scoreUs}–{game.scoreThem}</div>
-          <TeamBadge name={opponent} size={36} radius={8}/>
-          <div style={{flex:1,fontSize:12,color:'#555',marginLeft:4}}>{opponent}</div>
-          <div style={{background:resultColor+'22',border:`1px solid ${resultColor}44`,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:800,color:resultColor}}>{resultLabel}</div>
-        </div>
-      </div>
-      <div style={{flex:1,padding:'24px 20px',display:'flex',flexDirection:'column',gap:14}}>
-        <div style={{fontSize:14,color:'#A1A1A1',textAlign:'center',marginBottom:8}}>How much time do you have?</div>
-        <button onClick={()=>setMode('quick')}
-          style={{background:'#111111',border:'2px solid #F5C04A',borderRadius:18,padding:'22px 20px',cursor:'pointer',textAlign:'left'}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
-            <div style={{fontSize:17,fontWeight:800,color:'#F5C04A'}}>⚡ Quick Review</div>
-            <div style={{fontSize:12,fontWeight:700,color:'#F5C04A',background:'#F5C04A22',borderRadius:8,padding:'3px 10px'}}>60–90 sec</div>
-          </div>
-          <div style={{fontSize:13,color:'#A1A1A1',lineHeight:1.5}}>Key ratings + 2 quick notes + training priorities. Perfect for right after the match.</div>
-        </button>
-        <button onClick={()=>setMode('full')}
-          style={{background:'#111111',border:'2px solid #2A2A2A',borderRadius:18,padding:'22px 20px',cursor:'pointer',textAlign:'left'}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
-            <div style={{fontSize:17,fontWeight:800,color:'#FFF'}}>📋 Full Review</div>
-            <div style={{fontSize:12,fontWeight:700,color:'#555',background:'#1A1A1A',borderRadius:8,padding:'3px 10px'}}>5–10 min</div>
-          </div>
-          <div style={{fontSize:13,color:'#A1A1A1',lineHeight:1.5}}>All ratings, detailed notes, player observations and full scout report.</div>
-        </button>
-        <button onClick={onDone} style={{marginTop:'auto',padding:'14px',border:'none',background:'none',color:'#555',fontSize:13,cursor:'pointer'}}>
-          Skip for now
-        </button>
-      </div>
-    </div>
-  );
-
-  // ── Progress header ──────────────────────────────────────────────────────────
-  function Header({ title, subtitle }) {
+  // ── Shared page header ────────────────────────────────────────────────────────
+  function PageHeader({ title, step: s, total, onBack }) {
     return (
-      <div style={{padding:'54px 16px 14px',background:'#111111',borderBottom:'1px solid #1A1A1A',flexShrink:0}}>
-        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
-          <button onClick={()=>step===1?setMode(null):setStep(s=>s-1)} style={{background:'none',border:'none',cursor:'pointer',color:'#A1A1A1',display:'flex',padding:4}}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
+      <div style={{background:'#111111',borderBottom:'1px solid #1E1E1E',padding:'max(env(safe-area-inset-top),14px) 16px 14px',flexShrink:0}}>
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',color:'#F5C04A',fontSize:22,padding:0,lineHeight:1}}>‹</button>
           <div style={{flex:1}}>
-            <div style={{fontSize:11,fontWeight:800,color:isQuick?'#F5C04A':'#60a5fa',letterSpacing:1.5,textTransform:'uppercase'}}>{isQuick?'⚡ QUICK REVIEW':'📋 FULL REVIEW'}</div>
-            <div style={{fontSize:17,fontWeight:800,color:'#FFF',marginTop:2}}>{title}</div>
-            {subtitle && <div style={{fontSize:12,color:'#555',marginTop:1}}>{subtitle}</div>}
+            <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:2,textTransform:'uppercase'}}>FURTHER NOTES</div>
+            <div style={{fontSize:17,fontWeight:800,color:'#FFF',marginTop:1}}>{title}</div>
           </div>
-          <div style={{textAlign:'right',flexShrink:0}}>
-            <div style={{fontSize:11,color:'#555',fontWeight:600}}>{step} of {TOTAL_STEPS}</div>
-            <div style={{display:'flex',gap:4,marginTop:4}}>
-              {Array.from({length:TOTAL_STEPS}).map((_,i)=>(
-                <div key={i} style={{height:3,borderRadius:2,transition:'all 0.3s',
-                  width: i<step ? 18 : 10,
-                  background: i<step ? '#F5C04A' : '#2A2A2A'}}/>
-              ))}
+          {s && total && (
+            <div style={{textAlign:'right'}}>
+              <div style={{fontSize:11,color:'#555',fontWeight:600}}>{s} of {total}</div>
+              <div style={{display:'flex',gap:3,marginTop:4,justifyContent:'flex-end'}}>
+                {Array.from({length:total}).map((_,i)=>(
+                  <div key={i} style={{height:3,borderRadius:2,width:i<s?18:10,background:i<s?'#F5C04A':'#2A2A2A',transition:'all 0.3s'}}/>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     );
   }
 
-  // ── STEP 1: Ratings ──────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────────────────────────────────
+  // SCREEN 0: Match Summary (entry point)
+  // ────────────────────────────────────────────────────────────────────────────
+  if (step === 0 && !outputs) return (
+    <div style={{minHeight:'100dvh',background:'#0D0D0D',display:'flex',flexDirection:'column',paddingBottom:90}}>
+      {/* Header */}
+      <div style={{background:'#111111',borderBottom:'1px solid #1E1E1E',padding:'max(env(safe-area-inset-top),14px) 16px 16px'}}>
+        <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:2,textTransform:'uppercase',marginBottom:6}}>POST MATCH</div>
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <TeamBadge name={teamName} size={44} radius={10}/>
+          <div style={{flex:1}}>
+            <div style={{fontSize:28,fontWeight:900,color:'#FFFFFF',lineHeight:1}}>{game.scoreUs} – {game.scoreThem}</div>
+            <div style={{fontSize:13,color:'#A1A1A1',marginTop:3}}>vs {opponent}</div>
+          </div>
+          <div style={{background:resultColor+'22',border:`1px solid ${resultColor}44`,borderRadius:10,padding:'6px 14px',fontSize:13,fontWeight:800,color:resultColor}}>{resultLabel}</div>
+        </div>
+      </div>
+
+      <div style={{flex:1,overflowY:'auto',padding:'16px 16px 8px'}}>
+
+        {/* Voice notes summary */}
+        {localVoiceNotes.trim() && (
+          <div style={{background:'#111111',border:'1px solid #a78bfa33',borderRadius:14,padding:'14px 16px',marginBottom:12}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+              <div style={{fontSize:11,fontWeight:800,color:'#a78bfa',letterSpacing:1.2,textTransform:'uppercase'}}>🎙️ Voice Note Transcription</div>
+              <button onClick={deleteTranscript}
+                style={{background:'#1A0A0A',border:'1px solid #ef444433',borderRadius:6,padding:'3px 8px',color:'#ef4444',fontSize:10,fontWeight:700,cursor:'pointer'}}>
+                Delete
+              </button>
+            </div>
+            <div style={{fontSize:13,color:'#d1d5db',lineHeight:1.6,whiteSpace:'pre-wrap',maxHeight:120,overflow:'hidden',WebkitMaskImage:'linear-gradient(to bottom, black 70%, transparent 100%)',maskImage:'linear-gradient(to bottom, black 70%, transparent 100%)'}}>{localVoiceNotes.trim()}</div>
+          </div>
+        )}
+
+        {/* Match events summary */}
+        {matchEvents.length > 0 && (
+          <div style={{background:'#111111',border:'1px solid #1E1E1E',borderRadius:14,padding:'14px 16px',marginBottom:12}}>
+            <div style={{fontSize:11,fontWeight:800,color:'#38bdf8',letterSpacing:1.2,textTransform:'uppercase',marginBottom:8}}>📋 Match Events ({matchEvents.length})</div>
+            <div style={{display:'flex',flexDirection:'column',gap:4}}>
+              {matchEvents.slice(0,6).map((ev,i) => {
+                const rule = (typeof MATCH_EVENT_RULES !== 'undefined' ? MATCH_EVENT_RULES : []).find(r=>r.type===ev.type) || {icon:'📝',label:ev.type,color:'#A1A1A1'};
+                return (
+                  <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 0',borderBottom:i<Math.min(matchEvents.length,6)-1?'1px solid #1E1E1E':'none'}}>
+                    <span style={{fontSize:12,color:'#555',minWidth:24,fontWeight:700}}>{ev.minute}'</span>
+                    <span style={{fontSize:13}}>{rule.icon}</span>
+                    <span style={{fontSize:12,color:rule.color||'#A1A1A1',fontWeight:600}}>{rule.label}</span>
+                    <span style={{fontSize:11,color:'#555'}}>{ev.team==='us'?teamName:opponent||'Them'}</span>
+                    {ev.notes && <span style={{fontSize:11,color:'#555',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>— {ev.notes}</span>}
+                  </div>
+                );
+              })}
+              {matchEvents.length > 6 && <div style={{fontSize:11,color:'#555',paddingTop:4}}>+{matchEvents.length-6} more events</div>}
+            </div>
+          </div>
+        )}
+
+        {/* Goals summary */}
+        {goals.length > 0 && (
+          <div style={{background:'#111111',border:'1px solid #1E1E1E',borderRadius:14,padding:'14px 16px',marginBottom:12}}>
+            <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:1.2,textTransform:'uppercase',marginBottom:8}}>⚽ Goals</div>
+            {goals.filter(g=>g.team==='us').map((g,i)=>(
+              <div key={i} style={{fontSize:13,color:'#FFFFFF',paddingBottom:4}}>⚽ {g.scorer} <span style={{color:'#555',fontSize:11}}>{g.timeStr}</span></div>
+            ))}
+            {goals.filter(g=>g.team==='them').map((g,i)=>(
+              <div key={i} style={{fontSize:13,color:'#fca5a5',paddingBottom:4}}>⚽ {opponent} <span style={{color:'#555',fontSize:11}}>{g.timeStr}</span></div>
+            ))}
+          </div>
+        )}
+
+        {/* No data notice */}
+        {!voiceNotes.trim() && matchEvents.length === 0 && goals.length === 0 && (
+          <div style={{background:'#111111',border:'1px solid #1E1E1E',borderRadius:14,padding:'20px 16px',marginBottom:12,textAlign:'center'}}>
+            <div style={{fontSize:32,marginBottom:8}}>📋</div>
+            <div style={{fontSize:14,fontWeight:700,color:'#FFF',marginBottom:4}}>Match saved</div>
+            <div style={{fontSize:12,color:'#555'}}>Add further notes below to capture your coaching observations.</div>
+          </div>
+        )}
+
+        {/* CTAs */}
+        <button onClick={()=>setStep(1)}
+          style={{width:'100%',padding:'16px',border:'none',borderRadius:14,fontSize:15,fontWeight:800,cursor:'pointer',background:'#F5C04A',color:'#000',marginBottom:10}}>
+          Further Notes →
+        </button>
+        <button onClick={handleGenerate}
+          style={{width:'100%',padding:'14px',border:'1px solid #22c55e44',borderRadius:14,fontSize:14,fontWeight:700,cursor:'pointer',background:'#22c55e18',color:'#22c55e',marginBottom:10}}>
+          Generate Match Notes
+        </button>
+
+      </div>
+      <BottomNav activeTab="match" onTab={()=>{}}/>
+    </div>
+  );
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // STEP 1: Ratings
+  // ────────────────────────────────────────────────────────────────────────────
   if (step === 1 && !outputs) return (
     <div style={{display:'flex',flexDirection:'column',height:'100dvh',background:'#0D0D0D',overflow:'hidden'}}>
-      <Header title="Match Reflection" subtitle={`Rate both teams vs ${opponent}`}/>
-      <div style={{flex:1,overflowY:'auto',padding:'16px',paddingBottom:100}}>
+      <PageHeader title="Match Ratings" step={1} total={3} onBack={()=>setStep(0)}/>
+      <div style={{flex:1,overflowY:'auto',padding:'16px',paddingBottom:110}}>
 
-        <div style={{background:'#111111',borderRadius:16,border:'1px solid #1A1A1A',overflow:'hidden',marginBottom:14}}>
-          <div style={{padding:'12px 16px',borderBottom:'1px solid #1A1A1A',display:'flex',alignItems:'center',gap:10}}>
+        <div style={{background:'#111111',borderRadius:14,border:'1px solid #1E1E1E',overflow:'hidden',marginBottom:12}}>
+          <div style={{padding:'12px 16px',borderBottom:'1px solid #1E1E1E',display:'flex',alignItems:'center',gap:10}}>
             <TeamBadge name={opponent} size={28} radius={6}/>
-            <div style={{fontSize:12,fontWeight:800,color:'#F5C04A',letterSpacing:1,textTransform:'uppercase'}}>{opponent}</div>
+            <div style={{fontSize:12,fontWeight:800,color:'#38bdf8',letterSpacing:1,textTransform:'uppercase'}}>{opponent}</div>
           </div>
           <div style={{padding:'0 16px'}}>
             {oppCats.map(([field,label])=>(<StarRow key={field} label={label} field={field} ratings={oppR} setRatings={setOppR}/>))}
           </div>
         </div>
 
-        <div style={{background:'#111111',borderRadius:16,border:'1px solid #1A1A1A',overflow:'hidden',marginBottom:14}}>
-          <div style={{padding:'12px 16px',borderBottom:'1px solid #1A1A1A',display:'flex',alignItems:'center',gap:10}}>
+        <div style={{background:'#111111',borderRadius:14,border:'1px solid #1E1E1E',overflow:'hidden',marginBottom:12}}>
+          <div style={{padding:'12px 16px',borderBottom:'1px solid #1E1E1E',display:'flex',alignItems:'center',gap:10}}>
             <TeamBadge name={teamName} size={28} radius={6}/>
             <div style={{fontSize:12,fontWeight:800,color:'#22c55e',letterSpacing:1,textTransform:'uppercase'}}>{teamName}</div>
           </div>
@@ -5959,7 +7876,7 @@ function PostMatchReviewScreen({ game, squad, opponent, config, onDone }) {
           </div>
         </div>
       </div>
-      <div style={{position:'fixed',bottom:0,left:0,right:0,padding:'12px 16px',paddingBottom:'calc(env(safe-area-inset-bottom) + 80px)',background:'#0D0D0D',borderTop:'1px solid #1A1A1A'}}>
+      <div style={{position:'fixed',bottom:80,left:0,right:0,padding:'12px 16px',background:'#0D0D0D',borderTop:'1px solid #1E1E1E'}}>
         <button onClick={()=>setStep(2)} style={{width:'100%',padding:'15px',border:'none',borderRadius:14,fontSize:15,fontWeight:800,cursor:'pointer',background:'#F5C04A',color:'#000'}}>
           Next →
         </button>
@@ -5968,30 +7885,49 @@ function PostMatchReviewScreen({ game, squad, opponent, config, onDone }) {
     </div>
   );
 
-  // ── STEP 2: Notes ────────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────────────────────────────────
+  // STEP 2: Coaching notes + Player notes
+  // ────────────────────────────────────────────────────────────────────────────
   if (step === 2 && !outputs) return (
     <div style={{display:'flex',flexDirection:'column',height:'100dvh',background:'#0D0D0D',overflow:'hidden'}}>
-      <Header title="Coaching Notes" subtitle="Capture while fresh — voice or type"/>
-      <div style={{flex:1,overflowY:'auto',padding:'16px',paddingBottom:100}}>
-        <div style={{background:'#111111',borderRadius:16,border:'1px solid #1A1A1A',padding:'16px',marginBottom:14}}>
+      <PageHeader title="Coaching Notes" step={2} total={3} onBack={()=>setStep(1)}/>
+      <div style={{flex:1,overflowY:'auto',padding:'16px',paddingBottom:110}}>
+
+        <div style={{background:'#111111',borderRadius:14,border:'1px solid #1E1E1E',padding:'14px 16px',marginBottom:12}}>
           <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
             <TeamBadge name={opponent} size={22} radius={5}/>
-            <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:1,textTransform:'uppercase'}}>{opponent} — Opposition Notes</div>
+            <div style={{fontSize:11,fontWeight:800,color:'#38bdf8',letterSpacing:1,textTransform:'uppercase'}}>{opponent}</div>
           </div>
           <NoteField label="What caused us the most problems?" field="oppProblems" placeholder="Their pressing, direct play, set pieces…"/>
-          {!isQuick && <NoteField label="What did they do well?" field="oppDidWell" placeholder="Good ball retention, strong centre back…"/>}
-          <NoteField label={isQuick?"Advice for playing them next time":"What should another coach know before playing them?"} field="oppAdvice" placeholder="Play wide, quick transitions, watch #9…"/>
+          <NoteField label="Advice for playing them next time" field="oppAdvice" placeholder="Play wide, quick transitions, watch #9…"/>
         </div>
-        <div style={{background:'#111111',borderRadius:16,border:'1px solid #1A1A1A',padding:'16px'}}>
+
+        <div style={{background:'#111111',borderRadius:14,border:'1px solid #1E1E1E',padding:'14px 16px',marginBottom:12}}>
           <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
             <TeamBadge name={teamName} size={22} radius={5}/>
-            <div style={{fontSize:11,fontWeight:800,color:'#22c55e',letterSpacing:1,textTransform:'uppercase'}}>{teamName} — Our Notes</div>
+            <div style={{fontSize:11,fontWeight:800,color:'#22c55e',letterSpacing:1,textTransform:'uppercase'}}>{teamName}</div>
           </div>
           <NoteField label="What pleased you today?" field="ourPleased" placeholder="Great pressing, team shape held well…"/>
           <NoteField label="What should we improve?" field="ourImprove" placeholder="Final third decisions, composure in front of goal…"/>
         </div>
+
+        {/* Player notes — always shown */}
+        {players.length > 0 && (
+          <div style={{background:'#111111',borderRadius:14,border:'1px solid #1E1E1E',padding:'14px 16px',marginBottom:12}}>
+            <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:1.2,textTransform:'uppercase',marginBottom:4}}>Player Notes</div>
+            <div style={{fontSize:11,color:'#555',marginBottom:12}}>Individual observations — optional</div>
+            {players.slice(0,14).map(name=>(
+              <div key={name} style={{marginBottom:10}}>
+                <div style={{fontSize:12,fontWeight:700,color:'#A1A1A1',marginBottom:4}}>{name}</div>
+                <input value={playerNotes[name]||''} onChange={e=>setPlayerNotes(prev=>({...prev,[name]:e.target.value}))}
+                  placeholder="Short observation…"
+                  style={{width:'100%',background:'#0D0D0D',border:'1px solid #2A2A2A',borderRadius:8,padding:'9px 12px',color:'#FFF',fontSize:13,outline:'none',boxSizing:'border-box'}}/>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-      <div style={{position:'fixed',bottom:0,left:0,right:0,padding:'12px 16px',paddingBottom:'calc(env(safe-area-inset-bottom) + 80px)',background:'#0D0D0D',borderTop:'1px solid #1A1A1A'}}>
+      <div style={{position:'fixed',bottom:80,left:0,right:0,padding:'12px 16px',background:'#0D0D0D',borderTop:'1px solid #1E1E1E'}}>
         <button onClick={()=>setStep(3)} style={{width:'100%',padding:'15px',border:'none',borderRadius:14,fontSize:15,fontWeight:800,cursor:'pointer',background:'#F5C04A',color:'#000'}}>
           Next →
         </button>
@@ -6000,14 +7936,16 @@ function PostMatchReviewScreen({ game, squad, opponent, config, onDone }) {
     </div>
   );
 
-  // ── STEP 3: Training + Players ───────────────────────────────────────────────
+  // ────────────────────────────────────────────────────────────────────────────
+  // STEP 3: Training priorities + AI Review
+  // ────────────────────────────────────────────────────────────────────────────
   if (step === 3 && !outputs) return (
     <div style={{display:'flex',flexDirection:'column',height:'100dvh',background:'#0D0D0D',overflow:'hidden'}}>
-      <Header title="Training Focus" subtitle="Select up to 3 priorities"/>
-      <div style={{flex:1,overflowY:'auto',padding:'16px',paddingBottom:100}}>
+      <PageHeader title="Training Focus" step={3} total={3} onBack={()=>setStep(2)}/>
+      <div style={{flex:1,overflowY:'auto',padding:'16px',paddingBottom:110}}>
 
-        <div style={{background:'#111111',borderRadius:16,border:'1px solid #1A1A1A',padding:'16px',marginBottom:14}}>
-          <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:1.5,textTransform:'uppercase',marginBottom:4}}>TRAINING PRIORITIES <span style={{color:'#555',fontWeight:500}}>({priorities.length}/3)</span></div>
+        <div style={{background:'#111111',borderRadius:14,border:'1px solid #1E1E1E',padding:'14px 16px',marginBottom:12}}>
+          <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:1.2,textTransform:'uppercase',marginBottom:4}}>Training Priorities <span style={{color:'#555',fontWeight:500,fontSize:11}}>({priorities.length}/3)</span></div>
           <div style={{fontSize:11,color:'#555',marginBottom:12}}>Select up to 3 focus areas for next session</div>
           <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
             {ALL_PRIORITIES.map(p => {
@@ -6015,10 +7953,7 @@ function PostMatchReviewScreen({ game, squad, opponent, config, onDone }) {
               const dis = !sel && priorities.length >= 3;
               return (
                 <button key={p} onClick={()=>!dis&&togglePriority(p)}
-                  style={{padding:'8px 14px',borderRadius:20,border:`1.5px solid ${sel?'#F5C04A':'#2A2A2A'}`,
-                    background:sel?'rgba(245,192,74,0.12)':'#1A1A1A',
-                    color:sel?'#F5C04A':dis?'#333':'#A1A1A1',
-                    fontSize:13,fontWeight:sel?700:500,cursor:dis?'default':'pointer',transition:'all 0.15s'}}>
+                  style={{padding:'8px 14px',borderRadius:20,border:`1.5px solid ${sel?'#F5C04A':'#2A2A2A'}`,background:sel?'#F5C04A18':'#1A1A1A',color:sel?'#F5C04A':dis?'#333':'#A1A1A1',fontSize:12,fontWeight:sel?700:500,cursor:dis?'default':'pointer'}}>
                   {p}
                 </button>
               );
@@ -6026,8 +7961,8 @@ function PostMatchReviewScreen({ game, squad, opponent, config, onDone }) {
           </div>
         </div>
 
-        <div style={{background:'#111111',borderRadius:16,border:'1px solid #1A1A1A',padding:'16px',marginBottom:14}}>
-          <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:1.5,textTransform:'uppercase',marginBottom:4}}>MOST IMPROVED PLAYER</div>
+        <div style={{background:'#111111',borderRadius:14,border:'1px solid #1E1E1E',padding:'14px 16px',marginBottom:12}}>
+          <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:1.2,textTransform:'uppercase',marginBottom:4}}>Most Improved Player</div>
           <div style={{fontSize:11,color:'#555',marginBottom:10}}>Track development — not Player of the Match</div>
           <select value={mostImproved} onChange={e=>setMostImproved(e.target.value)}
             style={{width:'100%',background:'#0D0D0D',border:'1px solid #2A2A2A',borderRadius:10,padding:'11px 14px',color:mostImproved?'#FFF':'#555',fontSize:14,outline:'none'}}>
@@ -6036,84 +7971,64 @@ function PostMatchReviewScreen({ game, squad, opponent, config, onDone }) {
           </select>
         </div>
 
-        {!isQuick && (
-          <div style={{background:'#111111',borderRadius:16,border:'1px solid #1A1A1A',overflow:'hidden',marginBottom:14}}>
-            <button onClick={()=>setShowPlayerNotes(p=>!p)}
-              style={{width:'100%',padding:'14px 16px',background:'none',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-              <div>
-                <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:1.5,textTransform:'uppercase',textAlign:'left'}}>PLAYER NOTES</div>
-                <div style={{fontSize:11,color:'#555',marginTop:2,textAlign:'left'}}>Optional — individual observations</div>
-              </div>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2.5" style={{transform:showPlayerNotes?'rotate(180deg)':'none',transition:'transform 0.2s'}}><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            {showPlayerNotes && (
-              <div style={{padding:'0 16px 16px',borderTop:'1px solid #1A1A1A'}}>
-                {players.slice(0,12).map(name=>(
-                  <div key={name} style={{marginTop:12}}>
-                    <div style={{fontSize:12,fontWeight:600,color:'#A1A1A1',marginBottom:4}}>{name}</div>
-                    <input value={playerNotes[name]||''} onChange={e=>setPlayerNotes(prev=>({...prev,[name]:e.target.value}))}
-                      placeholder="Short observation…"
-                      style={{width:'100%',background:'#0D0D0D',border:'1px solid #2A2A2A',borderRadius:8,padding:'8px 12px',color:'#FFF',fontSize:13,outline:'none',boxSizing:'border-box'}}/>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
-      <div style={{position:'fixed',bottom:0,left:0,right:0,padding:'12px 16px',paddingBottom:'calc(env(safe-area-inset-bottom) + 80px)',background:'#0D0D0D',borderTop:'1px solid #1A1A1A'}}>
+      <div style={{position:'fixed',bottom:80,left:0,right:0,padding:'12px 16px',background:'#0D0D0D',borderTop:'1px solid #1E1E1E'}}>
         <button onClick={handleGenerate}
-          style={{width:'100%',padding:'16px',border:'none',borderRadius:14,fontSize:16,fontWeight:800,cursor:'pointer',background:'#22c55e',color:'#000',letterSpacing:0.3}}>
-          ✨ Generate Match Review
+          style={{width:'100%',padding:'16px',border:'none',borderRadius:14,fontSize:15,fontWeight:800,cursor:'pointer',background:'#22c55e',color:'#000'}}>
+          ✨ Generate Match Notes
         </button>
       </div>
       <BottomNav activeTab="match" onTab={()=>{}}/>
     </div>
   );
 
-  // ── Generating loader ─────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────────────────────────────────
+  // Generating loader
+  // ────────────────────────────────────────────────────────────────────────────
   if (generating) return (
-    <div style={{minHeight:'100vh',background:'#0D0D0D',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:20,padding:32}}>
+    <div style={{minHeight:'100dvh',background:'#0D0D0D',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:20,padding:32}}>
       <div style={{fontSize:40}}>✨</div>
-      <div style={{fontSize:18,fontWeight:800,color:'#FFF',textAlign:'center'}}>Generating Review…</div>
-      <div style={{fontSize:13,color:'#555',textAlign:'center',maxWidth:260}}>Building your scout report, team review, and training recommendations</div>
-      <div style={{display:'flex',gap:6,marginTop:8}}>
+      <div style={{fontSize:18,fontWeight:800,color:'#FFF',textAlign:'center'}}>Generating Match Notes…</div>
+      <div style={{fontSize:13,color:'#555',textAlign:'center',maxWidth:280}}>Building AI review, parent summary, scout report, team review, and training plan</div>
+      <div style={{display:'flex',gap:6,marginTop:4}}>
         {[0,1,2].map(i=>(
-          <div key={i} style={{width:8,height:8,borderRadius:4,background:'#F5C04A',
-            animation:'pulse 1.2s ease-in-out infinite',animationDelay:`${i*0.2}s`}}/>
+          <div key={i} style={{width:8,height:8,borderRadius:4,background:'#22c55e',opacity:0.4,animation:'pulse 1.2s ease-in-out infinite',animationDelay:`${i*0.3}s`}}/>
         ))}
       </div>
-      <style>{`@keyframes pulse{0%,100%{opacity:0.3}50%{opacity:1}}`}</style>
+      <style>{`@keyframes pulse{0%,100%{opacity:0.2}50%{opacity:1}}`}</style>
     </div>
   );
 
-  // ── Outputs ──────────────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────────────────────────────────
+  // Outputs screen
+  // ────────────────────────────────────────────────────────────────────────────
   if (outputs) {
     const OUT_CARDS = [
-      { key:'parentSummary', title:'📱 Parent Summary', subtitle:'WhatsApp-ready', color:'#22c55e', text:outputs.parentSummary },
-      { key:'scoutReport',   title:'🔍 Scout Report',  subtitle:opponent,          color:'#F5C04A', text:outputs.scoutReport   },
-      { key:'teamReview',    title:'📊 Team Review',   subtitle:teamName,          color:'#60a5fa', text:outputs.teamReview    },
-      { key:'trainingRec',   title:'🏋️ Training Focus', subtitle:'Next session',   color:'#a78bfa', text:outputs.trainingRec   },
-      { key:'playerUpdates', title:'⭐ Player Notes',  subtitle:'Development',      color:'#fb923c', text:outputs.playerUpdates },
+      { key:'parentSummary', title:'📱 Parent Summary',  subtitle:'WhatsApp-ready', color:'#22c55e',  text:outputs.parentSummary },
+      { key:'scoutReport',   title:'🔍 Scout Report',    subtitle:opponent,         color:'#F5C04A',  text:outputs.scoutReport   },
+      { key:'teamReview',    title:'📊 Team Review',     subtitle:teamName,         color:'#38bdf8',  text:outputs.teamReview    },
+      { key:'trainingRec',   title:'🏋️ Training Focus',  subtitle:'Next session',   color:'#a78bfa',  text:outputs.trainingRec   },
+      { key:'playerUpdates', title:'⭐ Player Notes',    subtitle:'Development',    color:'#fb923c',  text:outputs.playerUpdates },
     ];
+    if (aiReview) OUT_CARDS.splice(2, 0, { key:'aiReview', title:'✨ AI Match Review', subtitle:'Detailed analysis', color:'#a78bfa', text:aiReview });
+
     return (
-      <div style={{display:'flex',flexDirection:'column',minHeight:'100vh',background:'#0D0D0D'}}>
-        <div style={{padding:'54px 16px 14px',background:'#111111',borderBottom:'1px solid #1A1A1A'}}>
-          <div style={{fontSize:11,fontWeight:800,color:'#22c55e',letterSpacing:2,textTransform:'uppercase',marginBottom:4}}>REVIEW COMPLETE</div>
+      <div style={{display:'flex',flexDirection:'column',minHeight:'100dvh',background:'#0D0D0D'}}>
+        <div style={{background:'#111111',borderBottom:'1px solid #1E1E1E',padding:'max(env(safe-area-inset-top),14px) 16px 14px'}}>
+          <div style={{fontSize:11,fontWeight:800,color:'#22c55e',letterSpacing:2,textTransform:'uppercase',marginBottom:4}}>COMPLETE</div>
           <div style={{fontSize:20,fontWeight:800,color:'#FFF'}}>Match Review Generated</div>
-          <div style={{fontSize:12,color:'#555',marginTop:4}}>Tap any card to copy to clipboard</div>
+          <div style={{fontSize:12,color:'#555',marginTop:2}}>Tap Copy on any card to share</div>
         </div>
-        <div style={{flex:1,padding:'16px',paddingBottom:120,display:'flex',flexDirection:'column',gap:12}}>
+        <div style={{flex:1,padding:'16px',paddingBottom:120,display:'flex',flexDirection:'column',gap:10}}>
           {OUT_CARDS.map(card=>(
-            <div key={card.key} style={{background:'#111111',borderRadius:16,border:`1px solid ${card.color}33`,overflow:'hidden'}}>
+            <div key={card.key} style={{background:'#111111',borderRadius:14,border:`1px solid ${card.color}33`,overflow:'hidden'}}>
               <div style={{padding:'12px 16px',borderBottom:`1px solid ${card.color}22`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                 <div>
                   <div style={{fontSize:14,fontWeight:800,color:card.color}}>{card.title}</div>
                   <div style={{fontSize:11,color:'#555',marginTop:1}}>{card.subtitle}</div>
                 </div>
                 <button onClick={()=>copyOutput(card.key,card.text)}
-                  style={{background:copiedKey===card.key?card.color+'22':'#1A1A1A',border:`1px solid ${copiedKey===card.key?card.color:'#2A2A2A'}`,
-                    borderRadius:8,padding:'6px 12px',cursor:'pointer',color:copiedKey===card.key?card.color:'#A1A1A1',fontSize:11,fontWeight:700}}>
+                  style={{background:copiedKey===card.key?card.color+'22':'#1A1A1A',border:`1px solid ${copiedKey===card.key?card.color:'#2A2A2A'}`,borderRadius:8,padding:'6px 12px',cursor:'pointer',color:copiedKey===card.key?card.color:'#A1A1A1',fontSize:11,fontWeight:700}}>
                   {copiedKey===card.key?'✓ Copied':'Copy'}
                 </button>
               </div>
@@ -6123,7 +8038,7 @@ function PostMatchReviewScreen({ game, squad, opponent, config, onDone }) {
             </div>
           ))}
         </div>
-        <div style={{position:'fixed',bottom:0,left:0,right:0,padding:'12px 16px',paddingBottom:'calc(env(safe-area-inset-bottom) + 80px)',background:'#0D0D0D',borderTop:'1px solid #1A1A1A'}}>
+        <div style={{position:'fixed',bottom:80,left:0,right:0,padding:'12px 16px',background:'#0D0D0D',borderTop:'1px solid #1E1E1E'}}>
           <button onClick={onDone} style={{width:'100%',padding:'15px',border:'none',borderRadius:14,fontSize:15,fontWeight:800,cursor:'pointer',background:'#22c55e',color:'#000'}}>
             Done ✓
           </button>
@@ -6863,7 +8778,7 @@ export default function App() {
 
   function goTab(tab) {
     setActiveTab(tab);
-    const roots = { home:"home", match:"matchDay", season:"season", team:"teamScreen", more:"more" };
+    const roots = { home:"home", match:"matchDay", season:"season", training:"training", team:"teamScreen", more:"more" };
     setScreen(roots[tab]);
   }
 
@@ -6887,12 +8802,12 @@ export default function App() {
     if(screen==="account")      return <AccountScreen onBack={()=>setScreen("more")} onSettings={()=>{setSettingsBackTo("account");setScreen("settings");}} onImportExport={()=>setScreen("importExport")} />;
     if(screen==="settings")     return <SettingsScreen settings={settings} onSave={handleSaveSettings} onBack={()=>setScreen(settingsBackTo)} onViewImportExport={()=>setScreen("importExport")} />;
     if(screen==="importExport") return <ImportExportScreen onBack={()=>setScreen("account")} />;
-    if(screen==="season")       return <SeasonHubScreen games={games} onBack={()=>goTab("home")} onOpenGame={id=>{setOpenGameId(id);setScreen("gameDetail");}} onDeleteGame={deleteGame} />;
+    if(screen==="season")       return <SeasonHubScreen games={games} onBack={()=>goTab("home")} onOpenGame={id=>{setOpenGameId(id);setScreen("gameDetail");}} onDeleteGame={deleteGame} onScout={t=>{setScoutTeam(t);setSquadBackTo("season");setScreen("opponentStats");}} />;
     if(screen==="gameDetail"){  const game=games.find(g=>g.id===openGameId); return <GameDetailScreen game={game} onBack={()=>{_pendingSeasonSub='log';setScreen("season");}} onUpdateGame={updateGame} />; }
     if(screen==="teamScreen")   return <TeamScreen onBack={()=>goTab("home")} onViewStats={()=>setScreen("stats")} onGoMatch={()=>{setSquadMode("newGame");setSquadBackTo("home");goTab("match");}} onGoFixtures={()=>{_pendingSeasonSub="fixtures";setActiveTab("season");setScreen("season");}} games={games} settings={settings} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("teamSquad");setScreen("squad");}} onEditTeam={()=>{setSettingsBackTo("teamScreen");setScreen("settings");}} onViewSquad={()=>setScreen("teamSquad")} />;
     if(screen==="teamSquad")    return <TeamSquadScreen onBack={()=>setScreen("teamScreen")} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("teamSquad");setScreen("squad");}} />;
     if(screen==="stats")        return <StatsScreen games={games} onBack={()=>setScreen("teamScreen")} />;
-    if(screen==="opponentStats") return <OpponentStatsScreen opponent={scoutTeam} onBack={()=>setScreen(squadBackTo==="matchDay"?"matchDay":squadBackTo==="picker"?"picker":"squad")} />;
+    if(screen==="opponentStats") return <OpponentStatsScreen opponent={scoutTeam} onBack={()=>setScreen(squadBackTo==="matchDay"?"matchDay":squadBackTo==="picker"?"picker":squadBackTo==="season"?"season":"squad")} />;
     if(screen==="squad")        return <SquadScreen mode={squadMode} onNext={(s,c,opp,lfk,fih)=>{setSquad(s);setConfig(c);setOpponent(opp);setLinkedFixKey(lfk);setFixIsHome(fih);setScreen("picker");}} onBack={()=>setScreen(squadBackTo||"teamScreen")} onViewOpponent={t=>{setScoutTeam(t);setScreen("opponentStats");}} />;
     if(screen==="playerStats") return <PlayerStatsScreen playerName={playerStatsName} onBack={()=>setScreen("picker")} games={games} squad={squad} />;
     if(screen==="matchDay")     return <MatchDayScreen settings={settings}
@@ -6929,9 +8844,10 @@ export default function App() {
       onBack={goTab}
     />;
     if(screen==="playersScreen") return <MatchPlayersScreen contextKey={matchContextKey} onBack={()=>setScreen("matchDay")} />;
-    if(screen==="quickPlay")    return <QuickPlayScreen opponent={quickPlayData.opponent} linkedFixKey={quickPlayData.linkedFixKey} fixIsHome={quickPlayData.fixIsHome} settings={settings} onBack={()=>setScreen("matchDay")} onSaved={()=>{setActiveTab("season");setScreen("season");}} />;
+    if(screen==="quickPlay")    return <QuickPlayScreen opponent={quickPlayData.opponent} linkedFixKey={quickPlayData.linkedFixKey} fixIsHome={quickPlayData.fixIsHome} settings={settings} onBack={()=>setScreen("matchDay")} onSaveGame={saveGame} onSaved={g=>{setPostMatchGame(g);setOpponent(g.opponent||'');setScreen("postMatchReview");}} />;
     if(screen==="picker")       return <PickerScreen onNext={null} onBack={()=>setScreen("matchDay")} onSave={()=>{setPickerInitialTab('squad');setScreen("matchDay");}} initialTab={pickerInitialTab} contextKey={matchContextKey} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("picker");setScreen("squad");}} onViewOpponent={t=>{setScoutTeam(t);setScreen("opponentStats");}} onViewStats={(name)=>{setPlayerStatsName(name);setScreen("playerStats");}} onViewPlayerStats={(name)=>{setPlayerStatsName(name);setScreen("playerStats");}} />;
     if(screen==="match")        return <MatchScreen half1={half1} half2={half2} config={config} squad={squad} opponent={opponent} linkedFixKey={linkedFixKey} fixIsHome={fixIsHome} onSaveGame={saveGame} onPostMatch={g=>{setPostMatchGame(g);setScreen("postMatchReview");}} onExit={()=>{ setActiveTab("home"); setScreen("home"); }} />;
+    if(screen==="training")       return <TrainingScreen onBack={()=>goTab("home")} />;
     if(screen==="postMatchReview") return <PostMatchReviewScreen game={postMatchGame||{scoreUs:0,scoreThem:0}} squad={squad} opponent={opponent} config={config} onDone={()=>{ setActiveTab("home"); setScreen("home"); }} />;
     return null;
   }
@@ -6948,7 +8864,7 @@ export default function App() {
 // ── Styles ────────────────────────────────────────────────────────────────────
 const S = {
   page:         { minHeight:"100vh", background:"#0D0D0D", display:"flex", alignItems:"center", justifyContent:"center", padding:16, paddingTop:"max(env(safe-area-inset-top),16px)", paddingBottom:"max(env(safe-area-inset-bottom),16px)", boxSizing:"border-box" },
-  card:         { background:"#1A1A1A", border:"1px solid #1E1400", borderRadius:16, padding:"24px 20px", width:"100%", maxWidth:DEVICE.cardMax, display:"flex", flexDirection:"column", gap:12 },
+  card:         { background:"#1A1A1A", border:"1px solid #1E1E1E", borderRadius:16, padding:"24px 20px", width:"100%", maxWidth:DEVICE.cardMax, display:"flex", flexDirection:"column", gap:12 },
   pill:         { alignSelf:"flex-start", background:"#F5C04A22", color:"#F5C04A", border:"1px solid #F5C04A44", borderRadius:20, fontSize:11, fontWeight:700, padding:"3px 12px", letterSpacing:2 },
   h1:           { margin:0, fontSize:24, fontWeight:800, color:"#FFFFFF" },
   sub:          { margin:0, fontSize:13, color:"#A1A1A1", lineHeight:1.5 },
@@ -6963,7 +8879,7 @@ const S = {
   backBtn:      { background:"none", border:"1px solid #2A2A2A", color:"#A1A1A1", borderRadius:8, padding:"6px 10px", fontSize:13, cursor:"pointer" },
   btnX:         { background:"none", border:"none", color:"#A1A1A1", fontSize:14, cursor:"pointer", padding:"0 2px" },
   btnTinyX:     { background:"none", border:"none", color:"#A1A1A1", fontSize:11, cursor:"pointer", marginLeft:4 },
-  scoreTile:    { background:"#0D0D0D", borderRadius:12, padding:"14px 16px", border:"1px solid #1E1400" },
+  scoreTile:    { background:"#0D0D0D", borderRadius:12, padding:"14px 16px", border:"1px solid #1E1E1E" },
   scoreTileStat:{ flex:1, textAlign:"center" },
   scoreTileNum: { fontSize:24, fontWeight:900, color:"#FFFFFF" },
   scoreTileLbl: { fontSize:10, color:"#A1A1A1", fontWeight:700, marginTop:2 },
