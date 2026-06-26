@@ -6321,7 +6321,6 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
   const [voicePulse, setVoicePulse]   = useState(false);
   const [activeMatchTab, setActiveMatchTab] = useState('lineup');
   const [goalScorer, setGoalScorer] = useState('');
-  const [subPlanTab, setSubPlanTab] = useState(1); // which period to preview subs for
   const timerRef = useRef(null);
   const recognitionRef = useRef(null);
   const pulseRef = useRef(null);
@@ -6682,112 +6681,134 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
       {/* ── HEADER ── */}
       <div style={{background:'#111111',borderBottom:'1px solid #1A1A1A',flexShrink:0}}>
 
-        {/* Row 1: Logo | MATCH | Live/End */}
-        <div style={{display:'flex',alignItems:'center',padding:'8px 14px 6px'}}>
-          <img src={KHULA_LOGO} alt="Khula" style={{height:34,objectFit:'contain'}}/>
+        {/* Row 1: back | venue + date | settings */}
+        <div style={{display:'flex',alignItems:'center',padding:'6px 10px 4px',gap:6,borderBottom:'1px solid #1A1A1A'}}>
+          <button onClick={onExit} style={{background:'none',border:'none',color:'#A1A1A1',fontSize:10,fontWeight:800,cursor:'pointer',padding:'2px 4px 2px 0',display:'flex',alignItems:'center',gap:2,flexShrink:0}}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+            <span style={{letterSpacing:0.5}}>GAME</span>
+          </button>
           <div style={{flex:1,textAlign:'center'}}>
-            <span style={{fontSize:20,fontWeight:900,color:'#F5C04A',letterSpacing:1.5}}>MATCH</span>
+            {(()=>{
+              const fix=linkedFixKey?FIXTURES.find(f=>fixtureKey(f)===linkedFixKey):null;
+              const venue=fix?.venue||config?.venue||'';
+              const dateStr=fix?`${fix.date} · ${fix.time}`:'';
+              return(<>
+                {venue&&<div style={{fontSize:11,fontWeight:700,color:'#FFF',lineHeight:1.2}}>📍 {venue}</div>}
+                {dateStr&&<div style={{fontSize:9,color:'#666',marginTop:1}}>{dateStr}</div>}
+                {!venue&&!dateStr&&<div style={{fontSize:10,color:'#444'}}>Friendly</div>}
+              </>);
+            })()}
           </div>
-          <button onClick={()=>{if(voiceNotes.trim()){setVoiceReview(voiceNotes);setModal('voiceReview');}else setModal('save');}}
-            style={{background:'none',border:'1px solid #F5C04A',borderRadius:8,color:'#F5C04A',fontSize:11,fontWeight:800,cursor:'pointer',padding:'4px 10px',letterSpacing:0.5}}>
-            Live
+          <button onClick={()=>{if(voiceNotes.trim()){setVoiceReview(voiceNotes);setModal('voiceReview');}else setModal('save');}} style={{background:'none',border:'none',color:'#A1A1A1',cursor:'pointer',padding:'2px 0 2px 4px',lineHeight:1,flexShrink:0}}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           </button>
         </div>
 
-        {/* Row 2: vs opponent + date/time */}
-        {(()=>{
-          const fix=linkedFixKey?FIXTURES.find(f=>fixtureKey(f)===linkedFixKey):null;
-          const dateStr=fix?`${fix.date} · ${fix.time}`:'';
-          return (
-            <div style={{textAlign:'center',padding:'0 16px 8px'}}>
-              <div style={{fontSize:14,fontWeight:600,color:'#FFF'}}>vs {opponent||'Opposition'}</div>
-              {dateStr&&(
-                <div style={{fontSize:11,color:'#666',marginTop:3,display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  {dateStr}
-                </div>
-              )}
-            </div>
-          );
-        })()}
+        {/* Row 2: left-team icon+name | score + game clock | right-team icon+name */}
+        <div style={{display:'flex',alignItems:'center',padding:'8px 12px 10px',gap:8}}>
 
-        {/* Row 3: Score banner */}
-        <div style={{display:'flex',alignItems:'center',padding:'4px 14px 10px',gap:0}}>
-          {/* Our team: badge+name left, score towards center */}
-          <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'space-between',minWidth:0,paddingRight:6}}>
-            <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-              <TeamBadge name={myTeam} size={68} radius={13}/>
-              <div style={{fontSize:10,fontWeight:700,color:'#FFF',textAlign:'center',maxWidth:68,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{myTeam}</div>
-            </div>
-            <div style={{fontSize:50,fontWeight:900,color:'#F5C04A',lineHeight:1,fontVariantNumeric:'tabular-nums'}}>{usGoals.length}</div>
-          </div>
-          {/* Center: half clock + play/pause */}
-          <div style={{flexShrink:0,textAlign:'center',display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
-            <div style={{fontSize:26,fontWeight:800,color:'#FFF',fontVariantNumeric:'tabular-nums',lineHeight:1}}>{gMM}:{gSS}</div>
-            <div style={{fontSize:9,color:'#A1A1A1',letterSpacing:0.5}}>{liveHalfIdx===0?'1st Half':'2nd Half'}</div>
-            <button onClick={toggleRun} style={{width:28,height:28,borderRadius:'50%',background:running?'rgba(239,68,68,0.15)':'rgba(34,197,94,0.15)',border:running?'1.5px solid #ef4444':'1.5px solid #22c55e',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0}}>
-              {running
-                ? <svg width="10" height="10" viewBox="0 0 24 24" fill="#ef4444"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                : <svg width="10" height="10" viewBox="0 0 24 24" fill="#22c55e"><polygon points="5,3 19,12 5,21"/></svg>
-              }
-            </button>
-          </div>
-          {/* Opponent: score towards center, badge+name right */}
-          <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'space-between',minWidth:0,paddingLeft:6}}>
-            <div style={{fontSize:50,fontWeight:900,color:'#FFF',lineHeight:1,fontVariantNumeric:'tabular-nums'}}>{themGoals.length}</div>
-            <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-              <TeamBadge name={opponent||'Opposition'} size={68} radius={13}/>
-              <div style={{fontSize:10,fontWeight:700,color:'#FFF',textAlign:'center',maxWidth:68,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{opponent||'Opposition'}</div>
+          {/* Left team */}
+          <div style={{flex:1,display:'flex',alignItems:'center',gap:8,minWidth:0}}>
+            <TeamBadge name={fixIsHome===false?opponent||'Away':myTeam||'Home'} size={68} radius={10}/>
+            <div style={{minWidth:0}}>
+              <div style={{fontSize:7,fontWeight:700,color:'#555',textTransform:'uppercase',letterSpacing:0.5,lineHeight:1}}>
+                {fixIsHome===false?'AWAY':'HOME'}
+              </div>
+              <div style={{fontSize:13,fontWeight:600,color:'#FFF',lineHeight:1.3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                {fixIsHome===false?(opponent||'Opposition'):(myTeam||'My Team')}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Tab bar: Overview | Substitutions | Events */}
-        <div style={{display:'flex',borderTop:'1px solid #1A1A1A'}}>
-          <button onClick={()=>setActiveMatchTab('lineup')} style={{flex:1,padding:'10px 4px',background:'none',border:'none',borderBottom:activeMatchTab==='lineup'?'2.5px solid #F5C04A':'2.5px solid transparent',cursor:'pointer',color:activeMatchTab==='lineup'?'#F5C04A':'#555',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-            <span style={{fontSize:9,fontWeight:700}}>Overview</span>
-          </button>
-          <button onClick={()=>setActiveMatchTab('subs')} style={{flex:1,padding:'10px 4px',background:'none',border:'none',borderBottom:activeMatchTab==='subs'?'2.5px solid #F5C04A':'2.5px solid transparent',cursor:'pointer',color:activeMatchTab==='subs'?'#F5C04A':'#555',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-            <span style={{fontSize:9,fontWeight:700}}>Substitutions</span>
-          </button>
-          <button onClick={()=>setActiveMatchTab('events')} style={{flex:1,padding:'10px 4px',background:'none',border:'none',borderBottom:activeMatchTab==='events'?'2.5px solid #F5C04A':'2.5px solid transparent',cursor:'pointer',color:activeMatchTab==='events'?'#F5C04A':'#555',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span style={{fontSize:9,fontWeight:700}}>Events</span>
-          </button>
+          {/* Centre: score + half label + big clock */}
+          <div style={{flexShrink:0,textAlign:'center',padding:'0 4px'}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,justifyContent:'center'}}>
+              <span style={{fontSize:32,fontWeight:600,color:'#FFF',fontVariantNumeric:'tabular-nums',minWidth:30,textAlign:'right',lineHeight:1}}>
+                {fixIsHome===false?themGoals.length:usGoals.length}
+              </span>
+              <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:1}}>
+                <div style={{fontSize:8,fontWeight:800,color:'#F5C04A',letterSpacing:1.5,textTransform:'uppercase'}}>{liveHalfIdx===0?'1ST':'2ND'} HALF</div>
+                <div style={{fontSize:20,fontWeight:700,color:alarmed?'#ef4444':'#A1A1A1',fontVariantNumeric:'tabular-nums',lineHeight:1}}>{gMM}:{gSS}</div>
+              </div>
+              <span style={{fontSize:32,fontWeight:600,color:'#FFF',fontVariantNumeric:'tabular-nums',minWidth:30,textAlign:'left',lineHeight:1}}>
+                {fixIsHome===false?usGoals.length:themGoals.length}
+              </span>
+            </div>
+          </div>
+
+          {/* Right team */}
+          <div style={{flex:1,display:'flex',alignItems:'center',gap:8,justifyContent:'flex-end',minWidth:0}}>
+            <div style={{minWidth:0,textAlign:'right'}}>
+              <div style={{fontSize:7,fontWeight:700,color:'#555',textTransform:'uppercase',letterSpacing:0.5,lineHeight:1}}>
+                {fixIsHome===false?'HOME':'AWAY'}
+              </div>
+              <div style={{fontSize:13,fontWeight:600,color:'#FFF',lineHeight:1.3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                {fixIsHome===false?(myTeam||'My Team'):(opponent||'Opposition')}
+              </div>
+            </div>
+            <TeamBadge name={fixIsHome===false?myTeam||'Home':opponent||'Away'} size={68} radius={10}/>
+          </div>
         </div>
       </div>
 
-      {/* ── UNIFIED PERIOD TABS (all halves × all periods) ── */}
-      {(()=>{
-        const nH    = halves.length;
-        const nP    = config?.numPeriods || 3;
-        const hMins = config?.halfMins || 24;
-        const pMins = hMins / nP;
-        return (
-          <div style={{display:'flex',background:'#0D0D0D',borderBottom:'1px solid #1A1A1A',flexShrink:0}}>
-            {Array.from({length:nH*nP},(_,t)=>{
-              const th    = Math.floor(t/nP);
-              const tp    = t%nP;
-              const tStart= Math.round(th*hMins+tp*pMins);
-              const tEnd  = Math.round(th*hMins+(tp+1)*pMins);
-              const isSel = th===halfIdx&&tp===pidx;
-              const isLive= th===liveHalfIdx&&tp===livePidx;
-              return (
-                <button key={t} onClick={()=>{switchHalf(th);switchPeriod(tp);}}
-                  style={{flex:1,padding:'5px 1px',background:isSel?'rgba(245,192,74,0.08)':'none',border:'none',borderBottom:isSel?'2px solid #F5C04A':'2px solid transparent',borderRight:t<nH*nP-1?'1px solid #1A1A1A':'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:1}}>
-                  <span style={{fontSize:8,fontWeight:800,color:isSel?'#F5C04A':'#444',whiteSpace:'nowrap'}}>{tStart}′–{tEnd}′</span>
-                  {isLive
-                    ?<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke={isSel?'#F5C04A':'#555'} strokeWidth="3"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-4.3"/></svg>
-                    :<div style={{height:8}}/>
-                  }
-                </button>
-              );
-            })}
+      {/* ── TAB BAR ── */}
+      <div style={{display:'flex',background:'#111111',borderBottom:'1px solid #1A1A1A',flexShrink:0,alignItems:'stretch'}}>
+        {/* Lineup tab */}
+        <button onClick={()=>setActiveMatchTab('lineup')} style={{flex:1,padding:'8px 4px',background:'none',border:'none',borderBottom:activeMatchTab==='lineup'?'2.5px solid #F5C04A':'2.5px solid transparent',cursor:'pointer',color:activeMatchTab==='lineup'?'#F5C04A':'#555',display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span style={{fontSize:9,fontWeight:700}}>Overview</span>
+        </button>
+        {/* Events tab */}
+        <button onClick={()=>setActiveMatchTab('events')} style={{flex:1,padding:'8px 4px',background:'none',border:'none',borderBottom:activeMatchTab==='events'?'2.5px solid #F5C04A':'2.5px solid transparent',cursor:'pointer',color:activeMatchTab==='events'?'#F5C04A':'#555',display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span style={{fontSize:9,fontWeight:700}}>Events</span>
+        </button>
+
+        {/* Centre: period countdown + play/pause */}
+        <button onClick={toggleRun} style={{flex:2,display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'center',padding:'4px 8px',background:'#0D0D0D',border:'none',borderLeft:'1px solid #1A1A1A',borderRight:'1px solid #1A1A1A',gap:8,cursor:'pointer'}}>
+          <div style={{display:'flex',flexDirection:'column',alignItems:'flex-start',gap:1}}>
+            <div style={{fontSize:8,fontWeight:800,color:'#F5C04A',letterSpacing:1.5,textTransform:'uppercase'}}>P{pidx+1}</div>
+            <div style={{fontSize:20,fontWeight:700,color:alarmed?'#ef4444':'#A1A1A1',fontVariantNumeric:'tabular-nums',lineHeight:1}}>{pMM}:{pSS}</div>
           </div>
-        );
-      })()}
+          <div style={{width:28,height:28,borderRadius:'50%',background:running?'rgba(239,68,68,0.15)':'rgba(34,197,94,0.15)',border:running?'1.5px solid #ef4444':'1.5px solid #22c55e',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+            {running
+              ? <svg width="10" height="10" viewBox="0 0 24 24" fill="#ef4444"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+              : <svg width="10" height="10" viewBox="0 0 24 24" fill="#22c55e"><polygon points="5,3 19,12 5,21"/></svg>
+            }
+          </div>
+        </button>
+
+        {/* Stats tab */}
+        <button onClick={()=>setActiveMatchTab('stats')} style={{flex:1,padding:'8px 4px',background:'none',border:'none',borderBottom:activeMatchTab==='stats'?'2.5px solid #F5C04A':'2.5px solid transparent',cursor:'pointer',color:activeMatchTab==='stats'?'#F5C04A':'#555',display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          <span style={{fontSize:9,fontWeight:700}}>Stats</span>
+        </button>
+      </div>
+
+      {/* ── HALF + PERIOD SELECTORS ── */}
+      <div style={{display:'flex',background:'#0D0D0D',borderBottom:'1px solid #1A1A1A',flexShrink:0,alignItems:'stretch'}}>
+        {/* Half selectors */}
+        {halves.map((_,h)=>{
+          const isLive = h === liveHalfIdx;
+          const isSel  = h === halfIdx;
+          return (
+            <button key={h} onClick={()=>switchHalf(h)}
+              style={{flex:1,padding:'5px 4px',background:'none',border:'none',borderBottom:isSel?'2px solid #F5C04A':'2px solid transparent',cursor:'pointer',color:isSel?'#F5C04A':'#444',fontSize:11,fontWeight:800,textAlign:'center',position:'relative'}}>
+              H{h+1}
+              {isLive&&<span style={{position:'absolute',top:3,right:'calc(50% - 10px)',width:4,height:4,borderRadius:'50%',background:'#22c55e',display:'inline-block',marginLeft:3,verticalAlign:'middle'}}/>}
+            </button>
+          );
+        })}
+        {/* Divider */}
+        <div style={{width:1,background:'#2A2A2A',margin:'4px 0',flexShrink:0}}/>
+        {/* Period selectors */}
+        {periods.map((_,i)=>(
+          <button key={i} onClick={()=>switchPeriod(i)}
+            style={{flex:1,padding:'5px 4px',background:'none',border:'none',borderBottom:i===pidx?'2px solid #F5C04A':'2px solid transparent',cursor:'pointer',color:i===pidx?'#F5C04A':'#444',fontSize:11,fontWeight:800,textAlign:'center'}}>
+            P{i+1}
+          </button>
+        ))}
+      </div>
 
       {/* Viewing-other-half banner */}
       {halfIdx !== liveHalfIdx && (
@@ -6816,83 +6837,56 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
               </div>
 
               {/* SVG Pitch */}
-              {(()=>{
-                // Pre-compute which players are going off next period
-                const nextP2 = halves[halfIdx]?.[pidx + 1];
-                const goingOff = new Set();
-                if (nextP2?.slots && cur.slots) {
-                  const curF = new Set(posIds.map(id=>cur.slots[id]).filter(Boolean));
-                  const nxtF = new Set(posIds.map(id=>nextP2.slots[id]).filter(Boolean));
-                  curF.forEach(n=>{ if(!nxtF.has(n)) goingOff.add(n); });
-                }
-                return (
-                  <div style={{flex:1,padding:'0 4px 4px',minHeight:0}} onTouchStart={onPitchTouchStart} onTouchEnd={onPitchTouchEnd}>
-                    <svg viewBox="0 0 200 280" xmlns="http://www.w3.org/2000/svg" style={{width:'100%',height:'100%',display:'block'}}
-                      onDragOver={e=>e.preventDefault()}>
-                      {/* Pitch background */}
-                      <rect x="0" y="0" width="200" height="280" fill="#1e5c28"/>
-                      {/* Subtle stripe pattern */}
-                      {[0,1,2,3,4,5,6].map(i=>(
-                        <rect key={i} x="0" y={i*40} width="200" height="40" fill={i%2===0?'rgba(0,0,0,0)':'rgba(0,0,0,0.06)'}/>
-                      ))}
-                      {/* Pitch markings */}
-                      <rect x="10" y="8" width="180" height="264" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1.5"/>
-                      <line x1="10" y1="140" x2="190" y2="140" stroke="rgba(255,255,255,0.3)" strokeWidth="1.2"/>
-                      <circle cx="100" cy="140" r="24" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.2"/>
-                      <circle cx="100" cy="140" r="2.5" fill="rgba(255,255,255,0.4)"/>
-                      {/* Penalty boxes */}
-                      <rect x="55" y="8" width="90" height="36" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.2"/>
-                      <rect x="55" y="236" width="90" height="36" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.2"/>
-                      {/* Goal boxes */}
-                      <rect x="78" y="8" width="44" height="14" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.2"/>
-                      <rect x="78" y="258" width="44" height="14" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.2"/>
-                      {/* Goals */}
-                      <rect x="88" y="2" width="24" height="6" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.2"/>
-                      <rect x="88" y="272" width="24" height="6" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.2"/>
-                      {/* Penalty spots */}
-                      <circle cx="100" cy="30" r="1.5" fill="rgba(255,255,255,0.4)"/>
-                      <circle cx="100" cy="250" r="1.5" fill="rgba(255,255,255,0.4)"/>
+              <div style={{flex:1,padding:'0 4px 4px',minHeight:0}} onTouchStart={onPitchTouchStart} onTouchEnd={onPitchTouchEnd}>
+                <svg viewBox="0 0 200 280" xmlns="http://www.w3.org/2000/svg" style={{width:'100%',height:'100%',display:'block'}}
+                  onDragOver={e=>e.preventDefault()}>
+                  {/* Green stripes */}
+                  {[0,1,2,3,4,5,6].map(i=>(
+                    <rect key={i} x="0" y={i*40} width="200" height="40"
+                      fill={i%2===0?'#1a5c1a':'#1d6b1d'}/>
+                  ))}
+                  {/* Pitch lines */}
+                  <rect x="10" y="8" width="180" height="264" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5"/>
+                  <line x1="10" y1="140" x2="190" y2="140" stroke="rgba(255,255,255,0.2)" strokeWidth="1"/>
+                  <circle cx="100" cy="140" r="22" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1"/>
+                  <circle cx="100" cy="140" r="2" fill="rgba(255,255,255,0.3)"/>
+                  <rect x="60" y="8" width="80" height="32" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1"/>
+                  <rect x="60" y="240" width="80" height="32" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1"/>
+                  <rect x="80" y="8" width="40" height="14" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1"/>
+                  <rect x="80" y="258" width="40" height="14" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1"/>
 
-                      {/* Player tokens */}
-                      {positions.map((pos)=>{
-                        const name=cur.slots[pos.id]||'';
-                        const isSel=selected?.from===pos.id;
-                        const isOff=goingOff.has(name);
-                        const player=squad.find(p=>p.name===name);
-                        const num=player?.number||'';
-                        const firstName=name.split(' ')[0]||'';
-                        const cx=svgX(pos.left), cy=svgY(pos.top);
-                        const R=12;
-                        return (
-                          <g key={pos.id} style={{cursor:'pointer'}}
-                            onClick={e=>{e.stopPropagation();handleTap(pos.id,false,null);}}
-                            onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();handleDrop(pos.id);}}>
-                            {/* Outer red ring if going off next */}
-                            {isOff&&<circle cx={cx} cy={cy-6} r={R+4} fill="none" stroke="#ef4444" strokeWidth="2"/>}
-                            {/* Selected ring */}
-                            {isSel&&<circle cx={cx} cy={cy-6} r={R+3} fill="none" stroke="rgba(245,192,74,0.7)" strokeWidth="3"/>}
-                            {/* Main circle */}
-                            <circle cx={cx} cy={cy-6} r={R}
-                              fill={isSel?'rgba(245,192,74,0.2)':'rgba(15,15,15,0.82)'}
-                              stroke={isSel?'#F5C04A':isOff?'#ef4444':'rgba(255,255,255,0.55)'}
-                              strokeWidth={isSel||isOff?2:1.5}/>
-                            {name
-                              ? <>
-                                  <text x={cx} y={cy-6+4} textAnchor="middle" fontSize="9" fontWeight="800"
-                                    fill={isSel?'#F5C04A':'#FFF'} fontFamily="Outfit,sans-serif">{num||firstName.slice(0,2).toUpperCase()}</text>
-                                  <text x={cx} y={cy+13} textAnchor="middle" fontSize="5.5" fontWeight="600"
-                                    fill="rgba(255,255,255,0.9)" fontFamily="Outfit,sans-serif">{firstName}</text>
-                                </>
-                              : <text x={cx} y={cy-2} textAnchor="middle" fontSize="14"
-                                  fill="rgba(255,255,255,0.15)" fontFamily="Outfit,sans-serif">+</text>
-                            }
-                          </g>
-                        );
-                      })}
-                    </svg>
-                  </div>
-                );
-              })()}
+                  {/* Player tokens */}
+                  {positions.map((pos,pIdx)=>{
+                    const name=cur.slots[pos.id]||'';
+                    const isSel=selected?.from===pos.id;
+                    const swapColor=isSel?null:getTokenColor(name);
+                    const init=name?name.split(' ').filter(Boolean).map(w=>w[0]).join('').toUpperCase().slice(0,2):'';
+                    const shortN=name.split(' ').length>1?(name.split(' ')[0][0]+'. '+name.split(' ').slice(-1)[0]).slice(0,9):name.slice(0,9);
+                    const cx=svgX(pos.left), cy=svgY(pos.top);
+                    const fillCol=isSel?'rgba(245,192,74,0.25)':swapColor?(swapColor+'22'):'rgba(18,18,18,0.92)';
+                    const strokeCol=isSel?'#F5C04A':swapColor||'rgba(255,255,255,0.3)';
+                    const sw=isSel?2:swapColor?1.8:1;
+                    return (
+                      <g key={pos.id} style={{cursor:'pointer'}}
+                        onClick={e=>{e.stopPropagation();handleTap(pos.id,false,null);}}
+                        onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();handleDrop(pos.id);}}>
+                        <rect x={cx-15} y={cy-19} width="30" height="38" rx="4" fill={fillCol} stroke={strokeCol} strokeWidth={sw}/>
+                        {name
+                          ? <>
+                              <text x={cx} y={cy-7} textAnchor="middle" fontSize="11" fontWeight="800" fill={isSel?'#F5C04A':'#FFF'} fontFamily="Outfit,sans-serif">{init}</text>
+                              <text x={cx} y={cy+8} textAnchor="middle" fontSize="4.8" fontWeight="600" fill="rgba(255,255,255,0.8)" fontFamily="Outfit,sans-serif">{shortN}</text>
+                              <text x={cx} y={cy+15} textAnchor="middle" fontSize="4" fill={isSel?'rgba(245,192,74,0.7)':'rgba(255,255,255,0.35)'} fontFamily="Outfit,sans-serif">{posLabel[pos.id]||pos.id}</text>
+                              <circle cx={cx+12} cy={cy-16} r="2.5" fill="#22c55e"/>
+                              <text x={cx-12} y={cy-12} fontSize="5.5" fontWeight="700" fill={isSel?'#F5C04A':'rgba(255,255,255,0.4)'} fontFamily="Outfit,sans-serif">{pIdx+1}</text>
+                            </>
+                          : <text x={cx} y={cy+2} textAnchor="middle" fontSize="14" fill="rgba(255,255,255,0.15)" fontFamily="Outfit,sans-serif">+</text>
+                        }
+                        {isSel&&<rect x={cx-15} y={cy-19} width="30" height="38" rx="4" fill="none" stroke="rgba(245,192,74,0.5)" strokeWidth="4"/>}
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
 
               {/* Bench strip */}
               {cur.slots.bench&&cur.slots.bench.length>0&&(
@@ -6922,191 +6916,105 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
               )}
             </div>
 
-            {/* RIGHT: Substitution Plan */}
-            {(()=>{
-              const numP     = halves[halfIdx]?.length || 0;
-              const perMin   = periodMins;
-              const halfOff  = halfIdx * (config?.halfMins || 24);
-              // Tab i shows subs that fire at the END of period i (start of period i+1)
-              const safePTab = Math.min(Math.max(subPlanTab, 0), Math.max(numP - 1, 0));
-              const fromP    = halves[halfIdx]?.[safePTab];
-              const toP      = halves[halfIdx]?.[safePTab + 1];
-              const subAtMin = Math.round(halfOff + (safePTab + 1) * perMin);
-              // Build subs + pair colours for this transition
-              const subs = [];
-              if (fromP?.slots && toP?.slots) {
-                const pairs = computeSwapPairs(fromP.slots, toP.slots, posIds);
-                posIds.forEach(id => {
-                  const was = fromP.slots[id], nxt = toP.slots[id];
-                  if (was && nxt && was !== nxt) {
-                    const pairIdx = pairs[was] ?? pairs[nxt] ?? null;
-                    const col = pairIdx !== null ? PAIR_COLORS[pairIdx] : '#2A2A2A';
-                    subs.push({ off: was, on: nxt, pos: posLabel[id] || id, col });
-                  }
-                });
-              }
-              const isLastTab = safePTab >= numP - 1;
-              const getNum    = name => { const p = squad.find(x=>x.name===name); return p?.number ? ` (#${p.number})` : ''; };
-              const initials  = name => name ? name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2) : '?';
-              return (
-                <div style={{flex:'0 0 48%',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+            {/* RIGHT: Events (top) + Upcoming Subs (bottom) */}
+            <div style={{flex:'0 0 48%',display:'flex',flexDirection:'column',overflow:'hidden'}}>
 
-                  {/* Header */}
-                  <div style={{padding:'5px 10px 4px',borderBottom:'1px solid #1A1A1A',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                    <div style={{fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase'}}>SUBSTITUTION PLAN</div>
-                    <span style={{fontSize:8,color:'#555',fontWeight:600}}>{Math.round(perMin)} Min Intervals</span>
-                  </div>
+              {/* ── TOP ROW: Match Events ── */}
+              <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',borderBottom:'1px solid #1A1A1A'}}>
 
-                  {/* Period tabs — one per period, filling the width */}
-                  {numP > 0 && (
-                    <div style={{display:'flex',borderBottom:'1px solid #1A1A1A',flexShrink:0}}>
-                      {Array.from({length:numP},(_,i)=>{
-                        const tStart = Math.round(halfOff + i * perMin);
-                        const tEnd   = Math.round(halfOff + (i+1) * perMin);
-                        const isSel  = i === safePTab;
-                        const isLive = i === livePidx && halfIdx === liveHalfIdx;
-                        return (
-                          <button key={i} onClick={()=>setSubPlanTab(i)}
-                            style={{flex:1,padding:'5px 2px',border:'none',borderRight:i<numP-1?'1px solid #1A1A1A':'none',background:isSel?'rgba(245,192,74,0.12)':'transparent',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:2,outline:isSel?'1px solid rgba(245,192,74,0.5)':'none',outlineOffset:-1}}>
-                            <span style={{fontSize:8,fontWeight:700,color:isSel?'#F5C04A':'#444',whiteSpace:'nowrap'}}>{tStart}′–{tEnd}′</span>
-                            {isLive
-                              ? <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={isSel?'#F5C04A':'#555'} strokeWidth="3"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-4.3"/></svg>
-                              : <div style={{height:10}}/>
-                            }
-                          </button>
-                        );
-                      })}
+                {/* Events header */}
+                <div style={{padding:'5px 10px 4px',borderBottom:'1px solid #1A1A1A',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                  <div style={{fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase'}}>MATCH EVENTS</div>
+                  <button onClick={()=>setActiveMatchTab('events')} style={{background:'none',border:'none',color:'#F5C04A',fontSize:9,fontWeight:700,cursor:'pointer',padding:0}}>All →</button>
+                </div>
+
+                {/* Events list */}
+                <div style={{flex:1,overflowY:'auto',padding:'4px 0'}}>
+                  {goals.length===0&&matchEvents.length===0&&(
+                    <div style={{fontSize:10,color:'#333',textAlign:'center',padding:'16px 0',fontStyle:'italic'}}>No events yet</div>
+                  )}
+                  {halfIdx===1&&(
+                    <div style={{display:'flex',alignItems:'center',gap:4,padding:'3px 10px'}}>
+                      <div style={{flex:1,height:1,background:'#1A1A1A'}}/>
+                      <span style={{fontSize:8,color:'#555',fontWeight:700}}>HT</span>
+                      <div style={{flex:1,height:1,background:'#1A1A1A'}}/>
                     </div>
                   )}
-
-                  {/* Subs list */}
-                  <div style={{flex:1,overflowY:'auto'}}>
-                    {isLastTab || subs.length === 0 ? (
-                      <div style={{fontSize:10,color:'#333',textAlign:'center',padding:'18px 0',fontStyle:'italic'}}>
-                        {isLastTab ? 'No subs after final period' : `No subs at ${subAtMin}′`}
-                      </div>
-                    ) : subs.map((s,i) => (
-                      <div key={i} style={{display:'flex',alignItems:'center',gap:4,padding:'6px 8px 6px 0',borderBottom:'1px solid #111111',borderLeft:`3px solid ${s.col}`}}>
-                        {/* Time */}
-                        <span style={{fontSize:10,color:'#555',fontWeight:700,flexShrink:0,minWidth:26,textAlign:'center'}}>{subAtMin}′</span>
-                        {/* Off player */}
-                        <div style={{flex:1,display:'flex',alignItems:'center',gap:4,minWidth:0}}>
-                          <div style={{width:28,height:28,borderRadius:'50%',background:'#1A1A1A',border:`1px solid ${s.col}66`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,fontWeight:800,color:'#FFF',flexShrink:0}}>{initials(s.off)}</div>
-                          <div style={{minWidth:0,flex:1}}>
-                            <div style={{display:'flex',alignItems:'center',gap:3}}>
-                              <span style={{fontSize:10,fontWeight:700,color:'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.off.split(' ')[0]}{getNum(s.off)}</span>
-                              {/* Red down arrow */}
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="3" style={{flexShrink:0}}><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
-                            </div>
-                            <div style={{fontSize:8,color:'#555',marginTop:1}}>{s.pos}</div>
-                          </div>
+                  {[...goals.map(g=>({t:g.secs,type:'goal',data:g})),...matchEvents.map(e=>({t:(e.minute||0)*60,type:'event',data:e}))].sort((a,b)=>a.t-b.t).map((item,i)=>{
+                    if(item.type==='goal'){const g=item.data;return(
+                      <div key={'g'+i} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',borderBottom:'1px solid #0D0D0D'}}>
+                        <span style={{fontSize:9,color:'#555',minWidth:20,fontWeight:700,flexShrink:0}}>{g.timeStr}'</span>
+                        <div style={{width:20,height:20,borderRadius:'50%',background:g.team==='us'?'rgba(34,197,94,0.15)':'rgba(252,165,165,0.15)',border:`1px solid ${g.team==='us'?'#22c55e':'#fca5a5'}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill={g.team==='us'?'#22c55e':'#fca5a5'}><circle cx="12" cy="12" r="10"/></svg>
                         </div>
-                        {/* Divider arrow */}
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="3" style={{flexShrink:0}}><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-                        {/* On player */}
-                        <div style={{flex:1,display:'flex',alignItems:'center',gap:4,minWidth:0}}>
-                          <div style={{width:28,height:28,borderRadius:'50%',background:'#1A1A1A',border:`1px solid ${s.col}66`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,fontWeight:800,color:'#FFF',flexShrink:0}}>{initials(s.on)}</div>
-                          <div style={{minWidth:0,flex:1}}>
-                            <div style={{display:'flex',alignItems:'center',gap:3}}>
-                              <span style={{fontSize:10,fontWeight:700,color:'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.on.split(' ')[0]}{getNum(s.on)}</span>
-                              {/* Green up arrow */}
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3" style={{flexShrink:0}}><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-                            </div>
-                            <div style={{fontSize:8,color:'#555',marginTop:1}}>{s.pos}</div>
-                          </div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:10,fontWeight:700,color:g.team==='us'?'#FFF':'#fca5a5',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{g.team==='us'?g.scorer:'Opponent'}</div>
+                          {g.team==='us'&&g.position&&<div style={{fontSize:8,color:'#555'}}>{g.position}</div>}
                         </div>
+                        <button onClick={()=>removeGoal(goals.indexOf(g))} style={{background:'none',border:'none',color:'#2A2A2A',cursor:'pointer',fontSize:12,padding:0,lineHeight:1,flexShrink:0}}>✕</button>
                       </div>
-                    ))}
-                  </div>
-
-                </div>
-              );
-            })()}
-          </div>
-        )}
-
-        {/* ──── SUBS TAB ──── */}
-        {activeMatchTab==='subs'&&(()=>{
-          const numP=halves[halfIdx]?.length||0;
-          const perMin=periodMins;
-          const halfOff=halfIdx*(config?.halfMins||24);
-          const safePTab=Math.min(Math.max(subPlanTab,0),Math.max(numP-1,0));
-          const fromP=halves[halfIdx]?.[safePTab];
-          const toP=halves[halfIdx]?.[safePTab+1];
-          const subAtMin=Math.round(halfOff+(safePTab+1)*perMin);
-          const subs=[];
-          if(fromP?.slots&&toP?.slots){
-            const pairs=computeSwapPairs(fromP.slots,toP.slots,posIds);
-            posIds.forEach(id=>{
-              const was=fromP.slots[id],nxt=toP.slots[id];
-              if(was&&nxt&&was!==nxt){
-                const pairIdx=pairs[was]??pairs[nxt]??null;
-                const col=pairIdx!==null?PAIR_COLORS[pairIdx]:'#2A2A2A';
-                subs.push({off:was,on:nxt,pos:posLabel[id]||id,col});
-              }
-            });
-          }
-          const isLastTab=safePTab>=numP-1;
-          const getNum=name=>{const p=squad.find(x=>x.name===name);return p?.number?` (#${p.number})`:''};
-          const initials=name=>name?name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2):'?';
-          return (
-            <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
-              {/* Period tabs */}
-              {numP>0&&(
-                <div style={{display:'flex',borderBottom:'1px solid #1A1A1A',flexShrink:0,background:'#111111'}}>
-                  {Array.from({length:numP},(_,i)=>{
-                    const tStart=Math.round(halfOff+i*perMin);
-                    const tEnd=Math.round(halfOff+(i+1)*perMin);
-                    const isSel=i===safePTab;
-                    const isLive=i===livePidx&&halfIdx===liveHalfIdx;
+                    );}
+                    const e=item.data;
+                    const evIcon=e.type==='Yellow Card'?'🟨':e.type==='Red Card'?'🟥':e.type==='Sub'?'→':'📝';
                     return(
-                      <button key={i} onClick={()=>setSubPlanTab(i)}
-                        style={{flex:1,padding:'10px 2px',border:'none',borderRight:i<numP-1?'1px solid #1A1A1A':'none',background:isSel?'rgba(245,192,74,0.12)':'transparent',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:2,outline:isSel?'1px solid rgba(245,192,74,0.5)':'none',outlineOffset:-1}}>
-                        <span style={{fontSize:10,fontWeight:700,color:isSel?'#F5C04A':'#555',whiteSpace:'nowrap'}}>{tStart}′–{tEnd}′</span>
-                        {isLive
-                          ?<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={isSel?'#F5C04A':'#555'} strokeWidth="3"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-4.3"/></svg>
-                          :<div style={{height:11}}/>}
-                      </button>
+                      <div key={'e'+i} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',borderBottom:'1px solid #0D0D0D'}}>
+                        <span style={{fontSize:9,color:'#555',minWidth:20,fontWeight:700,flexShrink:0}}>{e.minute||'?'}'</span>
+                        <div style={{width:20,height:20,borderRadius:'50%',background:'rgba(245,192,74,0.1)',border:'1px solid #2A2A2A',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:10}}>{evIcon}</div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:10,fontWeight:700,color:'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{e.player||e.type}</div>
+                          {e.type==='Sub'&&e.detail&&<div style={{fontSize:8,color:'#ef4444'}}>↓ {e.detail}</div>}
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
-              )}
-              {/* Subs list full width */}
-              <div style={{flex:1,overflowY:'auto'}}>
-                {isLastTab||subs.length===0?(
-                  <div style={{fontSize:13,color:'#333',textAlign:'center',padding:'40px 0',fontStyle:'italic'}}>
-                    {isLastTab?'No subs after final period':`No subs at ${subAtMin}′`}
-                  </div>
-                ):subs.map((s,i)=>(
-                  <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'14px 16px',borderBottom:'1px solid #111111',borderLeft:`4px solid ${s.col}`}}>
-                    <span style={{fontSize:12,color:'#555',fontWeight:700,flexShrink:0,minWidth:28,textAlign:'center'}}>{subAtMin}′</span>
-                    <div style={{flex:1,display:'flex',alignItems:'center',gap:10,minWidth:0}}>
-                      <div style={{width:38,height:38,borderRadius:'50%',background:'#1A1A1A',border:`1px solid ${s.col}66`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:'#FFF',flexShrink:0}}>{initials(s.off)}</div>
-                      <div style={{minWidth:0,flex:1}}>
-                        <div style={{display:'flex',alignItems:'center',gap:5}}>
-                          <span style={{fontSize:13,fontWeight:700,color:'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.off.split(' ')[0]}{getNum(s.off)}</span>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+              </div>
+
+              {/* ── BOTTOM ROW: Upcoming Substitutions ── */}
+              <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+                <div style={{padding:'5px 10px 4px',borderBottom:'1px solid #1A1A1A',flexShrink:0}}>
+                  <div style={{fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase'}}>UPCOMING SUBS</div>
+                </div>
+                <div style={{flex:1,overflowY:'auto',padding:'4px 0'}}>
+                  {(()=>{
+                    const nextP=halves[halfIdx]?.[pidx+1];
+                    const curP=halves[halfIdx]?.[pidx];
+                    if(!curP?.slots||!nextP?.slots){
+                      return <div style={{fontSize:10,color:'#333',textAlign:'center',padding:'12px 0',fontStyle:'italic'}}>No subs planned</div>;
+                    }
+                    const subs=[];
+                    posIds.forEach(id=>{const was=curP.slots[id],next=nextP.slots[id];if(was&&next&&was!==next)subs.push({on:next,off:was,pos:posLabel[id]||id});});
+                    if(subs.length===0) return <div style={{fontSize:10,color:'#333',textAlign:'center',padding:'12px 0',fontStyle:'italic'}}>No subs planned</div>;
+                    return subs.map((s,i)=>(
+                      <div key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',borderBottom:'1px solid #0D0D0D'}}>
+                        <div style={{display:'flex',flexDirection:'column',gap:1,flex:1,minWidth:0}}>
+                          <div style={{display:'flex',alignItems:'center',gap:4}}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                            <span style={{fontSize:10,fontWeight:700,color:'#22c55e',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.on}</span>
+                          </div>
+                          <div style={{display:'flex',alignItems:'center',gap:4}}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+                            <span style={{fontSize:10,fontWeight:700,color:'#ef4444',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.off}</span>
+                          </div>
                         </div>
-                        <div style={{fontSize:10,color:'#555',marginTop:2}}>{s.pos}</div>
+                        <span style={{fontSize:8,color:'#555',flexShrink:0}}>{s.pos}</span>
                       </div>
-                    </div>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="3"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-                    <div style={{flex:1,display:'flex',alignItems:'center',gap:10,minWidth:0}}>
-                      <div style={{width:38,height:38,borderRadius:'50%',background:'#1A1A1A',border:`1px solid ${s.col}66`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:'#FFF',flexShrink:0}}>{initials(s.on)}</div>
-                      <div style={{minWidth:0,flex:1}}>
-                        <div style={{display:'flex',alignItems:'center',gap:5}}>
-                          <span style={{fontSize:13,fontWeight:700,color:'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.on.split(' ')[0]}{getNum(s.on)}</span>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-                        </div>
-                        <div style={{fontSize:10,color:'#555',marginTop:2}}>{s.pos}</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                    ));
+                  })()}
+                </div>
+              </div>
+
+              {/* Events link */}
+              <div style={{padding:'5px 8px 6px',borderTop:'1px solid #1E1E1E',flexShrink:0}}>
+                <button onClick={()=>setActiveMatchTab('events')}
+                  style={{width:'100%',padding:'9px',background:'rgba(245,192,74,0.08)',border:'1px solid rgba(245,192,74,0.25)',borderRadius:9,color:'#F5C04A',fontSize:11,fontWeight:800,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  Match Events
+                </button>
               </div>
             </div>
-          );
-        })()}
+          </div>
+        )}
 
         {/* ──── EVENTS TAB (always mounted, hidden via CSS so triggers fire reliably) ──── */}
         <div style={{flex:1,overflow:'hidden',display:activeMatchTab==='events'?'flex':'none',flexDirection:'column'}}>
@@ -7145,7 +7053,7 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
       </div>
 
       {/* ── QUICK ACTIONS BAR — shown on all non-events tabs; links directly into EventsPage modals ── */}
-      {activeMatchTab==='lineup'&&(
+      {activeMatchTab!=='events'&&(
         <div style={{background:'#111111',borderTop:'1px solid #1E1E1E',padding:'8px 10px',paddingBottom:'max(8px,env(safe-area-inset-bottom))',marginBottom:60,flexShrink:0}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:6}}>
             {/* End Match */}
@@ -10268,3 +10176,4 @@ const S = {
   halfPillOn:   { color:"#FFFFFF", background:"#E9AA23", borderColor:"#3b82f6" },
   swipeHint:    { fontSize:9, color:"#2A2A2A", textAlign:"center", margin:"2px 0 0" },
 };
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
