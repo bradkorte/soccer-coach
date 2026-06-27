@@ -1,0 +1,435 @@
+{
+  "_exported": "khula_full_import",
+  "_version": "1.0",
+  "_description": "Full Khula import: game records, post-match reviews, player notes for G5–G10",
+  "soccerCoach_teamNotes": {
+    "Taylor": "SEASON NOTES – 2025\n\nG5 vs Toowong White (W 3–1): Excellent game, one of our most dangerous players going forward. Won the ball deeper and drove into attack, frequently beat defenders on the outside with pace. Key focus area: decision-making and distribution after beating players — \"beat one, then distribute.\"\n\nG6 vs Mitchelton Glitter (W 1–0): Strong game on the right wing, consistently made ground down the flank and created scoring opportunities. Scored a well-earned goal, unlucky not to add to her tally after two other close chances.\n\nG7 vs Sapphires (D 4–4): Difficult first half, sitting too deep and not getting involved in attacking play. Responded strongly in the second half — pushed higher, became more involved and scored an important goal. Her second-half performance showed the difference she can make when she plays aggressively.\n\nG9 vs Springfield (W 6–3): Scored a goal and provided strong attacking support. Continued to improve her movement and positioning in advanced areas.\n\nG10 vs Bardon Bandits (W 3–2): Strong performance especially in the first half. Several excellent runs down the wing, opened the scoring. Delivered several dangerous balls across the face of goal. First half stronger than second. Focus: poachers need to be in position to convert those crosses.\n\nDEVELOPMENT FOCUS: Release the ball earlier after winning space. \"Beat one, then distribute.\" Continue pushing high in attack from the start, not just in the second half.",
+    "Sydney": "SEASON NOTES – 2025\n\nG5 vs Toowong White (W 3–1): Solid performance, worked hard throughout, contributed well offensively and scored a goal. Reliable effort and involvement across the field.\n\nG6 vs Mitchelton Glitter (W 1–0): Not quite at usual level but still contributed. Won the ball effectively but didn't always follow up with the second effort needed to create further opportunities.\n\nG7 vs Sapphires (D 4–4): Grew into the game and became more effective as the match progressed.\n\nG9 vs Springfield (W 6–3): Outstanding attacking performance. Scored two goals and remained a constant threat. Used pace well and made intelligent attacking runs.\n\nG10 vs Bardon Bandits (W 3–2): Another dependable performance through midfield. Linked play well, made several strong runs, kept the team moving forward.\n\nDEVELOPMENT FOCUS: Second efforts after winning the ball — follow up immediately with pressure and support. Continue developing as an attacking runner.",
+    "Pippa": "SEASON NOTES – 2025\n\nG5 vs Toowong White (W 3–1): Good strong game, adapted reasonably well to playing left wing (not usual position). Scored a goal, worked hard on and off the ball.\n\nG6 vs Mitchelton Glitter (W 1–0): Worked hard on the left wing, made some good forward runs. Occasionally found herself shepherded towards the sideline and struggled to bring the ball back into central areas.\n\nG7 vs Sapphires (D 4–4): One of her strongest games of the season. Scored two goals playing striker. Looked dangerous whenever she got forward — well-earned double.\n\nG9 vs Springfield (W 6–3): Worked hard up front and contributed an important goal. Continued to pressure defenders and create opportunities.\n\nG10 vs Bardon Bandits (W 3–2): Scored a goal (capped off the game). Continues to find dangerous attacking positions. Next step: make decisions a touch earlier — on several occasions 2–3 extra touches allowed defenders to recover before she could shoot or release.\n\nDEVELOPMENT FOCUS: Earlier decision-making in the final third. Continue playing striker — she is most dangerous in advanced positions.",
+    "Ruby": "SEASON NOTES – 2025\n\nG5 vs Toowong White (W 3–1): First time playing wing/left-sided attacker. Handled the transition well — natural instinct still to drop back into defensive positions, which is understandable. Defensively protected the ball strongly and showed composure. Development area: distribution after winning space.\n\nG6 vs Mitchelton Glitter (W 1–0): Started strongly and showed she can hold her own further up the field. Positive spell on the left wing — has put her hand up for more attacking opportunities.\n\nG9 vs Springfield (W 6–3): Outstanding contribution at both ends of the field. Defended strongly and was rewarded with a goal. Excellent determination and commitment. Players of the Match.\n\nG10 vs Bardon Bandits (W 3–2): Terrific team-first performance. Volunteered to play goalkeeper in the first half — made several good saves and distributed quickly down the wings (exactly as coached). Returned to defence in second half, composed performance.\n\nDEVELOPMENT FOCUS: Continue developing comfort in wider attacking positions. Already strong in defence — keep pushing into attack when the opportunity arises.",
+    "Mia": "SEASON NOTES – 2025\n\nG6 vs Mitchelton Glitter (W 1–0): Spent time in several different positions throughout the match, adapted well to each role. Despite constant changes, delivered another dependable performance. Players of the Match.\n\nG7 vs Sapphires (D 4–4): Outstanding throughout. Consistently won possession, carried ball forward and made ground when others struggled. Scored one goal and was heavily involved across the field. Coach's view: would have been Player of the Match based on overall impact.\n\nG9 vs Springfield (W 6–3): Excellent work rate and team-first attitude. Adapted well to a role outside her preferred position. Players of the Match.\n\nG10 vs Bardon Bandits (W 3–2): A quieter game than we've come to expect. Didn't have as much influence on proceedings today but continued to work hard for the team.\n\nDEVELOPMENT FOCUS: Versatility is a strength — she has shown she can play multiple positions. Continue developing goal threat from midfield.",
+    "Charlotte": "SEASON NOTES – 2025\n\nG5 vs Toowong White (W 3–1): Played in right defence but tended to roam across the field and drift to the left. Observation: she may currently be more naturally suited to midfield, where her movement and desire to get involved can be used more effectively.\n\nG6 vs Mitchelton Glitter (W 1–0): Solid game, contributed well whenever called upon.\n\nG7 vs Sapphires (D 4–4): Looked uncomfortable playing on the wing and frequently drifted back into midfield. Positional discipline is a development area.\n\nG10 vs Bardon Bandits (W 3–2): One of the standout performers from our regular squad. Excellent work rate, constantly involved around the ball, kept making herself available. A really energetic and influential game. Players of the Match.\n\nDEVELOPMENT FOCUS: Best in midfield — use her energy and involvement there. Work on positional discipline in wide positions when deployed there.",
+    "Naomi": "SEASON NOTES – 2025\n\nG6 vs Mitchelton Glitter (W 1–0): Continued to provide reliable effort, recognised for another strong team performance. Players of the Match.\n\nG7 vs Sapphires (D 4–4): Showed plenty of energy but struggled to maintain positional discipline — often roaming away from her assigned side of the field.\n\nG10 vs Bardon Bandits (W 3–2): Handled second-half goalkeeper duties well. Produced one outstanding diving save showing real commitment. The two late goals knocked her confidence a little, but they came during a difficult team spell rather than being a reflection of her performance.\n\nDEVELOPMENT FOCUS: Positional discipline — stay on her assigned side of the field. Building confidence in goal — the diving save showed real ability.",
+    "Simone": "SEASON NOTES – 2025\n\nG5 vs Toowong White (W 3–1): Played in goal during the second half, worked hard.\n\nG7 vs Sapphires (D 4–4): Difficult afternoon in defence, found it challenging to deal with the attacking pressure. Continued to work hard and never stopped trying. Was awarded Player of the Match based on team rotation (not necessarily match performance).\n\nG9 vs Springfield (W 6–3): Played on the left wing despite it not being her preferred position. Worked tirelessly throughout — excellent work rate and team-first attitude. Her effort and willingness to play for the team had a significant impact on the result. Players of the Match.\n\nG10 vs Bardon Bandits (W 3–2): A quieter game than we've come to expect. Less influence on proceedings today but continued to work hard for the team.\n\nDEVELOPMENT FOCUS: Continue developing comfort in varied positions. Work rate and attitude are already excellent — channel that into positional discipline.",
+    "Kiera": "SEASON NOTES – 2025\n\nG5 vs Toowong White (W 3–1): Outstanding defensive performance. Critical to team's success. Consistently tracked back well, positioned between attacker and goal, disrupted opposition attacks and repeatedly won the ball back. Made several crucial defensive clearances near the goal line — became last line of defence multiple times. Very composed, reliable and intelligent.\n\nG6 vs Mitchelton Glitter (W 1–0): Rock solid at the back. Consistently tracked back to protect the goal, supported the goalkeeper and provided important defensive cover whenever needed.\n\nG7 vs Sapphires (D 4–4): Solid as always, providing reliability and composure at the back. Strong defensive game.\n\nG9 vs Springfield (W 6–3): One of her strongest defensive performances of the season. Read the game well, tracked runners consistently and made several important defensive interventions. Particularly effective recovering to cover Springfield's pace out wide. Players of the Match.\n\nG10 vs Bardon Bandits (W 3–2): Outstanding in defence again. Positioning and ability to get between attacker and goal continues to be exceptional. The timing of the opposition's two late goals (shortly after she rotated off) highlighted how important she is to our defensive organisation.\n\nDEVELOPMENT FOCUS: Continue as the anchor of our defensive unit. Kiera is already one of our most consistent performers — look for opportunities to bring her forward into attack.",
+    "Nixie": "SEASON NOTES – 2025\n\nG5 vs Toowong White (W 3–1): Very strong defensive game. Aggressive in getting to loose balls first — excellent job stepping forward to meet the ball early and clearing it out of our half. Her willingness to attack the ball defensively helped relieve pressure and prevented Toowong from building sustained attacks.\n\nG7 vs Sapphires (D 4–4): Strong defensive game, worked hard throughout. Awarded Player of the Match based on team rotation.\n\nG10 vs Bardon Bandits (W 3–2): An off day by her usual high standards. Looked a little less engaged than normal and wasn't able to influence the game as she typically does. Every player has those days — she'll bounce back.\n\nDEVELOPMENT FOCUS: Continue the aggressive, ball-winning defensive approach that has been a consistent strength. When having a difficult day, focus on the basics: get tight, attack the ball.",
+    "Sienna": "SEASON NOTES – 2025 (Goalkeeper)\n\nG5 vs Toowong White (W 3–1): Particularly impressive in goal. Showed real commitment and bravery. Willingness to dive for the ball and fully commit made a big impact and helped settle the team defensively.\n\nG6 vs Mitchelton Glitter (W 1–0): Great composure in goal. After an attacker closed her down quickly, produced an excellent save to deny what looked like a certain goal. Also adapted well to team's goalkeeper expectations and continued to improve distribution and decision-making.\n\nG7 vs Sapphires (D 4–4): Performed very well in goal, making several important saves and giving confidence to the team defensively. Learning opportunity: one opposition goal came from a corner that rolled through without being cleared — work on defending set pieces and reacting quickly inside the penalty area.\n\nDEVELOPMENT FOCUS: Distribution and quick decision-making when coming off the line. Defending corners and set pieces — organising defenders and reacting to loose balls in the box. Already showing excellent bravery and commitment.",
+    "Poppy": "SEASON NOTES – 2025\n\nG5 vs Toowong White (W 3–1): Strong defensively with some important clearances and good commitment. Supported the defensive line well and helped move the ball away from danger areas effectively.\n\nG6 vs Mitchelton Glitter (W 1–0): Outstanding match in defence. Playing on the left side, was aggressive in winning the ball, stepped into contests confidently and repeatedly cleared danger — helped turn defence into attack. One of her strongest games of the season. Players of the Match.\n\nG7 vs Sapphires (D 4–4): Strong defensive game, worked hard throughout.\n\nDEVELOPMENT FOCUS: Continue the aggressive, attack-the-ball approach in defence — it has been her standout quality. Look for opportunities to get forward when the team has possession.",
+    "Elsa": "(Guest) Excellent contribution. Scored our second goal, played well on wing and in midfield, made strong runs and consistently delivered dangerous crosses.",
+    "Jaeger": "(Guest) Very impressive. Powerful runner, used strength well, protected the ball effectively and showed good technical ability throughout.",
+    "Emily": "(Guest) Settled into the defensive unit well and quietly did everything asked of her. Solid and reliable contribution."
+  },
+  "soccerCoach_allPostMatch": [
+    {
+      "id": "soccerCoach_postMatch_g_imp_1747958400000",
+      "gameId": "g_imp_1747958400000",
+      "opponent": "Toowong White",
+      "date": 1747958400000,
+      "oppR": {
+        "overallStrength": 3,
+        "attacking": 2,
+        "defending": 3,
+        "pressing": 2
+      },
+      "ourR": {
+        "overallPerformance": 4,
+        "attacking": 3,
+        "defending": 5,
+        "teamShape": 4
+      },
+      "notes": {
+        "oppProblems": "Physical contest during challenges. Referee spoke to coaching staff at halftime re: pushing.",
+        "oppAdvice": "Keep elbows in, avoid pushing, stay balanced and strong rather than leading with arms. Compete hard but play fair.",
+        "whatPleased": "Strongest defensive performance of the season. First game we conceded a goal — still only 1. Controlled large periods of possession and territory. Multiple goal scorers.",
+        "whatImprove": "Converting territory into goals — we are getting into attacking areas but not finishing. Throw-in technique was inconsistent (straight arm, both feet on line). Decision-making and distribution after beating a defender — \"beat one, then distribute.\""
+      },
+      "priorities": [
+        "1v1 Attacking",
+        "Final Third",
+        "Passing"
+      ],
+      "mostImproved": "",
+      "playerNotes": {
+        "Taylor": "Excellent game, most dangerous player going forward. Won ball deep, drove into attack, beat defenders with pace. Key focus: distribution after beating players — \"beat one, then distribute.\"",
+        "Sydney": "Solid, scored a goal, reliable effort and involvement across the field.",
+        "Pippa": "Good strong game on left wing (not usual position). Scored a goal, worked hard on and off the ball.",
+        "Ruby": "First time on wing — handled transition well. Natural instinct to drop back into defence. Next step: distribution after winning space.",
+        "Charlotte": "Played in right defence but roamed left. May be more naturally suited to midfield — use her movement and desire to get involved there.",
+        "Kiera": "Outstanding — critical to team success. Tracked back well, got between attacker and goal, disrupted attacks. Made crucial clearances near goal line. Composed, reliable, intelligent.",
+        "Nixie": "Very strong defensively. Aggressive getting to loose balls, stepped forward to meet ball early and clear it out. Willingness to attack ball defensively was key.",
+        "Poppy": "Strong defensive clearances, good commitment in defensive situations, helped move ball away from danger.",
+        "Simone": "Played goalkeeper in second half. Worked hard.",
+        "Sienna": "Impressive in goal. Showed real commitment and bravery. Willingness to dive for the ball made a big impact."
+      },
+      "aiReview": "",
+      "outputs": {}
+    },
+    {
+      "id": "soccerCoach_postMatch_g_imp_1748563200000",
+      "gameId": "g_imp_1748563200000",
+      "opponent": "Mitchelton Glitter Dragons",
+      "date": 1748563200000,
+      "oppR": {
+        "overallStrength": 2,
+        "attacking": 2,
+        "defending": 3,
+        "pressing": 1
+      },
+      "ourR": {
+        "overallPerformance": 3,
+        "attacking": 3,
+        "defending": 5,
+        "teamShape": 3
+      },
+      "notes": {
+        "oppProblems": "Opposition retreated almost all players into their own penalty area — crowded box with very little space to play through.",
+        "oppAdvice": "Use wider positions to stretch defenders. Quick passes rather than dribbling into crowded areas. Support player on ball with multiple options.",
+        "whatPleased": "Girls showed plenty of grit and determination to find a way to win on a difficult day. Clean sheet. Taylor scored despite difficult conditions.",
+        "whatImprove": "Converting territory into goals — we dominated possession but only scored once. Second efforts and pressing — winning the ball is only the first step. Finishing scrappy chances."
+      },
+      "priorities": [
+        "Final Third",
+        "Finishing",
+        "Width"
+      ],
+      "mostImproved": "",
+      "playerNotes": {
+        "Taylor": "Strong game on right wing. Consistently made ground down the flank, scored a well-earned goal. Unlucky not to add to her tally after two other close chances.",
+        "Pippa": "Left wing, worked hard and made good forward runs. Occasionally shepherded towards sideline, struggled to bring ball into central areas.",
+        "Ruby": "Started strongly, showed she can hold her own further up the field. Left wing spell — has put her hand up for more attacking opportunities.",
+        "Sydney": "Not quite at usual level but contributed. Won ball effectively but didn't always follow up with second effort.",
+        "Mia": "Spent time in several positions, adapted well. Another dependable performance. Players of the Match.",
+        "Charlotte": "Solid game, contributed well whenever called upon.",
+        "Naomi": "Reliable effort, recognised for strong team performance. Players of the Match.",
+        "Poppy": "Outstanding match in defence. Aggressive in winning the ball, stepped into contests confidently, repeatedly cleared danger. One of her strongest games of the season. Players of the Match.",
+        "Kiera": "Rock solid at the back. Consistently tracked back to protect goal, supported goalkeeper, provided important defensive cover.",
+        "Sienna": "Great composure in goal. Excellent save after attacker closed her down quickly. Continued improving distribution and decision-making."
+      },
+      "aiReview": "",
+      "outputs": {}
+    },
+    {
+      "id": "soccerCoach_postMatch_g_imp_1749168000000",
+      "gameId": "g_imp_1749168000000",
+      "opponent": "Sapphires",
+      "date": 1749168000000,
+      "oppR": {
+        "overallStrength": 4,
+        "attacking": 4,
+        "defending": 3,
+        "pressing": 3
+      },
+      "ourR": {
+        "overallPerformance": 3,
+        "attacking": 4,
+        "defending": 2,
+        "teamShape": 2
+      },
+      "notes": {
+        "oppProblems": "Much-improved Sapphires side. Rubies spent much of the match either level or holding a one-goal lead, only for Sapphires to respond and draw level again.",
+        "oppAdvice": "Set piece defending — one goal came directly from a corner that rolled through the box without being cleared. Work on defending corners and reacting quickly inside the box.",
+        "whatPleased": "Scored 4 goals. Second-half improvement was particularly encouraging. Pippa one of her best games of the season. Mia outstanding.",
+        "whatImprove": "Pass and move — players kick the ball forward and then stop rather than following their pass and supporting the next phase. Positional discipline in trialled positions."
+      },
+      "priorities": [
+        "Passing",
+        "Communication",
+        "Team Shape"
+      ],
+      "mostImproved": "",
+      "playerNotes": {
+        "Pippa": "One of her strongest games of the season. Scored both goals playing striker. Looked dangerous whenever she got forward — well-earned double.",
+        "Mia": "Outstanding throughout. Consistently won possession, carried ball forward when others struggled. Scored one goal and was heavily involved across the field. Coach's Player of the Match.",
+        "Taylor": "Difficult first half — too deep, not getting involved in attack. Responded strongly after halftime, pushed higher, became more involved and scored an important goal. Second-half performance showed what she can do when she plays aggressively.",
+        "Kiera": "Solid in defence as always, providing reliability and composure at the back.",
+        "Poppy": "Strong defensive game, worked hard throughout.",
+        "Nixie": "Strong defensive game, worked hard throughout. Awarded Player of the Match (based on rotation group).",
+        "Sienna": "Very well in goal — several important saves and gave confidence to team. Learning: one goal came from a corner rolling through the box — work on defending set pieces.",
+        "Sydney": "Grew into the game and became more effective as the match progressed.",
+        "Charlotte": "Looked uncomfortable playing on the wing, frequently drifted back into midfield.",
+        "Naomi": "Showed plenty of energy but struggled to maintain positional discipline — often roaming away from assigned side of the field.",
+        "Simone": "Difficult afternoon in defence, challenged by Sapphires attacking pressure. Continued to work hard and never stopped trying. Awarded Player of the Match (based on rotation group)."
+      },
+      "aiReview": "",
+      "outputs": {}
+    },
+    {
+      "id": "soccerCoach_postMatch_g_imp_1750377600000",
+      "gameId": "g_imp_1750377600000",
+      "opponent": "Springfield United",
+      "date": 1750377600000,
+      "oppR": {
+        "overallStrength": 5,
+        "attacking": 4,
+        "defending": 3,
+        "pressing": 4
+      },
+      "ourR": {
+        "overallPerformance": 5,
+        "attacking": 5,
+        "defending": 4,
+        "teamShape": 5
+      },
+      "notes": {
+        "oppProblems": "Springfield's primary threat: goalkeeper kicks deep to #7 or #13 who attack space behind defence at pace. Both forwards had exceptional pace and consistently looked to run in behind defenders. Also played a highly physical style.",
+        "oppAdvice": "Track runners into space behind defensive line. Show attackers towards the touchline. Cover far post on wide attacks. Defensive communication when facing pace in behind.",
+        "whatPleased": "Composure under pressure — never panicked despite conceding 3. 6 goals against an undefeated opponent. Multiple goal scorers. Strong team spirit and resilience. Communication and covering runs improved as the game progressed.",
+        "whatImprove": "Managing pace in behind — Springfield's biggest threat came from runners attacking space behind defensive line. Defensive shape against wide players. Recovery runs."
+      },
+      "priorities": [
+        "Recovery Runs",
+        "1v1 Defending",
+        "Communication"
+      ],
+      "mostImproved": "",
+      "playerNotes": {
+        "Sydney": "Outstanding attacking performance. Scored two goals, remained a constant threat. Used pace well and made intelligent attacking runs.",
+        "Pippa": "Worked hard up front, contributed an important goal. Continued to pressure defenders and create opportunities.",
+        "Taylor": "Scored a goal and provided strong attacking support. Continued to improve movement and positioning in advanced areas.",
+        "Ruby": "Outstanding contribution at both ends of the field. Defended strongly and was rewarded with a goal. Excellent determination and commitment from start to finish. Players of the Match.",
+        "Kiera": "One of her strongest defensive performances of the season. Read the game well, tracked runners consistently, made several important defensive interventions. Particularly effective covering Springfield's pace out wide. Players of the Match.",
+        "Simone": "Played on the left wing despite it not being her preferred position. Worked tirelessly. Excellent work rate and team-first attitude. Had a significant impact on the result. Players of the Match."
+      },
+      "aiReview": "",
+      "outputs": {}
+    },
+    {
+      "id": "soccerCoach_postMatch_g_imp_1750982400000",
+      "gameId": "g_imp_1750982400000",
+      "opponent": "Bardon Bandits",
+      "date": 1750982400000,
+      "oppR": {
+        "overallStrength": 3,
+        "attacking": 3,
+        "defending": 2,
+        "pressing": 2
+      },
+      "ourR": {
+        "overallPerformance": 4,
+        "attacking": 4,
+        "defending": 3,
+        "teamShape": 4
+      },
+      "notes": {
+        "oppProblems": "Late pressure after we lost defensive shape for a 5-minute spell. Two quick goals when the team briefly switched off.",
+        "oppAdvice": "Maintain defensive concentration until the final whistle. Keep shape even when holding a comfortable lead.",
+        "whatPleased": "Another win, 3–0 lead built through disciplined defending and strong runs from wide areas. Excellent link-up play. Guest players contributed seamlessly. Ruby volunteered for goalkeeper — made several good saves and distributed quickly down wings.",
+        "whatImprove": "Attack the back post and six-yard box when crosses are delivered — Taylor and Elsa delivered several dangerous crosses across the face of goal but nobody was in position. Use the width of the field — it created our best chances. Maintain concentration until the final whistle."
+      },
+      "priorities": [
+        "Final Third",
+        "Width",
+        "Team Shape"
+      ],
+      "mostImproved": "",
+      "playerNotes": {
+        "Taylor": "Strong performance, especially first half. Excellent runs down the wing, opened the scoring. Delivered several dangerous balls across face of goal. Focus: poachers need to attack the back post to convert those crosses.",
+        "Elsa": "(Guest) Excellent contribution. Scored our second goal, played well on wing and in midfield, made strong runs and consistently delivered dangerous crosses.",
+        "Pippa": "Capped off the game with a well-earned goal. Continues to find dangerous attacking positions. Next step: make decisions a touch earlier — extra touches allowed defenders to recover.",
+        "Charlotte": "Standout performer from regular squad. Excellent work rate, constantly involved around the ball, kept making herself available. Energetic and influential. Players of the Match.",
+        "Kiera": "Outstanding in defence. Positioning and ability to get between attacker and goal continues to be exceptional. Timing of the two late goals (shortly after she rotated off) highlighted how important she is to defensive organisation.",
+        "Ruby": "Terrific team-first performance. Volunteered to play goalkeeper in first half — made several good saves and distributed quickly down the wings (exactly as coached). Composed in defence for second half.",
+        "Naomi": "Handled second-half goalkeeper duties well. Produced one outstanding diving save. Two late goals knocked her confidence a little — but they came during a difficult team spell, not a reflection of her overall performance.",
+        "Sydney": "Dependable performance through midfield. Linked play well, made strong runs, kept team moving forward.",
+        "Simone": "Quieter game than we have come to expect. Less influence than normal but continued to work hard for the team.",
+        "Nixie": "An off day by her usual high standards. Less engaged than normal. Every player has those days — she will bounce back.",
+        "Jaeger": "(Guest) Very impressive. Powerful runner, used strength well, protected the ball effectively and showed good technical ability throughout.",
+        "Emily": "(Guest) Settled into the defensive unit well and quietly did everything asked of her. Solid and reliable contribution."
+      },
+      "aiReview": "",
+      "outputs": {}
+    }
+  ],
+  "_gameRecords": [
+    {
+      "id": "g_imp_1747958400000",
+      "opponent": "Toowong White",
+      "date": 1747958400000,
+      "scoreUs": 3,
+      "scoreThem": 1,
+      "result": "W",
+      "goals": [
+        {
+          "team": "us",
+          "scorer": "Taylor",
+          "secs": 0
+        },
+        {
+          "team": "us",
+          "scorer": "Sydney",
+          "secs": 0
+        },
+        {
+          "team": "us",
+          "scorer": "Pippa",
+          "secs": 0
+        }
+      ],
+      "potm": "Pippa",
+      "formation": "1-3-2-3",
+      "khula_round": "Round 4",
+      "voiceNotes": "This was a really competitive and close game against Toowong White, with the girls showing strong determination, resilience, and composure throughout. Defensively, this was probably our strongest performance of the season so far — notably the first game we have conceded a goal, which highlights just how strong the team's defensive efforts have been all season.\n\nOne of the major positives was how much time we spent in the opposition half. We controlled large periods of possession and territory, often forcing Toowong White to bunch numbers back defensively. The next major step is learning how to convert that territorial advantage into more clear scoring opportunities.\n\nThe referee spoke to coaching staff at halftime regarding pushing and physical contact during challenges — we need to reinforce competing hard but within the rules. Throw-in technique was also inconsistent and needs to tighten up.\n\nFocus: \"beat one, then distribute\" — players are winning 1v1s well, now need to release the ball earlier.",
+      "report": "This was a really competitive and close game against Toowong White, with the girls showing strong determination, resilience, and composure throughout. Defensively, this was probably our strongest performance of the season so far — notably the first game we have conceded a goal, which highlights just how strong the team's defensive efforts have been all season.\n\nOne of the major positives was how much time we spent in the opposition half. We controlled large periods of possession and territory, often forcing Toowong White to bunch numbers back defensively. The next major step is learning how to convert that territorial advantage into more clear scoring opportunities.\n\nThe referee spoke to coaching staff at halftime regarding pushing and physical contact during challenges — we need to reinforce competing hard but within the rules. Throw-in technique was also inconsistent and needs to tighten up.\n\nFocus: \"beat one, then distribute\" — players are winning 1v1s well, now need to release the ball earlier.",
+      "matchEvents": [],
+      "quickNotes": [],
+      "halves": [],
+      "config": {
+        "formation": "1-3-2-3"
+      }
+    },
+    {
+      "id": "g_imp_1748563200000",
+      "opponent": "Mitchelton Glitter Dragons",
+      "date": 1748563200000,
+      "scoreUs": 1,
+      "scoreThem": 0,
+      "result": "W",
+      "goals": [
+        {
+          "team": "us",
+          "scorer": "Taylor",
+          "secs": 0
+        }
+      ],
+      "potm": "Mia, Poppy, Naomi",
+      "formation": "1-3-2-3",
+      "khula_round": "Round 5",
+      "voiceNotes": "The Rubies came away with another win, but it was one of our toughest and most hard-fought matches of the season. Despite spending much of the game in the opposition half, we struggled to turn our territorial dominance into goals and had to work hard right until the final whistle.\n\nThe conditions didn't help — strong wind and a low sun made the first half difficult. There were quite a few occasions where we mis-hit passes, missed the ball when attempting to clear or shoot, or couldn't quite connect cleanly. While it wasn't our most polished performance, the girls showed great determination and resilience to grind out the result.\n\nOne ongoing challenge: when we dominate territory, opposition teams often retreat almost all of their players into their own penalty area. This creates a crowded box with very little space to play through. Training focus: converting territory into goals, creating space around the box, finishing scrappy chances.",
+      "report": "The Rubies came away with another win, but it was one of our toughest and most hard-fought matches of the season. Despite spending much of the game in the opposition half, we struggled to turn our territorial dominance into goals and had to work hard right until the final whistle.\n\nThe conditions didn't help — strong wind and a low sun made the first half difficult. There were quite a few occasions where we mis-hit passes, missed the ball when attempting to clear or shoot, or couldn't quite connect cleanly. While it wasn't our most polished performance, the girls showed great determination and resilience to grind out the result.\n\nOne ongoing challenge: when we dominate territory, opposition teams often retreat almost all of their players into their own penalty area. This creates a crowded box with very little space to play through. Training focus: converting territory into goals, creating space around the box, finishing scrappy chances.",
+      "matchEvents": [],
+      "quickNotes": [],
+      "halves": [],
+      "config": {
+        "formation": "1-3-2-3"
+      }
+    },
+    {
+      "id": "g_imp_1749168000000",
+      "opponent": "Sapphires",
+      "date": 1749168000000,
+      "scoreUs": 4,
+      "scoreThem": 4,
+      "result": "D",
+      "goals": [
+        {
+          "team": "us",
+          "scorer": "Pippa",
+          "secs": 0
+        },
+        {
+          "team": "us",
+          "scorer": "Pippa",
+          "secs": 0
+        },
+        {
+          "team": "us",
+          "scorer": "Mia",
+          "secs": 0
+        },
+        {
+          "team": "us",
+          "scorer": "Taylor",
+          "secs": 0
+        }
+      ],
+      "potm": "Simone, Nixie",
+      "formation": "1-3-2-3",
+      "khula_round": "Round 6",
+      "voiceNotes": "This was a surprisingly tough game against a much-improved Sapphires side. The Rubies spent most of the match either level or holding a one-goal lead, only for the Sapphires to respond and draw level again. While the result felt frustrating at times, there were still plenty of positives to take away.\n\nThe first half was probably not one of the team's strongest performances. Several positional changes were trialled and a number of players looked uncomfortable in unfamiliar roles. The second half was much better — more determination, more attacking opportunities and generally more like themselves.\n\nOne of the biggest themes from the game was the tendency for players to kick the ball forward and then stop rather than following their pass and supporting the next phase of play. Improving this \"pass and move\" mentality will be a major focus at training.\n\nThe official post-match awards went to Simone, Nixie and one other player (not recorded) — selected based on the rotation group rostered for recognition this week.",
+      "report": "This was a surprisingly tough game against a much-improved Sapphires side. The Rubies spent most of the match either level or holding a one-goal lead, only for the Sapphires to respond and draw level again. While the result felt frustrating at times, there were still plenty of positives to take away.\n\nThe first half was probably not one of the team's strongest performances. Several positional changes were trialled and a number of players looked uncomfortable in unfamiliar roles. The second half was much better — more determination, more attacking opportunities and generally more like themselves.\n\nOne of the biggest themes from the game was the tendency for players to kick the ball forward and then stop rather than following their pass and supporting the next phase of play. Improving this \"pass and move\" mentality will be a major focus at training.\n\nThe official post-match awards went to Simone, Nixie and one other player (not recorded) — selected based on the rotation group rostered for recognition this week.",
+      "matchEvents": [],
+      "quickNotes": [],
+      "halves": [],
+      "config": {
+        "formation": "1-3-2-3"
+      }
+    },
+    {
+      "id": "g_imp_1750377600000",
+      "opponent": "Springfield United",
+      "date": 1750377600000,
+      "scoreUs": 6,
+      "scoreThem": 3,
+      "result": "W",
+      "goals": [
+        {
+          "team": "us",
+          "scorer": "Sydney",
+          "secs": 0
+        },
+        {
+          "team": "us",
+          "scorer": "Sydney",
+          "secs": 0
+        },
+        {
+          "team": "us",
+          "scorer": "Pippa",
+          "secs": 0
+        },
+        {
+          "team": "us",
+          "scorer": "Taylor",
+          "secs": 0
+        },
+        {
+          "team": "us",
+          "scorer": "Ruby",
+          "secs": 0
+        },
+        {
+          "team": "us",
+          "scorer": "Own Goal",
+          "secs": 0
+        }
+      ],
+      "potm": "Simone, Kiera, Ruby",
+      "formation": "1-3-2-3",
+      "khula_round": "Round 8",
+      "voiceNotes": "The Rubies produced one of their most impressive performances of the season, defeating previously undefeated Springfield United 6–3 in a high-quality and highly competitive match.\n\nWhile the scoreline reflects an excellent attacking display, the most pleasing aspect of the performance was the team's composure. Springfield applied pressure throughout the match with their pace, physicality and direct style of play, but the Rubies remained organised, trusted their structure and continued to play positive football.\n\nSpringfield's primary threat came from goalkeeper kicks played into space behind our defensive line for their quick forwards (#7 and #13). Despite this, the defensive group recovered repeatedly and worked together effectively for large portions of the match.\n\nThe six goals scored against one of the competition's strongest teams is one of the best attacking returns of the season. The defensive effort, teamwork and attitude shown throughout were equally important reasons for the victory.",
+      "report": "The Rubies produced one of their most impressive performances of the season, defeating previously undefeated Springfield United 6–3 in a high-quality and highly competitive match.\n\nWhile the scoreline reflects an excellent attacking display, the most pleasing aspect of the performance was the team's composure. Springfield applied pressure throughout the match with their pace, physicality and direct style of play, but the Rubies remained organised, trusted their structure and continued to play positive football.\n\nSpringfield's primary threat came from goalkeeper kicks played into space behind our defensive line for their quick forwards (#7 and #13). Despite this, the defensive group recovered repeatedly and worked together effectively for large portions of the match.\n\nThe six goals scored against one of the competition's strongest teams is one of the best attacking returns of the season. The defensive effort, teamwork and attitude shown throughout were equally important reasons for the victory.",
+      "matchEvents": [],
+      "quickNotes": [],
+      "halves": [],
+      "config": {
+        "formation": "1-3-2-3"
+      }
+    },
+    {
+      "id": "g_imp_1750982400000",
+      "opponent": "Bardon Bandits",
+      "date": 1750982400000,
+      "scoreUs": 3,
+      "scoreThem": 2,
+      "result": "W",
+      "goals": [
+        {
+          "team": "us",
+          "scorer": "Taylor",
+          "secs": 0
+        },
+        {
+          "team": "us",
+          "scorer": "Elsa",
+          "secs": 0
+        },
+        {
+          "team": "us",
+          "scorer": "Pippa",
+          "secs": 0
+        }
+      ],
+      "potm": "Charlotte",
+      "formation": "1-3-2-3",
+      "khula_round": "Not in Khula schedule",
+      "voiceNotes": "The Rubies produced another well-earned 3–2 victory over the Bardon Bandits. For much of the game we were in control, building a deserved 3–0 lead through disciplined defending, strong runs from wide areas and some excellent link-up play. Taylor opened the scoring before Elsa added our second after another positive attacking move. Pippa rounded out the scoring with our third.\n\nThe final few minutes became much more frantic. After losing a little of our defensive structure, the Bandits scored twice in quick succession. A reminder that every game lasts until the final whistle — but the girls showed enough resilience to hold on for a deserved win.\n\nNote: Guest players Elsa, Jaeger and Emily slotted seamlessly into the team. Ruby deserves a special mention for stepping into goal during the first half despite it not being her preferred position.\n\nAlthough we scored three goals, the scoreline could easily have been bigger — Taylor, Elsa and others delivered 6–7 dangerous balls across the face of goal that nobody was quite in position to convert. Improving movement into the six-yard box will turn those chances into goals.",
+      "report": "The Rubies produced another well-earned 3–2 victory over the Bardon Bandits. For much of the game we were in control, building a deserved 3–0 lead through disciplined defending, strong runs from wide areas and some excellent link-up play. Taylor opened the scoring before Elsa added our second after another positive attacking move. Pippa rounded out the scoring with our third.\n\nThe final few minutes became much more frantic. After losing a little of our defensive structure, the Bandits scored twice in quick succession. A reminder that every game lasts until the final whistle — but the girls showed enough resilience to hold on for a deserved win.\n\nNote: Guest players Elsa, Jaeger and Emily slotted seamlessly into the team. Ruby deserves a special mention for stepping into goal during the first half despite it not being her preferred position.\n\nAlthough we scored three goals, the scoreline could easily have been bigger — Taylor, Elsa and others delivered 6–7 dangerous balls across the face of goal that nobody was quite in position to convert. Improving movement into the six-yard box will turn those chances into goals.",
+      "matchEvents": [],
+      "quickNotes": [],
+      "halves": [],
+      "config": {
+        "formation": "1-3-2-3"
+      }
+    }
+  ]
+}

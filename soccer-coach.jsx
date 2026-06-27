@@ -7569,7 +7569,7 @@ function ImportExportScreen({ onBack }) {
     if(type==='all'){
       // JSON for full backup (CSV can't handle nested data)
       const ALL_KEYS=['soccerCoach_squad','soccerCoach_config','soccerCoach_games',
-        'soccerCoach_settings','soccerCoach_fixtureScores','soccerCoach_teamNotes',
+        'soccerCoach_settings','soccerCoach_fixtureScores','soccerCoach_teamNotes','soccerCoach_allPostMatch',
         'soccerCoach_teamNicknames','soccerCoach_fixtureTeam','soccerCoach_fixtures'];
       const data={_exported:new Date().toISOString()};
       ALL_KEYS.forEach(k=>{const v=localStorage.getItem(k);if(v)data[k]=JSON.parse(v);});
@@ -7644,11 +7644,61 @@ function ImportExportScreen({ onBack }) {
           const text=ev.target.result;
           const isJson=file.name.endsWith('.json');
           if(isJson){
-            // Full JSON backup restore
             const data=JSON.parse(text);
             let count=0;
-            Object.entries(data).forEach(([k,v])=>{if(k!=='_exported'){localStorage.setItem(k,JSON.stringify(v));count++;}});
-            msg('Imported '+count+' data sets — reloading',true);
+            const msgs=[];
+
+            // ── Merge soccerCoach_teamNotes (don't overwrite existing) ──
+            if(data.soccerCoach_teamNotes){
+              const existing=JSON.parse(localStorage.getItem('soccerCoach_teamNotes')||'{}');
+              const merged={...data.soccerCoach_teamNotes};
+              // Keep existing notes; append import note if player already has data
+              Object.entries(existing).forEach(([p,note])=>{
+                if(merged[p]&&!merged[p].includes(note)){
+                  merged[p]=merged[p]+'\n\n'+note;
+                } else if(merged[p]){
+                  // existing already included in merged — keep merged (more complete)
+                } else {
+                  merged[p]=note;
+                }
+              });
+              localStorage.setItem('soccerCoach_teamNotes',JSON.stringify(merged));
+              msgs.push(Object.keys(merged).length+' player notes merged');
+              count++;
+            }
+
+            // ── Merge soccerCoach_allPostMatch (append, skip duplicates by gameId) ──
+            if(data.soccerCoach_allPostMatch&&Array.isArray(data.soccerCoach_allPostMatch)){
+              const existing=JSON.parse(localStorage.getItem('soccerCoach_allPostMatch')||'[]');
+              const existingIds=new Set(existing.map(r=>r.gameId));
+              const toAdd=data.soccerCoach_allPostMatch.filter(r=>!existingIds.has(r.gameId));
+              const merged=[...toAdd,...existing].slice(0,50);
+              localStorage.setItem('soccerCoach_allPostMatch',JSON.stringify(merged));
+              if(toAdd.length) msgs.push(toAdd.length+' post-match review'+(toAdd.length>1?'s':'')+' added');
+              count++;
+            }
+
+            // ── Merge _gameRecords into soccerCoach_games ──
+            if(data._gameRecords&&Array.isArray(data._gameRecords)){
+              const existing=JSON.parse(localStorage.getItem('soccerCoach_games')||'[]');
+              const eKeys=new Set(existing.map(g=>new Date(g.date).toDateString()+'|'+g.opponent));
+              const toAdd=data._gameRecords.filter(g=>!eKeys.has(new Date(g.date).toDateString()+'|'+g.opponent));
+              if(toAdd.length){
+                localStorage.setItem('soccerCoach_games',JSON.stringify([...existing,...toAdd]));
+                msgs.push(toAdd.length+' game record'+(toAdd.length>1?'s':'')+' added');
+                count++;
+              }
+            }
+
+            // ── Standard keys (skip special ones handled above) ──
+            const SKIP=new Set(['_exported','_version','_description','_gameRecords',
+              'soccerCoach_teamNotes','soccerCoach_allPostMatch']);
+            Object.entries(data).forEach(([k,v])=>{
+              if(!SKIP.has(k)){localStorage.setItem(k,JSON.stringify(v));count++;}
+            });
+
+            const summary=msgs.length?msgs.join(' · '):''+count+' data sets';
+            msg('Imported: '+summary+' — reloading',true);
             setTimeout(()=>window.location.reload(),1500);
             return;
           }
