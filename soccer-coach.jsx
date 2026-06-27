@@ -4581,7 +4581,7 @@ function SquadScreen({ mode, onNext, onBack, onViewOpponent, onViewPlayer, onAdd
   };
 
   return (
-    <div style={{ height:'100dvh', background:'#0D0D0D', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+    <div style={{ ...(embedded?{flex:1}:{height:'100dvh'}), background:'#0D0D0D', display:'flex', flexDirection:'column', overflow:'hidden' }}>
 
       {/* ── Header ── */}
       <div style={{ background:'#111111', borderBottom:'1px solid #1E1E1E', padding:'0 16px', height:56, display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
@@ -4790,7 +4790,7 @@ function SquadScreen({ mode, onNext, onBack, onViewOpponent, onViewPlayer, onAdd
 // ════════════════════════════════════════════════════════════════════════════════
 //  SCREEN: LINEUP PICKER  (self-contained — Match tab)
 // ════════════════════════════════════════════════════════════════════════════════
-function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, onViewStats, onViewPlayerStats, initialTab, contextKey }) {
+function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, onViewStats, onViewPlayerStats, initialTab, contextKey, embedded=false }) {
   const myTeam = localStorage.getItem('soccerCoach_fixtureTeam') || '';
 
   const [squad,  setSquad]  = useState(()=>{
@@ -5063,10 +5063,10 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
   }
 
   return (
-    <div style={{ height:'100dvh', background:'#0D0D0D', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+    <div style={{ ...(embedded?{flex:1}:{height:'100dvh'}), background:'#0D0D0D', display:'flex', flexDirection:'column', overflow:'hidden' }}>
 
-      {/* ── HERO HEADER ── */}
-      <div style={{ flexShrink:0, background:'#111111', borderBottom:'1px solid #1A1A1A' }}>
+      {/* ── HERO HEADER — hidden when embedded ── */}
+      {!embedded&&<div style={{ flexShrink:0, background:'#111111', borderBottom:'1px solid #1A1A1A' }}>
         <div style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px 10px 14px' }}>
           {/* Back */}
           <button onClick={onBack} style={{ background:'none', border:'none', color:'#A1A1A1', fontSize:18, cursor:'pointer', padding:'4px 8px 4px 0', lineHeight:1, flexShrink:0 }}>←</button>
@@ -5087,10 +5087,10 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
             Edit Team
           </button>
         </div>
-      </div>
+      </div>}
 
-      {/* ── TAB BAR ── */}
-      <div style={{ display:'flex', background:'#111111', borderBottom:'1px solid #1A1A1A', flexShrink:0 }}>
+      {/* ── TAB BAR — hidden when embedded ── */}
+      {!embedded&&<div style={{ display:'flex', background:'#111111', borderBottom:'1px solid #1A1A1A', flexShrink:0 }}>
         {[
           { id:'squad', label:'Line-up', icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
           { id:'stats', label:'Analysis', icon:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> },
@@ -5110,36 +5110,52 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
             </button>
           );
         })}
-      </div>
+      </div>}
 
       {/* ── SQUAD TAB ── */}
-      {pickerTab === 'squad' && (
+      {(pickerTab === 'squad' || embedded) && (
         <div style={{ display:'flex', flexDirection:'column', flex:1, overflow:'hidden' }}>
-          {/* Half toggle */}
-          <div style={{ display:'flex', background:'#111111', padding:'5px 10px', gap:6, flexShrink:0, borderBottom:'1px solid #1A1A1A' }}>
-            {[['H1','First Half'],['H2','Second Half']].map(([label,title],hi)=>(
-              <button key={hi} onClick={()=>{setActiveHalf(hi);setActivePeriod(0);setSelectedSlot(null);setSelectedBench(null);}} style={{
-                flex:1,padding:'6px 0',border:'none',borderRadius:8,
-                background:activeHalf===hi?'#F5C04A':'#1A1A1A',
-                color:activeHalf===hi?'#000':'#666',
-                fontWeight:800,fontSize:11,cursor:'pointer',
-              }}>{label} — {title}</button>
-            ))}
-          </div>
-
-          {/* Period tabs */}
-          <div style={{ display:'flex', background:'#111111', borderBottom:'1px solid #1A1A1A', flexShrink:0 }}>
-            {activePeriods.map((_,i)=>{
-              const col=PAIR_COLORS[i%PAIR_COLORS.length];
-              return (
-                <button key={i} onClick={()=>{setActivePeriod(i);setSelectedSlot(null);setSelectedBench(null);}} style={{
-                  flex:1,padding:'7px 0',background:'none',border:'none',
-                  borderBottom:activePeriod===i?`2.5px solid ${col}`:'2.5px solid transparent',
-                  color:activePeriod===i?col:'#555',fontWeight:700,fontSize:12,cursor:'pointer',
-                }}>P{i+1}{isPeriodModified(i)?' ✎':''}</button>
-              );
-            })}
-          </div>
+          {/* Unified period tabs — same style as match screen */}
+          {(()=>{
+            const nH    = 2;
+            const nP    = config?.numPeriods || 3;
+            const hMins = config?.halfMins   || 24;
+            const pMins = hMins / nP;
+            const total = nH * nP;
+            // Check if a slot differs from the first period of its half
+            const isModified = (th, tp) => {
+              if(tp===0) return false;
+              const half = th===0 ? h1Periods : h2Periods;
+              if(!half[tp]||!half[0]) return false;
+              return posIds.some(id=>half[0][id]!==half[tp][id]);
+            };
+            return (
+              <div style={{display:'flex',background:'#0D0D0D',borderBottom:'1px solid #1A1A1A',flexShrink:0}}>
+                {Array.from({length:total},(_,t)=>{
+                  const th     = Math.floor(t/nP);
+                  const tp     = t % nP;
+                  const tStart = Math.round(th*hMins + tp*pMins);
+                  const tEnd   = Math.round(th*hMins + (tp+1)*pMins);
+                  const isSel  = th===activeHalf && tp===activePeriod;
+                  const mod    = isModified(th, tp);
+                  return (
+                    <button key={t}
+                      onClick={()=>{setActiveHalf(th);setActivePeriod(tp);setSelectedSlot(null);setSelectedBench(null);}}
+                      style={{flex:1,padding:'5px 1px',background:isSel?'rgba(245,192,74,0.08)':'none',border:'none',
+                        borderBottom:isSel?'2px solid #F5C04A':'2px solid transparent',
+                        borderRight:t<total-1?'1px solid #1A1A1A':'none',cursor:'pointer',
+                        display:'flex',flexDirection:'column',alignItems:'center',gap:1}}>
+                      <span style={{fontSize:8,fontWeight:800,color:isSel?'#F5C04A':'#444',whiteSpace:'nowrap'}}>{tStart}′–{tEnd}′</span>
+                      {mod
+                        ?<span style={{fontSize:7,color:isSel?'#F5C04A':'#555',lineHeight:1}}>✎</span>
+                        :<div style={{height:8}}/>
+                      }
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
 
           {/* Pitch + Field Players — same height, side by side */}
           <div style={{ display:'flex', flexShrink:0, alignItems:'stretch' }}>
@@ -6321,7 +6337,10 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
   const [voicePulse, setVoicePulse]   = useState(false);
   const [activeMatchTab, setActiveMatchTab] = useState('lineup');
   const [goalScorer, setGoalScorer] = useState('');
-  const [subPlanTab, setSubPlanTab] = useState(1); // which period to preview subs for
+  const [pendingEvent, setPendingEvent] = useState(null); // { rule } when waiting for pitch tap
+  const [subPlanTab, setSubPlanTab] = useState(0); // which period to preview subs for — synced to live period
+  const [luHalf,    setLuHalf]    = useState(0);  // Line-up tab: selected half
+  const [luPeriod,  setLuPeriod]  = useState(0);  // Line-up tab: selected period
   const timerRef = useRef(null);
   const recognitionRef = useRef(null);
   const pulseRef = useRef(null);
@@ -6362,7 +6381,7 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
     if(next >= 0){
       setLivePidx(next);
       // Only sync the view when not manually browsing another half
-      if(halfIdx === liveHalfIdx) setPidx(next);
+      if(halfIdx === liveHalfIdx) { setPidx(next); setSubPlanTab(next); }
     }
   },[halfElapsed, manualPeriod, periodMins, liveHalfIdx, halfIdx]);
 
@@ -6457,13 +6476,18 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
     // Clock is NOT reset — it always runs independently of view
   }
 
+  const MATCH_TABS = ['lineup','lineupView','subs','events'];
   const touchStart=useRef(null);
   function onTouchStart(e){touchStart.current={x:e.touches[0].clientX,y:e.touches[0].clientY};}
   function onTouchEnd(e){
     if(!touchStart.current)return;
     const dx=e.changedTouches[0].clientX-touchStart.current.x,dy=e.changedTouches[0].clientY-touchStart.current.y;
     touchStart.current=null;
-    if(Math.abs(dx)>80&&Math.abs(dx)>Math.abs(dy)*2){dx<0?switchHalf(halfIdx+1):switchHalf(halfIdx-1);}
+    if(Math.abs(dx)>80&&Math.abs(dx)>Math.abs(dy)*2){
+      const ci=MATCH_TABS.indexOf(activeMatchTab);
+      if(dx<0&&ci<MATCH_TABS.length-1)setActiveMatchTab(MATCH_TABS[ci+1]);
+      else if(dx>0&&ci>0)setActiveMatchTab(MATCH_TABS[ci-1]);
+    }
   }
   const pitchTouch=useRef(null);
   function onPitchTouchStart(e){e.stopPropagation();pitchTouch.current={x:e.touches[0].clientX,y:e.touches[0].clientY};}
@@ -6482,8 +6506,8 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
     // Remove player from wherever they currently are
     if(from==="bench")bench=bench.filter(n=>n!==name);
     else if(posIds.includes(from))s[from]="";
-    // Also clear any OTHER slot that already has this player (prevents duplicates)
-    posIds.forEach(id=>{if(id!==from&&s[id]===name)s[id]="";});
+    // Clear ALL field slots that have this player (strict dedup — prevents duplicates in any case)
+    posIds.forEach(id=>{if(s[id]===name)s[id]="";});
     bench=bench.filter(n=>n!==name);
     if(to==="bench"){if(!bench.includes(name))bench.push(name);}
     else{const d=s[to];s[to]=name;if(d&&d!==name){if(from==="bench"||from===to){if(!bench.includes(d))bench.push(d);}else s[from]=d;}}
@@ -6505,6 +6529,24 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
       }
       return hs.map((h,hi)=>h.map((p,pi)=>{const k=`${hi}.${pi}`;return newByKey[k]?{...p,slots:newByKey[k],seeded:true}:p;}));
     });
+  }
+  function handleEventTap(name) {
+    if (!pendingEvent) return;
+    const { rule } = pendingEvent;
+    let ev;
+    const minute = Math.floor(halfElapsed / 60);
+    const makeEv2 = (type, extra) => ({ id:'ev_'+Date.now()+'_'+Math.random().toString(36).slice(2), type, eventType:type, minute, timestamp:Date.now(), player:'', secondaryPlayer:'', category:'', note:'', ...(extra||{}) });
+    if (rule.capture === 'goal') {
+      logGoal(name, null);
+      ev = makeEv2(rule.type, { player: name, team: 'us' });
+    } else if (rule.capture === 'conceded') {
+      logThemGoal();
+      ev = makeEv2(rule.type, { team: 'them' });
+    } else {
+      ev = makeEv2(rule.type, { player: name, team: 'us' });
+    }
+    setMatchEvents(evs => [...evs, ev]);
+    setPendingEvent(null);
   }
   function handleTap(id,isBench,benchName){
     if(selected){
@@ -6666,6 +6708,20 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
         </div>
       )}
 
+      {modal==='exitConfirm'&&(
+        <div style={S.modalBack} onClick={()=>setModal(null)}>
+          <div style={{...S.modalBox,maxWidth:340}} onClick={e=>e.stopPropagation()}>
+            <div style={S.modalHeader}><span style={S.modalTitle}>Leave Match?</span><button style={S.btnX} onClick={()=>setModal(null)}>✕</button></div>
+            <div style={{color:'#A1A1A1',fontSize:13,marginBottom:20,lineHeight:1.6}}>You can leave and come back, or save the match now.</div>
+            <div style={{display:'flex',gap:10,flexDirection:'column'}}>
+              <button style={{...S.btnGreen,width:'100%'}} onClick={()=>{setModal(null);setModal('save');}}>Save &amp; Exit</button>
+              <button style={{...S.btnDark,width:'100%'}} onClick={()=>{setRunning(false);if(isVoiceRecRef.current)stopVoice('');onExit();}}>Leave Without Saving</button>
+              <button onClick={()=>setModal(null)} style={{background:'none',border:'none',color:'#555',fontSize:13,cursor:'pointer',padding:'6px 0'}}>Keep Playing</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {modal==='voiceReview'&&(
         <div style={S.modalBack} onClick={()=>{}}>
           <div style={{...S.modalBox,maxWidth:460,maxHeight:'85vh',display:'flex',flexDirection:'column'}} onClick={e=>e.stopPropagation()}>
@@ -6682,15 +6738,17 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
       {/* ── HEADER ── */}
       <div style={{background:'#111111',borderBottom:'1px solid #1A1A1A',flexShrink:0}}>
 
-        {/* Row 1: Logo | MATCH | Live/End */}
+        {/* Row 1: Back | MATCH | End Match */}
         <div style={{display:'flex',alignItems:'center',padding:'8px 14px 6px'}}>
-          <img src={KHULA_LOGO} alt="Khula" style={{height:34,objectFit:'contain'}}/>
+          <button onClick={()=>setModal('exitConfirm')} style={{background:'none',border:'none',cursor:'pointer',color:'#555',padding:0,display:'flex',alignItems:'center',gap:3,flexShrink:0}}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
           <div style={{flex:1,textAlign:'center'}}>
             <span style={{fontSize:20,fontWeight:900,color:'#F5C04A',letterSpacing:1.5}}>MATCH</span>
           </div>
           <button onClick={()=>{if(voiceNotes.trim()){setVoiceReview(voiceNotes);setModal('voiceReview');}else setModal('save');}}
-            style={{background:'none',border:'1px solid #F5C04A',borderRadius:8,color:'#F5C04A',fontSize:11,fontWeight:800,cursor:'pointer',padding:'4px 10px',letterSpacing:0.5}}>
-            Live
+            style={{background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.35)',borderRadius:8,color:'#ef4444',fontSize:10,fontWeight:800,cursor:'pointer',padding:'4px 10px',letterSpacing:0.5,flexShrink:0}}>
+            End
           </button>
         </div>
 
@@ -6742,19 +6800,23 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
           </div>
         </div>
 
-        {/* Tab bar: Overview | Substitutions | Events */}
+        {/* Tab bar: Overview | Line-up | Subs | Events */}
         <div style={{display:'flex',borderTop:'1px solid #1A1A1A'}}>
-          <button onClick={()=>setActiveMatchTab('lineup')} style={{flex:1,padding:'10px 4px',background:'none',border:'none',borderBottom:activeMatchTab==='lineup'?'2.5px solid #F5C04A':'2.5px solid transparent',cursor:'pointer',color:activeMatchTab==='lineup'?'#F5C04A':'#555',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-            <span style={{fontSize:9,fontWeight:700}}>Overview</span>
+          <button onClick={()=>setActiveMatchTab('lineup')} style={{flex:1,padding:'10px 2px',background:'none',border:'none',borderBottom:activeMatchTab==='lineup'?'2.5px solid #F5C04A':'2.5px solid transparent',cursor:'pointer',color:activeMatchTab==='lineup'?'#F5C04A':'#555',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            <span style={{fontSize:8,fontWeight:700}}>Overview</span>
           </button>
-          <button onClick={()=>setActiveMatchTab('subs')} style={{flex:1,padding:'10px 4px',background:'none',border:'none',borderBottom:activeMatchTab==='subs'?'2.5px solid #F5C04A':'2.5px solid transparent',cursor:'pointer',color:activeMatchTab==='subs'?'#F5C04A':'#555',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-            <span style={{fontSize:9,fontWeight:700}}>Substitutions</span>
+          <button onClick={()=>setActiveMatchTab('lineupView')} style={{flex:1,padding:'10px 2px',background:'none',border:'none',borderBottom:activeMatchTab==='lineupView'?'2.5px solid #F5C04A':'2.5px solid transparent',cursor:'pointer',color:activeMatchTab==='lineupView'?'#F5C04A':'#555',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            <span style={{fontSize:8,fontWeight:700}}>Line-up</span>
           </button>
-          <button onClick={()=>setActiveMatchTab('events')} style={{flex:1,padding:'10px 4px',background:'none',border:'none',borderBottom:activeMatchTab==='events'?'2.5px solid #F5C04A':'2.5px solid transparent',cursor:'pointer',color:activeMatchTab==='events'?'#F5C04A':'#555',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span style={{fontSize:9,fontWeight:700}}>Events</span>
+          <button onClick={()=>setActiveMatchTab('subs')} style={{flex:1,padding:'10px 2px',background:'none',border:'none',borderBottom:activeMatchTab==='subs'?'2.5px solid #F5C04A':'2.5px solid transparent',cursor:'pointer',color:activeMatchTab==='subs'?'#F5C04A':'#555',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+            <span style={{fontSize:8,fontWeight:700}}>Subs</span>
+          </button>
+          <button onClick={()=>setActiveMatchTab('events')} style={{flex:1,padding:'10px 2px',background:'none',border:'none',borderBottom:activeMatchTab==='events'?'2.5px solid #F5C04A':'2.5px solid transparent',cursor:'pointer',color:activeMatchTab==='events'?'#F5C04A':'#555',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span style={{fontSize:8,fontWeight:700}}>Events</span>
           </button>
         </div>
       </div>
@@ -6817,13 +6879,20 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
 
               {/* SVG Pitch */}
               {(()=>{
-                // Pre-compute which players are going off next period
+                // Pre-compute which players are going off next period + their sub pair colour
                 const nextP2 = halves[halfIdx]?.[pidx + 1];
                 const goingOff = new Set();
+                const goingOffColors = {};
                 if (nextP2?.slots && cur.slots) {
-                  const curF = new Set(posIds.map(id=>cur.slots[id]).filter(Boolean));
-                  const nxtF = new Set(posIds.map(id=>nextP2.slots[id]).filter(Boolean));
-                  curF.forEach(n=>{ if(!nxtF.has(n)) goingOff.add(n); });
+                  const pairs = computeSwapPairs(cur.slots, nextP2.slots, posIds);
+                  posIds.forEach(id => {
+                    const was = cur.slots[id], nxt = nextP2.slots[id];
+                    if (was && nxt && was !== nxt) {
+                      goingOff.add(was);
+                      const pairIdx = pairs[was] ?? pairs[nxt] ?? null;
+                      if (pairIdx !== null) goingOffColors[was] = PAIR_COLORS[pairIdx];
+                    }
+                  });
                 }
                 return (
                   <div style={{flex:1,padding:'0 4px 4px',minHeight:0}} onTouchStart={onPitchTouchStart} onTouchEnd={onPitchTouchEnd}>
@@ -6865,17 +6934,19 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
                         const R=12;
                         return (
                           <g key={pos.id} style={{cursor:'pointer'}}
-                            onClick={e=>{e.stopPropagation();handleTap(pos.id,false,null);}}
+                            onClick={e=>{e.stopPropagation();if(pendingEvent&&name){handleEventTap(name);}else{handleTap(pos.id,false,null);}}}
                             onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();handleDrop(pos.id);}}>
-                            {/* Outer red ring if going off next */}
-                            {isOff&&<circle cx={cx} cy={cy-6} r={R+4} fill="none" stroke="#ef4444" strokeWidth="2"/>}
                             {/* Selected ring */}
                             {isSel&&<circle cx={cx} cy={cy-6} r={R+3} fill="none" stroke="rgba(245,192,74,0.7)" strokeWidth="3"/>}
-                            {/* Main circle */}
-                            <circle cx={cx} cy={cy-6} r={R}
-                              fill={isSel?'rgba(245,192,74,0.2)':'rgba(15,15,15,0.82)'}
-                              stroke={isSel?'#F5C04A':isOff?'#ef4444':'rgba(255,255,255,0.55)'}
-                              strokeWidth={isSel||isOff?2:1.5}/>
+                            {/* Main circle — sub pair colour when going off next */}
+                            {(()=>{
+                              const subCol = goingOffColors[name] || null;
+                              const pendingTap = pendingEvent && name;
+                              return <circle cx={cx} cy={cy-6} r={R}
+                                fill={isSel?'rgba(245,192,74,0.2)':pendingEvent&&!isSel?'rgba(255,255,255,0.04)':isOff&&subCol?`${subCol}22`:'rgba(15,15,15,0.82)'}
+                                stroke={isSel?'#F5C04A':isOff&&subCol?subCol:'rgba(255,255,255,0.55)'}
+                                strokeWidth={isSel?2.5:isOff?2.5:1.5}/>;
+                            })()}
                             {name
                               ? <>
                                   <text x={cx} y={cy-6+4} textAnchor="middle" fontSize="9" fontWeight="800"
@@ -6922,101 +6993,123 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
               )}
             </div>
 
-            {/* RIGHT: Substitution Plan */}
+            {/* RIGHT: Match Timeline */}
             {(()=>{
-              const numP     = halves[halfIdx]?.length || 0;
-              const perMin   = periodMins;
-              const halfOff  = halfIdx * (config?.halfMins || 24);
-              // Tab i shows subs that fire at the END of period i (start of period i+1)
-              const safePTab = Math.min(Math.max(subPlanTab, 0), Math.max(numP - 1, 0));
-              const fromP    = halves[halfIdx]?.[safePTab];
-              const toP      = halves[halfIdx]?.[safePTab + 1];
-              const subAtMin = Math.round(halfOff + (safePTab + 1) * perMin);
-              // Build subs + pair colours for this transition
-              const subs = [];
-              if (fromP?.slots && toP?.slots) {
-                const pairs = computeSwapPairs(fromP.slots, toP.slots, posIds);
-                posIds.forEach(id => {
-                  const was = fromP.slots[id], nxt = toP.slots[id];
-                  if (was && nxt && was !== nxt) {
-                    const pairIdx = pairs[was] ?? pairs[nxt] ?? null;
-                    const col = pairIdx !== null ? PAIR_COLORS[pairIdx] : '#2A2A2A';
-                    subs.push({ off: was, on: nxt, pos: posLabel[id] || id, col });
-                  }
+              // Combine goals, match events, quick notes into a single sorted timeline
+              const usGoalCount   = goals.filter(g=>g.team==='us').length;
+              const themGoalCount = goals.filter(g=>g.team==='them').length;
+
+              // Next-sub timer
+              const numP2    = halves[halfIdx]?.length || 0;
+              const isLastP2 = pidx >= numP2 - 1;
+              const urgCol2  = periodLeft < 60 ? '#ef4444' : periodLeft < 120 ? '#f59e0b' : '#22c55e';
+              const mm2 = Math.floor(periodLeft/60).toString().padStart(2,'0');
+              const ss2 = (periodLeft%60).toString().padStart(2,'0');
+
+              // Build unified event list
+              const timelineItems = [];
+              (matchEvents||[]).forEach(ev => {
+                const rule = MATCH_EVENT_RULES.find(r=>r.type===ev.type) || {icon:'📋',label:ev.type||'Event',color:'#A1A1A1',group:'us'};
+                timelineItems.push({
+                  id: ev.id||('ev_'+ev.timestamp),
+                  minute: ev.minute??0,
+                  timestamp: ev.timestamp||0,
+                  icon: rule.icon,
+                  label: rule.label,
+                  color: rule.color||'#A1A1A1',
+                  player: ev.player||'',
+                  detail: '',
+                  type: ev.type,
+                  team: ev.team||'us',
+                  isGoal: ev.type==='GOAL'||ev.type==='GOAL_CONCEDED',
                 });
-              }
-              const isLastTab = safePTab >= numP - 1;
-              const getNum    = name => { const p = squad.find(x=>x.name===name); return p?.number ? ` (#${p.number})` : ''; };
-              const initials  = name => name ? name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2) : '?';
+              });
+              (quickNotes||[]).forEach(n => {
+                timelineItems.push({
+                  id: n.id,
+                  minute: n.minute??0,
+                  timestamp: n.id ? parseInt(n.id.replace('qn_',''))||0 : 0,
+                  icon: '📝',
+                  label: 'Note',
+                  color: '#6366f1',
+                  player: '',
+                  detail: n.text,
+                  type: 'NOTE',
+                  team: 'us',
+                  isGoal: false,
+                });
+              });
+              timelineItems.sort((a,b)=>b.minute-a.minute||b.timestamp-a.timestamp);
+
               return (
                 <div style={{flex:'0 0 48%',display:'flex',flexDirection:'column',overflow:'hidden'}}>
 
-                  {/* Header */}
-                  <div style={{padding:'5px 10px 4px',borderBottom:'1px solid #1A1A1A',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                    <div style={{fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase'}}>SUBSTITUTION PLAN</div>
-                    <span style={{fontSize:8,color:'#555',fontWeight:600}}>{Math.round(perMin)} Min Intervals</span>
+                  {/* Score + next-sub header */}
+                  <div style={{padding:'5px 10px 5px',borderBottom:'1px solid #111111',flexShrink:0}}>
+                    {/* Score */}
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:3}}>
+                      <div style={{fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase'}}>MATCH TIMELINE</div>
+                      <div style={{display:'flex',alignItems:'center',gap:4}}>
+                        <span style={{fontSize:14,fontWeight:900,color:'#22c55e'}}>{usGoalCount}</span>
+                        <span style={{fontSize:10,color:'#444',fontWeight:700}}>–</span>
+                        <span style={{fontSize:14,fontWeight:900,color:'#ef4444'}}>{themGoalCount}</span>
+                      </div>
+                    </div>
+                    {/* Sub timer */}
+                    {!isLastP2&&(
+                      <div style={{fontSize:8,fontWeight:700,color:urgCol2}}>⏱ Next sub {mm2}:{ss2}</div>
+                    )}
                   </div>
 
-                  {/* Period tabs — one per period, filling the width */}
-                  {numP > 0 && (
-                    <div style={{display:'flex',borderBottom:'1px solid #1A1A1A',flexShrink:0}}>
-                      {Array.from({length:numP},(_,i)=>{
-                        const tStart = Math.round(halfOff + i * perMin);
-                        const tEnd   = Math.round(halfOff + (i+1) * perMin);
-                        const isSel  = i === safePTab;
-                        const isLive = i === livePidx && halfIdx === liveHalfIdx;
-                        return (
-                          <button key={i} onClick={()=>setSubPlanTab(i)}
-                            style={{flex:1,padding:'5px 2px',border:'none',borderRight:i<numP-1?'1px solid #1A1A1A':'none',background:isSel?'rgba(245,192,74,0.12)':'transparent',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:2,outline:isSel?'1px solid rgba(245,192,74,0.5)':'none',outlineOffset:-1}}>
-                            <span style={{fontSize:8,fontWeight:700,color:isSel?'#F5C04A':'#444',whiteSpace:'nowrap'}}>{tStart}′–{tEnd}′</span>
-                            {isLive
-                              ? <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={isSel?'#F5C04A':'#555'} strokeWidth="3"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-4.3"/></svg>
-                              : <div style={{height:10}}/>
-                            }
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Subs list */}
+                  {/* Timeline */}
                   <div style={{flex:1,overflowY:'auto'}}>
-                    {isLastTab || subs.length === 0 ? (
-                      <div style={{fontSize:10,color:'#333',textAlign:'center',padding:'18px 0',fontStyle:'italic'}}>
-                        {isLastTab ? 'No subs after final period' : `No subs at ${subAtMin}′`}
+                    {timelineItems.length===0?(
+                      <div style={{padding:'24px 12px',textAlign:'center'}}>
+                        <div style={{fontSize:18,marginBottom:6}}>⚽</div>
+                        <div style={{fontSize:10,color:'#333',fontStyle:'italic'}}>No events yet</div>
                       </div>
-                    ) : subs.map((s,i) => (
-                      <div key={i} style={{display:'flex',alignItems:'center',gap:4,padding:'6px 8px 6px 0',borderBottom:'1px solid #111111',borderLeft:`3px solid ${s.col}`}}>
-                        {/* Time */}
-                        <span style={{fontSize:10,color:'#555',fontWeight:700,flexShrink:0,minWidth:26,textAlign:'center'}}>{subAtMin}′</span>
-                        {/* Off player */}
-                        <div style={{flex:1,display:'flex',alignItems:'center',gap:4,minWidth:0}}>
-                          <div style={{width:28,height:28,borderRadius:'50%',background:'#1A1A1A',border:`1px solid ${s.col}66`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,fontWeight:800,color:'#FFF',flexShrink:0}}>{initials(s.off)}</div>
-                          <div style={{minWidth:0,flex:1}}>
-                            <div style={{display:'flex',alignItems:'center',gap:3}}>
-                              <span style={{fontSize:10,fontWeight:700,color:'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.off.split(' ')[0]}{getNum(s.off)}</span>
-                              {/* Red down arrow */}
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="3" style={{flexShrink:0}}><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
-                            </div>
-                            <div style={{fontSize:8,color:'#555',marginTop:1}}>{s.pos}</div>
+                    ):timelineItems.map((item,i)=>{
+                      const isUs = item.team==='us';
+                      const accentCol = item.isGoal ? (isUs?'#22c55e':'#ef4444') : item.color;
+                      return (
+                        <div key={item.id} style={{display:'flex',alignItems:'flex-start',gap:0,padding:'0 0 0 0',borderBottom:'1px solid #111111',position:'relative'}}>
+                          {/* Timeline line */}
+                          <div style={{position:'absolute',left:26,top:0,bottom:0,width:1,background:'#1A1A1A',zIndex:0}}/>
+                          {/* Minute badge */}
+                          <div style={{flexShrink:0,width:38,padding:'8px 0 8px 8px',display:'flex',alignItems:'flex-start',justifyContent:'flex-start',position:'relative',zIndex:1}}>
+                            <span style={{fontSize:9,fontWeight:800,color:'#555',lineHeight:1}}>{item.minute}′</span>
+                          </div>
+                          {/* Dot on timeline */}
+                          <div style={{flexShrink:0,width:14,display:'flex',alignItems:'flex-start',paddingTop:9,position:'relative',zIndex:1}}>
+                            <div style={{width:8,height:8,borderRadius:'50%',background:item.isGoal?accentCol:'#2A2A2A',border:`1.5px solid ${accentCol}`,flexShrink:0}}/>
+                          </div>
+                          {/* Content */}
+                          <div style={{flex:1,padding:'6px 8px 6px 5px',minWidth:0}}>
+                            {item.isGoal?(
+                              /* Goal — prominent */
+                              <div style={{background:`${accentCol}12`,borderRadius:6,padding:'5px 7px',border:`1px solid ${accentCol}33`}}>
+                                <div style={{display:'flex',alignItems:'center',gap:4}}>
+                                  <span style={{fontSize:13}}>{item.icon}</span>
+                                  <div style={{minWidth:0}}>
+                                    <div style={{fontSize:11,fontWeight:800,color:accentCol,lineHeight:1.2}}>{isUs?'GOAL!':'CONCEDED'}</div>
+                                    {item.player&&<div style={{fontSize:9,color:'rgba(255,255,255,0.7)',marginTop:1}}>{item.player.split(' ')[0]}</div>}
+                                  </div>
+                                </div>
+                              </div>
+                            ):(
+                              /* Regular event */
+                              <div style={{display:'flex',alignItems:'flex-start',gap:5}}>
+                                <span style={{fontSize:12,flexShrink:0,lineHeight:1.3}}>{item.icon}</span>
+                                <div style={{minWidth:0,flex:1}}>
+                                  <div style={{fontSize:10,fontWeight:700,color:'#E5E5E5',lineHeight:1.3}}>{item.label}{item.player?` · ${item.player.split(' ')[0]}`:''}</div>
+                                  {item.detail&&<div style={{fontSize:9,color:'#888',lineHeight:1.4,marginTop:1,wordBreak:'break-word'}}>{item.detail}</div>}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
-                        {/* Divider arrow */}
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="3" style={{flexShrink:0}}><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-                        {/* On player */}
-                        <div style={{flex:1,display:'flex',alignItems:'center',gap:4,minWidth:0}}>
-                          <div style={{width:28,height:28,borderRadius:'50%',background:'#1A1A1A',border:`1px solid ${s.col}66`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,fontWeight:800,color:'#FFF',flexShrink:0}}>{initials(s.on)}</div>
-                          <div style={{minWidth:0,flex:1}}>
-                            <div style={{display:'flex',alignItems:'center',gap:3}}>
-                              <span style={{fontSize:10,fontWeight:700,color:'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.on.split(' ')[0]}{getNum(s.on)}</span>
-                              {/* Green up arrow */}
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3" style={{flexShrink:0}}><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-                            </div>
-                            <div style={{fontSize:8,color:'#555',marginTop:1}}>{s.pos}</div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                 </div>
@@ -7025,16 +7118,33 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
           </div>
         )}
 
-        {/* ──── SUBS TAB ──── */}
+
+        {/* ──── LINE-UP TAB — embedded PickerScreen (same component as pre-match) ──── */}
+        {activeMatchTab==='lineupView'&&(
+          <PickerScreen
+            embedded={true}
+            onNext={()=>setActiveMatchTab('lineup')}
+            onBack={()=>setActiveMatchTab('lineup')}
+            onSave={()=>setActiveMatchTab('lineup')}
+            onManageSquad={()=>{}}
+            onViewOpponent={()=>{}}
+            onViewStats={()=>{}}
+            onViewPlayerStats={()=>{}}
+          />
+        )}
+
+        {/* ──── SUBS TAB — split view with period tabs ──── */}
         {activeMatchTab==='subs'&&(()=>{
-          const numP=halves[halfIdx]?.length||0;
-          const perMin=periodMins;
-          const halfOff=halfIdx*(config?.halfMins||24);
-          const safePTab=Math.min(Math.max(subPlanTab,0),Math.max(numP-1,0));
-          const fromP=halves[halfIdx]?.[safePTab];
-          const toP=halves[halfIdx]?.[safePTab+1];
-          const subAtMin=Math.round(halfOff+(safePTab+1)*perMin);
+          const preHalf =(halfIdx===0?(half1||[]):(half2||[]));
+          const numP    =preHalf.length||0;
+          const perMin  =periodMins;
+          const halfOff =halfIdx*(config?.halfMins||24);
+          const fromP   =preHalf[subPlanTab];
+          const toP     =preHalf[subPlanTab+1];
+          const subAtMin=Math.round(halfOff+(subPlanTab+1)*perMin);
           const subs=[];
+          const subGoingOff=new Set();
+          const subGoingOffColors={};
           if(fromP?.slots&&toP?.slots){
             const pairs=computeSwapPairs(fromP.slots,toP.slots,posIds);
             posIds.forEach(id=>{
@@ -7043,75 +7153,309 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
                 const pairIdx=pairs[was]??pairs[nxt]??null;
                 const col=pairIdx!==null?PAIR_COLORS[pairIdx]:'#2A2A2A';
                 subs.push({off:was,on:nxt,pos:posLabel[id]||id,col});
+                subGoingOff.add(was);
+                if(pairIdx!==null)subGoingOffColors[was]=PAIR_COLORS[pairIdx];
               }
             });
           }
-          const isLastTab=safePTab>=numP-1;
+          const isLastTab=subPlanTab>=numP-1;
           const getNum=name=>{const p=squad.find(x=>x.name===name);return p?.number?` (#${p.number})`:''};
           const initials=name=>name?name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2):'?';
+          const subSlots=fromP?.slots||{};
           return (
             <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
-              {/* Period tabs */}
-              {numP>0&&(
-                <div style={{display:'flex',borderBottom:'1px solid #1A1A1A',flexShrink:0,background:'#111111'}}>
-                  {Array.from({length:numP},(_,i)=>{
-                    const tStart=Math.round(halfOff+i*perMin);
-                    const tEnd=Math.round(halfOff+(i+1)*perMin);
-                    const isSel=i===safePTab;
-                    const isLive=i===livePidx&&halfIdx===liveHalfIdx;
-                    return(
-                      <button key={i} onClick={()=>setSubPlanTab(i)}
-                        style={{flex:1,padding:'10px 2px',border:'none',borderRight:i<numP-1?'1px solid #1A1A1A':'none',background:isSel?'rgba(245,192,74,0.12)':'transparent',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:2,outline:isSel?'1px solid rgba(245,192,74,0.5)':'none',outlineOffset:-1}}>
-                        <span style={{fontSize:10,fontWeight:700,color:isSel?'#F5C04A':'#555',whiteSpace:'nowrap'}}>{tStart}′–{tEnd}′</span>
-                        {isLive
-                          ?<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={isSel?'#F5C04A':'#555'} strokeWidth="3"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-4.3"/></svg>
-                          :<div style={{height:11}}/>}
-                      </button>
-                    );
-                  })}
+              {/* Timer */}
+              <div style={{padding:'8px 14px 6px',borderBottom:'1px solid #1A1A1A',flexShrink:0,background:'#111111'}}>
+                <div style={{fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase',marginBottom:3}}>SUBSTITUTION PLAN</div>
+                {(()=>{
+                  if(isLastTab)return <div style={{fontSize:11,color:'#333',fontStyle:'italic'}}>Final period — no more subs</div>;
+                  const urgCol=periodLeft<60?'#ef4444':periodLeft<120?'#f59e0b':'#22c55e';
+                  const mm=Math.floor(periodLeft/60).toString().padStart(2,'0');
+                  const ss=(periodLeft%60).toString().padStart(2,'0');
+                  return subPlanTab===pidx
+                    ?<div style={{fontSize:13,fontWeight:700,color:urgCol}}>⏱ Time until next Sub: {mm}:{ss}</div>
+                    :<div style={{fontSize:11,color:'#555'}}>Sub at {subAtMin}′</div>;
+                })()}
+              </div>
+              {/* Split: Pitch left + Sub list right */}
+              <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+                {/* LEFT: Pitch showing selected period (pre-match lineup) */}
+                <div style={{flex:'0 0 52%',display:'flex',flexDirection:'column',borderRight:'1px solid #1A1A1A',overflow:'hidden'}}>
+                  <div style={{flex:1,padding:'0 4px 4px',minHeight:0}}>
+                    <svg viewBox="0 0 200 280" xmlns="http://www.w3.org/2000/svg" style={{width:'100%',height:'100%',display:'block'}}>
+                      <rect x="0" y="0" width="200" height="280" fill="#1e5c28"/>
+                      {[0,1,2,3,4,5,6].map(i=>(<rect key={i} x="0" y={i*40} width="200" height="40" fill={i%2===0?'rgba(0,0,0,0)':'rgba(0,0,0,0.06)'}/>))}
+                      <rect x="10" y="8" width="180" height="264" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1.5"/>
+                      <line x1="10" y1="140" x2="190" y2="140" stroke="rgba(255,255,255,0.3)" strokeWidth="1.2"/>
+                      <circle cx="100" cy="140" r="24" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.2"/>
+                      <circle cx="100" cy="140" r="2.5" fill="rgba(255,255,255,0.4)"/>
+                      <rect x="55" y="8" width="90" height="36" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.2"/>
+                      <rect x="55" y="236" width="90" height="36" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.2"/>
+                      <rect x="78" y="8" width="44" height="14" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.2"/>
+                      <rect x="78" y="258" width="44" height="14" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.2"/>
+                      {positions.map((pos)=>{
+                        const name=subSlots[pos.id]||'';
+                        const isOff=subGoingOff.has(name);
+                        const subCol=subGoingOffColors[name]||null;
+                        const player=squad.find(p=>p.name===name);
+                        const num=player?.number||'';
+                        const firstName=name.split(' ')[0]||'';
+                        const cx=svgX(pos.left),cy=svgY(pos.top);
+                        const R=12;
+                        return (
+                          <g key={pos.id}>
+                            <circle cx={cx} cy={cy-6} r={R}
+                              fill={isOff&&subCol?`${subCol}22`:'rgba(15,15,15,0.82)'}
+                              stroke={isOff&&subCol?subCol:'rgba(255,255,255,0.55)'}
+                              strokeWidth={isOff?2.5:1.5}/>
+                            {name
+                              ?<>
+                                <text x={cx} y={cy-6+4} textAnchor="middle" fontSize="9" fontWeight="800" fill="#FFF" fontFamily="Outfit,sans-serif">{num||firstName.slice(0,2).toUpperCase()}</text>
+                                <text x={cx} y={cy+13} textAnchor="middle" fontSize="5.5" fontWeight="600" fill="rgba(255,255,255,0.9)" fontFamily="Outfit,sans-serif">{firstName}</text>
+                              </>
+                              :<text x={cx} y={cy-2} textAnchor="middle" fontSize="14" fill="rgba(255,255,255,0.15)" fontFamily="Outfit,sans-serif">+</text>
+                            }
+                          </g>
+                        );
+                      })}
+                    </svg>
+                  </div>
+                  {subSlots.bench&&subSlots.bench.length>0&&(
+                    <div style={{padding:'4px 8px 6px',flexShrink:0,borderTop:'1px solid #1A1A1A'}}>
+                      <div style={{fontSize:7,fontWeight:800,color:'#444',letterSpacing:1.5,textTransform:'uppercase',marginBottom:3}}>BENCH</div>
+                      <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                        {subSlots.bench.map(name=>(
+                          <div key={name} style={{padding:'3px 7px',borderRadius:12,background:'#1A1A1A',border:'1px solid #2A2A2A',fontSize:10,fontWeight:600,color:'#FFF'}}>{name.split(' ')[0]}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-              {/* Subs list full width */}
-              <div style={{flex:1,overflowY:'auto'}}>
-                {isLastTab||subs.length===0?(
-                  <div style={{fontSize:13,color:'#333',textAlign:'center',padding:'40px 0',fontStyle:'italic'}}>
-                    {isLastTab?'No subs after final period':`No subs at ${subAtMin}′`}
-                  </div>
-                ):subs.map((s,i)=>(
-                  <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'14px 16px',borderBottom:'1px solid #111111',borderLeft:`4px solid ${s.col}`}}>
-                    <span style={{fontSize:12,color:'#555',fontWeight:700,flexShrink:0,minWidth:28,textAlign:'center'}}>{subAtMin}′</span>
-                    <div style={{flex:1,display:'flex',alignItems:'center',gap:10,minWidth:0}}>
-                      <div style={{width:38,height:38,borderRadius:'50%',background:'#1A1A1A',border:`1px solid ${s.col}66`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:'#FFF',flexShrink:0}}>{initials(s.off)}</div>
-                      <div style={{minWidth:0,flex:1}}>
-                        <div style={{display:'flex',alignItems:'center',gap:5}}>
-                          <span style={{fontSize:13,fontWeight:700,color:'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.off.split(' ')[0]}{getNum(s.off)}</span>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
-                        </div>
-                        <div style={{fontSize:10,color:'#555',marginTop:2}}>{s.pos}</div>
+                {/* RIGHT: Sub pairs list */}
+                <div style={{flex:'0 0 48%',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+                  <div style={{flex:1,overflowY:'auto'}}>
+                    {isLastTab||subs.length===0?(
+                      <div style={{fontSize:13,color:'#333',textAlign:'center',padding:'40px 16px',fontStyle:'italic'}}>
+                        {isLastTab?'No subs after final period':`No subs at ${subAtMin}′`}
                       </div>
-                    </div>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="3"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-                    <div style={{flex:1,display:'flex',alignItems:'center',gap:10,minWidth:0}}>
-                      <div style={{width:38,height:38,borderRadius:'50%',background:'#1A1A1A',border:`1px solid ${s.col}66`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:'#FFF',flexShrink:0}}>{initials(s.on)}</div>
-                      <div style={{minWidth:0,flex:1}}>
-                        <div style={{display:'flex',alignItems:'center',gap:5}}>
-                          <span style={{fontSize:13,fontWeight:700,color:'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.on.split(' ')[0]}{getNum(s.on)}</span>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                    ):subs.map((s,i)=>(
+                      <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'14px 16px',borderBottom:'1px solid #111111',borderLeft:`4px solid ${s.col}`}}>
+                        <span style={{fontSize:12,color:'#555',fontWeight:700,flexShrink:0,minWidth:28,textAlign:'center'}}>{subAtMin}′</span>
+                        <div style={{flex:1,display:'flex',alignItems:'center',gap:10,minWidth:0}}>
+                          <div style={{width:38,height:38,borderRadius:'50%',background:'#1A1A1A',border:`1px solid ${s.col}66`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:'#FFF',flexShrink:0}}>{initials(s.off)}</div>
+                          <div style={{minWidth:0,flex:1}}>
+                            <div style={{display:'flex',alignItems:'center',gap:5}}>
+                              <span style={{fontSize:13,fontWeight:700,color:'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.off.split(' ')[0]}{getNum(s.off)}</span>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="3"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+                            </div>
+                            <div style={{fontSize:10,color:'#555',marginTop:2}}>{s.pos}</div>
+                          </div>
                         </div>
-                        <div style={{fontSize:10,color:'#555',marginTop:2}}>{s.pos}</div>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="3"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                        <div style={{flex:1,display:'flex',alignItems:'center',gap:10,minWidth:0}}>
+                          <div style={{width:38,height:38,borderRadius:'50%',background:'#1A1A1A',border:`1px solid ${s.col}66`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:'#FFF',flexShrink:0}}>{initials(s.on)}</div>
+                          <div style={{minWidth:0,flex:1}}>
+                            <div style={{display:'flex',alignItems:'center',gap:5}}>
+                              <span style={{fontSize:13,fontWeight:700,color:'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.on.split(' ')[0]}{getNum(s.on)}</span>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                            </div>
+                            <div style={{fontSize:10,color:'#555',marginTop:2}}>{s.pos}</div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                </div>
               </div>
             </div>
           );
         })()}
 
-        {/* ──── EVENTS TAB (always mounted, hidden via CSS so triggers fire reliably) ──── */}
-        <div style={{flex:1,overflow:'hidden',display:activeMatchTab==='events'?'flex':'none',flexDirection:'column'}}>
-          <EventsPage halfElapsed={halfElapsed} goals={goals} matchEvents={matchEvents} setMatchEvents={setMatchEvents} opponentName={opponent||'Opposition'} ourName={config?.teamName||'My Team'} usGoalsLen={usGoals.length} themGoalsLen={themGoals.length} squad={squad} onGoal={(scorer,assist)=>logGoal(scorer,null)} onThemGoal={()=>logThemGoal()} onUndoGoal={()=>removeGoal(goals.filter(g=>g.team==='us').length-1)} onUndoThemGoal={removeThemGoal} quickNotes={quickNotes} setQuickNotes={setQuickNotes} triggerEventType={triggerEventType} onClearTrigger={()=>setTriggerEventType(null)} qnActive={qnActive} qnLiveText={qnLiveText} toggleQnDictation={toggleQnDictation} onReturnToMatch={()=>setActiveMatchTab('lineup')}/>
-        </div>
+        {/* ──── EVENTS TAB ──── */}
+        {activeMatchTab==='events'&&(
+          <div style={{flex:1,display:'flex',overflow:'hidden'}} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+
+            {/* LEFT: Pitch (tap player to log event) — flush to top */}
+            <div style={{flex:'0 0 52%',display:'flex',flexDirection:'column',borderRight:'1px solid #1A1A1A',overflow:'hidden'}}>
+              {/* Pending event banner overlays only when active */}
+              {pendingEvent&&(
+                <div style={{padding:'5px 10px 4px',flexShrink:0,background:`${pendingEvent.rule.color||'#F5C04A'}15`,borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <div style={{fontSize:9,fontWeight:800,color:pendingEvent.rule.color||'#F5C04A',letterSpacing:1.5,textTransform:'uppercase'}}>TAP PLAYER · {pendingEvent.rule.label}</div>
+                    <button onClick={()=>setPendingEvent(null)} style={{background:'none',border:'none',color:'#555',fontSize:9,cursor:'pointer',padding:0}}>✕</button>
+                  </div>
+                </div>
+              )}
+              {(()=>{
+                const evNextP = halves[halfIdx]?.[pidx + 1];
+                const evGoingOff = new Set();
+                const evGoingOffColors = {};
+                if (evNextP?.slots && cur.slots) {
+                  const evPairs = computeSwapPairs(cur.slots, evNextP.slots, posIds);
+                  posIds.forEach(id => {
+                    const was = cur.slots[id], nxt = evNextP.slots[id];
+                    if (was && nxt && was !== nxt) {
+                      evGoingOff.add(was);
+                      const pairIdx = evPairs[was] ?? evPairs[nxt] ?? null;
+                      if (pairIdx !== null) evGoingOffColors[was] = PAIR_COLORS[pairIdx];
+                    }
+                  });
+                }
+                return (
+                  <div style={{flex:1,padding:'0 4px 4px',minHeight:0}} onTouchStart={onPitchTouchStart} onTouchEnd={onPitchTouchEnd}>
+                    <svg viewBox="0 0 200 280" xmlns="http://www.w3.org/2000/svg" style={{width:'100%',height:'100%',display:'block'}}>
+                      <rect x="0" y="0" width="200" height="280" fill="#1e5c28"/>
+                      {[0,1,2,3,4,5,6].map(i=>(<rect key={i} x="0" y={i*40} width="200" height="40" fill={i%2===0?'rgba(0,0,0,0)':'rgba(0,0,0,0.06)'}/>))}
+                      <rect x="10" y="8" width="180" height="264" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1.5"/>
+                      <line x1="10" y1="140" x2="190" y2="140" stroke="rgba(255,255,255,0.3)" strokeWidth="1.2"/>
+                      <circle cx="100" cy="140" r="24" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.2"/>
+                      <rect x="55" y="8" width="90" height="36" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.2"/>
+                      <rect x="55" y="236" width="90" height="36" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.2"/>
+                      {positions.map((pos)=>{
+                        const name=cur.slots[pos.id]||'';
+                        const isOff2=evGoingOff.has(name);
+                        const subCol2=evGoingOffColors[name]||null;
+                        const player=squad.find(p=>p.name===name);
+                        const num=player?.number||'';
+                        const firstName=name.split(' ')[0]||'';
+                        const cx=svgX(pos.left),cy=svgY(pos.top);
+                        const R=12;
+                        const isPendingTarget = pendingEvent && name;
+                        return (
+                          <g key={pos.id} style={{cursor:pendingEvent&&name?'crosshair':'default'}}
+                            onClick={e=>{e.stopPropagation();if(pendingEvent&&name){handleEventTap(name);}else{handleTap(pos.id,false,null);}}}>
+                            {isPendingTarget&&<circle cx={cx} cy={cy-6} r={R+4} fill="none" stroke={pendingEvent.rule.color||'#F5C04A'} strokeWidth="2" strokeDasharray="3,2"/>}
+                            <circle cx={cx} cy={cy-6} r={R}
+                              fill={isOff2&&subCol2?`${subCol2}22`:'rgba(15,15,15,0.82)'}
+                              stroke={isOff2&&subCol2?subCol2:'rgba(255,255,255,0.55)'}
+                              strokeWidth={isOff2?2:1.5}/>
+                            {name
+                              ? <>
+                                  <text x={cx} y={cy-6+4} textAnchor="middle" fontSize="9" fontWeight="800" fill="#FFF" fontFamily="Outfit,sans-serif">{num||firstName.slice(0,2).toUpperCase()}</text>
+                                  <text x={cx} y={cy+13} textAnchor="middle" fontSize="5.5" fontWeight="600" fill="rgba(255,255,255,0.9)" fontFamily="Outfit,sans-serif">{firstName}</text>
+                                </>
+                              : <text x={cx} y={cy-2} textAnchor="middle" fontSize="14" fill="rgba(255,255,255,0.15)" fontFamily="Outfit,sans-serif">+</text>
+                            }
+                          </g>
+                        );
+                      })}
+                    </svg>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* RIGHT: Event buttons + recent events */}
+            {(()=>{
+              const matchMinEv = Math.floor(halfElapsed / 60);
+              const recentEvs = [...matchEvents].sort((a,b)=>b.minute-a.minute||b.timestamp-a.timestamp).slice(0,5);
+              const GRID_EV = [
+                ...MATCH_EVENT_RULES.filter(r=>r.group==='us'),
+                ...MATCH_EVENT_RULES.filter(r=>r.group==='them'),
+              ];
+              return (
+                <div style={{flex:'0 0 48%',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+                  {/* Header */}
+                  <div style={{padding:'5px 10px 4px',borderBottom:'1px solid #1A1A1A',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <div style={{fontSize:9,fontWeight:800,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase'}}>MATCH EVENTS</div>
+                    <button onClick={()=>{
+                      if(!matchEvents.length)return;
+                      const last=[...matchEvents].sort((a,b)=>b.timestamp-a.timestamp)[0];
+                      if(last.type==='GOAL')removeGoal(goals.filter(g=>g.team==='us').length-1);
+                      if(last.type==='GOAL_CONCEDED')removeThemGoal();
+                      setMatchEvents(evs=>evs.filter(e=>e.id!==last.id));
+                    }} style={{background:'none',border:'none',color:matchEvents.length?'#555':'#333',fontSize:9,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:3}}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
+                      Undo
+                    </button>
+                  </div>
+
+                  {/* Compact event grid */}
+                  <div style={{overflowY:'auto',flex:1}}>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:4,padding:'6px'}}>
+                      {GRID_EV.map(rule=>{
+                        const isPending = pendingEvent?.rule?.type === rule.type;
+                        const needsTap = rule.capture==='goal'||rule.capture==='conceded'||rule.capture==='player';
+                        return (
+                          <button key={rule.type}
+                            onClick={()=>{
+                              if(isPending){setPendingEvent(null);return;}
+                              if(needsTap){
+                                setPendingEvent({rule});
+                              } else {
+                                // No player needed — log immediately
+                                const ev={id:'ev_'+Date.now()+'_'+Math.random().toString(36).slice(2),type:rule.type,eventType:rule.type,minute:matchMinEv,timestamp:Date.now(),player:'',secondaryPlayer:'',category:'',note:'',team:rule.group==='them'?'them':'us'};
+                                if(rule.capture==='conceded'){logThemGoal();ev.team='them';}
+                                setMatchEvents(evs=>[...evs,ev]);
+                              }
+                            }}
+                            style={{background:isPending?`${rule.color}22`:rule.group==='us'?'rgba(34,197,94,0.04)':'rgba(239,68,68,0.04)',border:isPending?`2px solid ${rule.color}`:rule.group==='us'?'1px solid rgba(34,197,94,0.3)':'1px solid rgba(239,68,68,0.3)',borderRadius:10,padding:'8px 6px',cursor:'pointer',textAlign:'left',display:'flex',flexDirection:'column',gap:3,WebkitTapHighlightColor:'transparent'}}>
+                            <div style={{fontSize:18}}>{rule.icon}</div>
+                            <div style={{fontSize:9,fontWeight:800,color:'#FFF',lineHeight:1.2}}>{rule.label}</div>
+                            {isPending&&<div style={{fontSize:8,color:rule.color,fontWeight:700}}>← tap player</div>}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Quick Note button + inline text display */}
+                    {(()=>{
+                      const savedText=(quickNotes||[]).map(n=>n.text).join(' ').trim();
+                      const hasContent=savedText||qnLiveText||qnActive;
+                      return (
+                        <div style={{padding:'4px 6px 6px'}}>
+                          <button onClick={toggleQnDictation}
+                            style={{width:'100%',padding:'8px',background:qnActive?'rgba(239,68,68,0.1)':'#1A1A1A',border:`1px solid ${qnActive?'#ef4444':'#2A2A2A'}`,borderRadius:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                            {qnActive
+                              ? <><div style={{width:8,height:8,borderRadius:'50%',background:'#ef4444'}}/><span style={{fontSize:10,fontWeight:700,color:'#ef4444'}}>Stop Recording</span></>
+                              : <><span style={{fontSize:14}}>📝</span><span style={{fontSize:10,fontWeight:700,color:'#A1A1A1'}}>Quick Note</span></>
+                            }
+                          </button>
+                          {hasContent&&(
+                            <div style={{marginTop:5,padding:'8px 10px',background:'#111111',borderRadius:8,border:`1px solid ${qnActive?'#ef444455':'#1E1E1E'}`,position:'relative'}}>
+                              {qnActive&&<div style={{position:'absolute',top:6,right:8,width:6,height:6,borderRadius:'50%',background:'#ef4444'}}/>}
+                              <div style={{fontSize:11,lineHeight:1.5}}>
+                                {savedText&&<span style={{color:'#E5E5E5'}}>{savedText}</span>}
+                                {savedText&&qnLiveText&&<span style={{color:'#555'}}> </span>}
+                                {qnLiveText
+                                  ?<span style={{color:qnActive?'rgba(239,68,68,0.85)':'#E5E5E5'}}>{qnLiveText}</span>
+                                  :qnActive&&!savedText&&<span style={{color:'#555',fontStyle:'italic'}}>Listening…</span>
+                                }
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Recent events */}
+                    {recentEvs.length>0&&(
+                      <div style={{padding:'0 6px 6px'}}>
+                        <div style={{fontSize:9,fontWeight:800,color:'#555',letterSpacing:1,textTransform:'uppercase',marginBottom:4}}>RECENT</div>
+                        <div style={{background:'#111111',borderRadius:10,border:'1px solid #1E1E1E',overflow:'hidden'}}>
+                          {recentEvs.map((ev,i)=>{
+                            const rule=MATCH_EVENT_RULES.find(r=>r.type===ev.type)||{icon:'📝',label:ev.type,color:'#A1A1A1'};
+                            return (
+                              <div key={ev.id} style={{display:'flex',alignItems:'center',gap:6,padding:'7px 10px',borderBottom:i<recentEvs.length-1?'1px solid #1E1E1E':'none'}}>
+                                <span style={{fontSize:13}}>{rule.icon}</span>
+                                <div style={{flex:1,minWidth:0}}>
+                                  <div style={{fontSize:10,fontWeight:700,color:'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{rule.label}{ev.player?` · ${ev.player.split(' ')[0]}`:''}</div>
+                                </div>
+                                <span style={{fontSize:9,fontWeight:700,color:'#F5C04A',flexShrink:0}}>{ev.minute}'</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Quick Notes — shown inline above button; no duplicate list needed */}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
 
         {/* ──── STATS TAB ──── */}
         {activeMatchTab==='stats'&&(
@@ -7144,39 +7488,7 @@ function MatchScreen({ half1, half2, config, squad, opponent, linkedFixKey, fixI
 
       </div>
 
-      {/* ── QUICK ACTIONS BAR — shown on all non-events tabs; links directly into EventsPage modals ── */}
-      {activeMatchTab==='lineup'&&(
-        <div style={{background:'#111111',borderTop:'1px solid #1E1E1E',padding:'8px 10px',paddingBottom:'max(8px,env(safe-area-inset-bottom))',marginBottom:60,flexShrink:0}}>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:6}}>
-            {/* End Match */}
-            <button onClick={()=>{setRunning(false);if(isVoiceRecRef.current)stopVoice('');if(voiceNotes.trim()){setVoiceReview(voiceNotes);setModal('voiceReview');}else setModal('save');}}
-              style={{padding:'10px 6px',background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.25)',borderRadius:10,cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="#ef4444"><rect x="3" y="3" width="18" height="18" rx="3"/></svg>
-              <span style={{fontSize:10,fontWeight:700,color:'#ef4444'}}>End Match</span>
-            </button>
-            {/* Goal */}
-            <button onClick={()=>{setActiveMatchTab('events');setTriggerEventType('GOAL');}}
-              style={{padding:'10px 6px',background:'rgba(34,197,94,0.1)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:10,cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-              <span style={{fontSize:18}}>⚽</span>
-              <span style={{fontSize:10,fontWeight:700,color:'#22c55e'}}>Goal</span>
-            </button>
-            {/* Goal Conceded */}
-            <button onClick={()=>{setActiveMatchTab('events');setTriggerEventType('GOAL_CONCEDED');}}
-              style={{padding:'10px 6px',background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:10,cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-              <span style={{fontSize:18}}>🥅</span>
-              <span style={{fontSize:10,fontWeight:700,color:'#ef4444'}}>Conceded</span>
-            </button>
-            {/* Quick Note */}
-            <button onClick={toggleQnDictation}
-              style={{padding:'10px 6px',background:qnActive?'rgba(239,68,68,0.15)':'#1A1A1A',border:`1px solid ${qnActive?'#ef4444':'#2A2A2A'}`,borderRadius:10,cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-              {qnActive
-                ? <><div style={{width:10,height:10,borderRadius:'50%',background:'#ef4444'}}/><span style={{fontSize:10,fontWeight:700,color:'#ef4444'}}>Stop</span></>
-                : <><span style={{fontSize:18}}>📝</span><span style={{fontSize:10,fontWeight:700,color:'#A1A1A1'}}>Quick Note</span></>
-              }
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Quick actions bar removed — End Match in header, events in Events tab */}
 
       <BottomNav activeTab="match" onTab={(t)=>{if(t!=="match") onExit();}}/>
       <style>{`@keyframes pulse{from{opacity:1}to{opacity:0.3}}`}</style>
