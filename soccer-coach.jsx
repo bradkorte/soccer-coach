@@ -1677,6 +1677,80 @@ function KhulaHeader({ title = '', onBack, showBack, moreActions = [] }) {
   );
 }
 
+// ════════════════════════════════════════════════════════════════════════════════
+//  SECTION TABS — reusable horizontal tab navigation (KHULA UI Spec)
+//  Height: 44px  |  Active: #F5C04A pill  |  Inactive: #B0B0B0 text
+//  Sticks directly below the two-layer KhulaHeader (75px AppBar + 48px PageHeader)
+// ════════════════════════════════════════════════════════════════════════════════
+function SectionTabs({ tabs, activeTab, onTabChange, scrollable = true }) {
+  const rowRef = React.useRef(null);
+
+  function handleTabChange(tab) {
+    if (tab === activeTab) return;
+    onTabChange(tab);
+    // scroll active pill into view after state updates
+    requestAnimationFrame(() => {
+      if (rowRef.current) {
+        const btn = rowRef.current.querySelector('[data-active="true"]');
+        if (btn) btn.scrollIntoView({ inline: 'nearest', behavior: 'smooth', block: 'nearest' });
+      }
+    });
+  }
+
+  return (
+    <div style={{
+      position: 'sticky',
+      top: 'calc(125px + env(safe-area-inset-top))',
+      zIndex: 99,
+      background: '#0D0D0D',
+      borderBottom: '1px solid rgba(255,255,255,0.08)',
+      flexShrink: 0,
+    }}>
+      <div
+        ref={rowRef}
+        style={{
+          display: 'flex',
+          gap: 4,
+          overflowX: scrollable ? 'auto' : 'visible',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          padding: '6px 12px',
+          height: 44,
+          alignItems: 'center',
+          boxSizing: 'border-box',
+        }}
+      >
+        {tabs.map(tab => {
+          const isActive = tab === activeTab;
+          return (
+            <button
+              key={tab}
+              data-active={isActive}
+              onClick={() => handleTabChange(tab)}
+              style={{
+                flexShrink: 0,
+                padding: '8px 16px',
+                borderRadius: 10,
+                border: 'none',
+                cursor: 'pointer',
+                background: isActive ? '#F5C04A' : 'transparent',
+                color: isActive ? '#000000' : '#B0B0B0',
+                fontSize: 15,
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+                transition: 'background 0.15s, color 0.15s',
+                lineHeight: 1,
+              }}
+            >
+              {tab}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function FixturesScreen({ onBack, embedded, games=[], onViewGame=null }) {
   const [myTeam, setMyTeam] = useState(() => localStorage.getItem('soccerCoach_fixtureTeam') || '');
   const [filter, setFilter]   = useState(() => {
@@ -2031,6 +2105,7 @@ function OpponentStatsScreen({ opponent, onBack, embedded }) {
   const [editing, setEditing] = React.useState(false);
   const [scout, setScout]     = React.useState(() => loadScoutReport(opponent));
   const [draft, setDraft]     = React.useState({});
+  const [scoutTab, setScoutTab] = React.useState('Overview');
 
   function startEdit() { setDraft({...scout}); setEditing(true); }
   function saveDraft() { saveScoutReport(opponent, draft); setScout({...draft, lastUpdated: new Date().toISOString()}); setEditing(false); }
@@ -2067,17 +2142,10 @@ function OpponentStatsScreen({ opponent, onBack, embedded }) {
   const theirPos  = ladder.findIndex(t=>t.name===opponent)+1;
   const myPos     = myTeam ? ladder.findIndex(t=>t.name===myTeam)+1 : 0;
 
-  // Use structured scout data
-  const watchForRaw  = scout.dangerPlayers || '';
-  const weaknessRaw  = scout.weaknesses || '';
-  const setPiecesRaw = '';  // now part of coachNotes
-
-  // Auto-derive insights from results when no notes
   const avgGF = p > 0 ? (gf/p).toFixed(1) : '—';
   const avgGA = p > 0 ? (ga/p).toFixed(1) : '—';
   const winPct = p > 0 ? Math.round(w/p*100) : 0;
 
-  // Star rating: 1–5 based on pts/game, ladder pos
   const ptsPerGame = p > 0 ? pts/p : 0;
   const rawRating  = Math.min(5, Math.max(1, Math.round(ptsPerGame * 5/3)));
 
@@ -2086,43 +2154,97 @@ function OpponentStatsScreen({ opponent, onBack, embedded }) {
   const card = { background:'#111111', border:'1px solid #1E1E1E', borderRadius:14, padding:'14px 16px', marginBottom:10 };
   const sectionLabel = { fontSize:10, fontWeight:700, color:'#555', letterSpacing:1.2, textTransform:'uppercase', marginBottom:10 };
 
-  const statsContent = (
-    <div style={{ padding: 0 }}>
+  // ── Team header (shared across tabs) ──
+  const teamHeader = (
+    <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:14 }}>
+      <TeamBadge name={opponent} size={56} radius={12} />
+      <div style={{ flex:1 }}>
+        <div style={{ fontSize:18, fontWeight:800, color:'#FFF', marginBottom:4 }}>{opponent}</div>
+        <div style={{ display:'flex', gap:2, marginBottom:4 }}>
+          {[1,2,3,4,5].map(s => (
+            <svg key={s} width="14" height="14" viewBox="0 0 24 24" fill={s<=rawRating?'#F5C04A':'#2A2A2A'}>
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+          ))}
+        </div>
+        {theirPos > 0 && <div style={{ fontSize:12, color:'#A1A1A1' }}>#{theirPos} on ladder · {w}W {d}D {l}L</div>}
+      </div>
+    </div>
+  );
 
-      {/* Team header with star rating */}
-      <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:14 }}>
-        <TeamBadge name={opponent} size={56} radius={12} />
-        <div style={{ flex:1 }}>
-          <div style={{ fontSize:18, fontWeight:800, color:'#FFF', marginBottom:4 }}>{opponent}</div>
-          <div style={{ display:'flex', gap:2, marginBottom:4 }}>
-            {[1,2,3,4,5].map(s => (
-              <svg key={s} width="14" height="14" viewBox="0 0 24 24" fill={s<=rawRating?'#F5C04A':'#2A2A2A'}>
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-              </svg>
+  // ── Tab content ──
+  const overviewContent = (
+    <div>
+      <div style={card}>
+        {teamHeader}
+        {p > 0 && (
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:10 }}>
+            {[
+              ['GF/G', avgGF, '#22c55e'],
+              ['GA/G', avgGA, '#ef4444'],
+              ['Win %', winPct+'%', winPct>=50?'#F5C04A':'#A1A1A1'],
+              ['Pts', pts, '#FFF'],
+            ].map(([label, val, color]) => (
+              <div key={label} style={{ background:'#0D0D0D', borderRadius:10, padding:'10px 6px', textAlign:'center' }}>
+                <div style={{ fontSize:16, fontWeight:800, color, lineHeight:1 }}>{val}</div>
+                <div style={{ fontSize:9, color:'#555', marginTop:4, fontWeight:600, textTransform:'uppercase', letterSpacing:0.4 }}>{label}</div>
+              </div>
             ))}
           </div>
-          {theirPos > 0 && <div style={{ fontSize:12, color:'#A1A1A1' }}>#{theirPos} on ladder · {w}W {d}D {l}L</div>}
-        </div>
+        )}
+        {p === 0 && <div style={{ fontSize:13, color:'#555', lineHeight:1.6 }}>No match data yet for {opponent} this season.</div>}
       </div>
 
-      {/* Stats row */}
-      {p > 0 && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:10 }}>
-          {[
-            ['GF/G', avgGF, '#22c55e'],
-            ['GA/G', avgGA, '#ef4444'],
-            ['Win %', winPct+'%', winPct>=50?'#F5C04A':'#A1A1A1'],
-            ['Pts', pts, '#FFF'],
-          ].map(([label, val, color]) => (
-            <div key={label} style={{ background:'#0D0D0D', borderRadius:10, padding:'10px 6px', textAlign:'center' }}>
-              <div style={{ fontSize:16, fontWeight:800, color, lineHeight:1 }}>{val}</div>
-              <div style={{ fontSize:9, color:'#555', marginTop:4, fontWeight:600, textTransform:'uppercase', letterSpacing:0.4 }}>{label}</div>
+      {vsUsGames.length > 0 && (
+        <div style={card}>
+          <div style={sectionLabel}>vs Us</div>
+          {vsUsGames.map((r,i) => (
+            <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingBottom:i<vsUsGames.length-1?10:0, marginBottom:i<vsUsGames.length-1?10:0, borderBottom:i<vsUsGames.length-1?'1px solid #1E1E1E':'none' }}>
+              <div>
+                <div style={{ fontSize:13, color:'#FFF', fontWeight:600 }}>{r.f.round}</div>
+                <div style={{ fontSize:11, color:'#555' }}>{r.f.date}</div>
+              </div>
+              {r.result !== '?' ? (
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <span style={{ fontSize:16, fontWeight:800, color:'#FFF' }}>{r.scored}–{r.conceded}</span>
+                  <div style={{ width:28, height:28, borderRadius:7, background:resultBadge(r.result)+'22', border:`1px solid ${resultBadge(r.result)}55`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, color:resultBadge(r.result) }}>{r.result}</div>
+                </div>
+              ) : <span style={{ fontSize:11, color:'#555' }}>Unknown</span>}
             </div>
           ))}
         </div>
       )}
+    </div>
+  );
 
-      {/* Scout Report fields — edit or view */}
+  const prevMatchesContent = (
+    <div>
+      {results.length > 0 ? (
+        <div style={card}>
+          <div style={sectionLabel}>Season Results</div>
+          {results.map((r,i) => (
+            <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingBottom:i<results.length-1?8:0, marginBottom:i<results.length-1?8:0, borderBottom:i<results.length-1?'1px solid #1E1E1E':'none' }}>
+              <div>
+                <div style={{ fontSize:12, color:'#CCC' }}>{r.vs}</div>
+                <div style={{ fontSize:10, color:'#555' }}>{r.f.date} · {r.f.round}</div>
+              </div>
+              {r.result !== '?' ? (
+                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  <span style={{ fontSize:14, fontWeight:700, color:'#FFF' }}>{r.scored}–{r.conceded}</span>
+                  <span style={{ fontSize:11, fontWeight:700, color:resultBadge(r.result) }}>{r.result}</span>
+                </div>
+              ) : <span style={{ fontSize:11, color:'#555' }}>Unknown</span>}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ textAlign:'center', color:'#555', fontSize:13, padding:'20px 0' }}>No results recorded for {opponent} yet.</div>
+      )}
+    </div>
+  );
+
+  const watchoutsContent = (
+    <div>
       {editing ? (
         <div style={card}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
@@ -2154,12 +2276,12 @@ function OpponentStatsScreen({ opponent, onBack, embedded }) {
       ) : (
         <div style={card}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: (scout.strengths||scout.weaknesses||scout.dangerPlayers||scout.suggestedTactics||scout.coachNotes) ? 14 : 0 }}>
-            <div style={sectionLabel}>Scout Report</div>
+            <div style={sectionLabel}>Watch-outs</div>
             <button onClick={startEdit} style={{ background:'#1A1A1A', border:'1px solid #2A2A2A', color:'#F5C04A', borderRadius:7, padding:'5px 10px', fontSize:11, cursor:'pointer', fontWeight:700 }}>
-              {(scout.strengths||scout.weaknesses||scout.dangerPlayers||scout.coachNotes) ? 'Edit' : '+ Add Report'}
+              {(scout.strengths||scout.weaknesses||scout.dangerPlayers||scout.coachNotes) ? 'Edit' : '+ Add'}
             </button>
           </div>
-          {(scout.strengths||scout.weaknesses||scout.dangerPlayers||scout.suggestedTactics||scout.coachNotes) ? (
+          {(scout.strengths||scout.weaknesses||scout.dangerPlayers||scout.suggestedTactics) ? (
             <>
               {scout.strengths && (
                 <div style={{ marginBottom:12 }}>
@@ -2191,89 +2313,90 @@ function OpponentStatsScreen({ opponent, onBack, embedded }) {
                   <div style={{ fontSize:13, color:'#A1A1A1', lineHeight:1.65 }}>{scout.suggestedTactics}</div>
                 </div>
               )}
-              {scout.coachNotes && (
-                <div style={{ marginBottom: scout.lastUpdated ? 10 : 0 }}>
-                  <div style={{ fontSize:10, fontWeight:700, color:'#555', letterSpacing:1, textTransform:'uppercase', marginBottom:6 }}>Coach Notes</div>
-                  <div style={{ fontSize:13, color:'#A1A1A1', lineHeight:1.7, whiteSpace:'pre-wrap' }}>{scout.coachNotes}</div>
-                </div>
-              )}
+            </>
+          ) : (
+            <div style={{ fontSize:13, color:'#555', lineHeight:1.6 }}>Tap "+ Add" to scout {opponent}'s strengths, weaknesses and danger players.</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  const notesContent = (
+    <div>
+      {editing ? (
+        <div style={card}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+            <div style={sectionLabel}>Coach Notes</div>
+            <div style={{ display:'flex', gap:8 }}>
+              <button onClick={cancelEdit} style={{ background:'#1A1A1A', border:'1px solid #2A2A2A', color:'#A1A1A1', borderRadius:7, padding:'5px 12px', fontSize:12, cursor:'pointer' }}>Cancel</button>
+              <button onClick={saveDraft} style={{ background:'#F5C04A', border:'none', color:'#000', borderRadius:7, padding:'5px 12px', fontSize:12, fontWeight:700, cursor:'pointer' }}>Save</button>
+            </div>
+          </div>
+          <textarea
+            value={draft.coachNotes || ''}
+            onChange={e=>setDraft(d=>({...d,coachNotes:e.target.value}))}
+            placeholder="Your pre-match notes, game plan, key talking points…"
+            rows={8}
+            style={{ width:'100%', background:'#0D0D0D', border:'1px solid #2A2A2A', borderRadius:8, color:'#FFF', fontSize:13, padding:'8px 10px', resize:'vertical', outline:'none', fontFamily:'inherit', boxSizing:'border-box' }}
+          />
+        </div>
+      ) : (
+        <div style={card}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: scout.coachNotes ? 14 : 0 }}>
+            <div style={sectionLabel}>Coach Notes</div>
+            <button onClick={startEdit} style={{ background:'#1A1A1A', border:'1px solid #2A2A2A', color:'#F5C04A', borderRadius:7, padding:'5px 10px', fontSize:11, cursor:'pointer', fontWeight:700 }}>
+              {scout.coachNotes ? 'Edit' : '+ Add'}
+            </button>
+          </div>
+          {scout.coachNotes ? (
+            <>
+              <div style={{ fontSize:13, color:'#A1A1A1', lineHeight:1.7, whiteSpace:'pre-wrap' }}>{scout.coachNotes}</div>
               {scout.lastUpdated && (
-                <div style={{ fontSize:10, color:'#333', marginTop:6 }}>
+                <div style={{ fontSize:10, color:'#333', marginTop:8 }}>
                   Last updated {(() => { const d=new Date(scout.lastUpdated); const days=Math.floor((Date.now()-d)/86400000); return days===0?'today':days===1?'yesterday':`${days} days ago`; })()}
                 </div>
               )}
             </>
           ) : (
-            <div style={{ fontSize:13, color:'#555', lineHeight:1.6 }}>
-              {p > 0
-                ? `${opponent} have played ${p} game${p!==1?'s':''} this season — ${w}W ${d}D ${l}L. Tap "Add Report" to add your scout notes.`
-                : 'No match data yet. Tap "+ Add Report" to start scouting this team.'}
-            </div>
+            <div style={{ fontSize:13, color:'#555', lineHeight:1.6 }}>Tap "+ Add" to write your pre-match notes and game plan for {opponent}.</div>
           )}
         </div>
-      )}
-
-      {/* vs Us */}
-      {vsUsGames.length > 0 && (
-        <div style={card}>
-          <div style={sectionLabel}>Previous Meetings</div>
-          {vsUsGames.map((r,i) => (
-            <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingBottom:i<vsUsGames.length-1?10:0, marginBottom:i<vsUsGames.length-1?10:0, borderBottom:i<vsUsGames.length-1?'1px solid #1E1E1E':'none' }}>
-              <div>
-                <div style={{ fontSize:13, color:'#FFF', fontWeight:600 }}>{r.f.round}</div>
-                <div style={{ fontSize:11, color:'#555' }}>{r.f.date}</div>
-              </div>
-              {r.result !== '?' ? (
-                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                  <span style={{ fontSize:16, fontWeight:800, color:'#FFF' }}>{r.scored}–{r.conceded}</span>
-                  <div style={{ width:28, height:28, borderRadius:7, background:resultBadge(r.result)+'22', border:`1px solid ${resultBadge(r.result)}55`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, color:resultBadge(r.result) }}>{r.result}</div>
-                </div>
-              ) : <span style={{ fontSize:11, color:'#555' }}>Unknown</span>}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* All results */}
-      {results.length > 0 && (
-        <div style={card}>
-          <div style={sectionLabel}>Season Results</div>
-          {results.map((r,i) => (
-            <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingBottom:i<results.length-1?8:0, marginBottom:i<results.length-1?8:0, borderBottom:i<results.length-1?'1px solid #1E1E1E':'none' }}>
-              <div>
-                <div style={{ fontSize:12, color:'#CCC' }}>{r.vs}</div>
-                <div style={{ fontSize:10, color:'#555' }}>{r.f.date} · {r.f.round}</div>
-              </div>
-              {r.result !== '?' ? (
-                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                  <span style={{ fontSize:14, fontWeight:700, color:'#FFF' }}>{r.scored}–{r.conceded}</span>
-                  <span style={{ fontSize:11, fontWeight:700, color:resultBadge(r.result) }}>{r.result}</span>
-                </div>
-              ) : <span style={{ fontSize:11, color:'#555' }}>Unknown</span>}
-            </div>
-          ))}
-        </div>
-      )}
-      {p === 0 && results.length === 0 && (
-        <div style={{ textAlign:'center', color:'#555', fontSize:13, padding:'20px 0' }}>No results recorded for this team yet.</div>
       )}
     </div>
   );
 
-  if (embedded) return statsContent;
+  const tabContent = {
+    'Overview':         overviewContent,
+    'Previous Matches': prevMatchesContent,
+    'Watch-outs':       watchoutsContent,
+    'Notes':            notesContent,
+  };
+
+  const innerContent = (
+    <div style={{ padding:'14px 16px 20px' }}>
+      {tabContent[scoutTab]}
+    </div>
+  );
+
+  if (embedded) return innerContent;
 
   return (
     <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:90, display:'flex', flexDirection:'column' }}>
       <KhulaHeader showBack={true} onBack={onBack} title="Scout Report" moreActions={[
         { label:'Edit Report', action: startEdit },
       ]} />
-      <div style={{ flex:1, overflowY:'auto', padding:'14px 16px 20px' }}>
-        {statsContent}
+      <SectionTabs
+        tabs={['Overview','Previous Matches','Watch-outs','Notes']}
+        activeTab={scoutTab}
+        onTabChange={setScoutTab}
+      />
+      <div style={{ flex:1, overflowY:'auto' }}>
+        {innerContent}
       </div>
     </div>
   );
 }
-
 // ════════════════════════════════════════════════════════════════════════════════
 //  SCREEN: LADDER
 // ════════════════════════════════════════════════════════════════════════════════
@@ -2568,6 +2691,7 @@ function LadderScreen({ onBack, embedded, onScout }) {
 // ════════════════════════════════════════════════════════════════════════════════
 function SettingsScreen({ settings, onSave, onBack, onViewImportExport }) {
   const [form, setForm] = useState({ ...settings });
+  const [settingsTab, setSettingsTab] = useState('General');
 
   const allTeams = [...new Set(FIXTURES.flatMap(f => [f.home, f.away]))].sort();
 
@@ -2580,67 +2704,73 @@ function SettingsScreen({ settings, onSave, onBack, onViewImportExport }) {
     onBack();
   }
 
-
-
-
-
   return (
     <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, display:'flex', flexDirection:'column' }}>
       <KhulaHeader showBack={true} onBack={onBack} title="Settings" />
-      {/* Fields */}
+      <SectionTabs
+        tabs={['General','Formation','Defaults']}
+        activeTab={settingsTab}
+        onTabChange={setSettingsTab}
+      />
       <div style={{ flex:1, overflowY:'auto', padding:'20px 16px', display:'flex', flexDirection:'column', gap:16 }}>
-        <div>
-          <div style={S.fieldLbl}>Our team</div>
-          <select style={{...S.inp, width:'100%'}} value={form.teamName||''} onChange={e=>upd('teamName',e.target.value)}>
-            <option value=''>— Select your team —</option>
-            {allTeams.map(t=><option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-        {[["coachName","Coach name"],["managerName","Manager name"],["ageGroup","Age Group (e.g. U11 Girls)"],["season","Season (e.g. 2026 Season)"],["venue","Home Venue"]].map(([key,lbl])=>(
-          <div key={key}>
-            <div style={S.fieldLbl}>{lbl}</div>
-            <input style={{...S.inp,width:'100%'}} value={form[key]||''} onChange={e=>upd(key,e.target.value)} />
-          </div>
-        ))}
 
-        {/* ── Match Defaults ── */}
-        <div style={{ background:'#111111', borderRadius:12, padding:'14px 16px', border:'1px solid #1E1E1E' }}>
-          <div style={{ fontSize:10, fontWeight:700, color:'#555', letterSpacing:1.2, textTransform:'uppercase', marginBottom:12 }}>Match Defaults</div>
-          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-            <div>
-              <div style={S.fieldLbl}>Default Formation</div>
-              <select style={{...S.inp,width:'100%'}} value={form.formation||DEFAULT_FORMATION} onChange={e=>upd('formation',e.target.value)}>
-                {Object.keys(FORMATIONS).map(f=><option key={f} value={f}>{f}</option>)}
-              </select>
+        {/* ── GENERAL TAB ── */}
+        {settingsTab === 'General' && <>
+          <div>
+            <div style={S.fieldLbl}>Our team</div>
+            <select style={{...S.inp, width:'100%'}} value={form.teamName||''} onChange={e=>upd('teamName',e.target.value)}>
+              <option value=''>— Select your team —</option>
+              {allTeams.map(t=><option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          {[["coachName","Coach name"],["managerName","Manager name"],["ageGroup","Age Group (e.g. U11 Girls)"],["season","Season (e.g. 2026 Season)"],["venue","Home Venue"]].map(([key,lbl])=>(
+            <div key={key}>
+              <div style={S.fieldLbl}>{lbl}</div>
+              <input style={{...S.inp,width:'100%'}} value={form[key]||''} onChange={e=>upd(key,e.target.value)} />
             </div>
-            <div>
-              <div style={S.fieldLbl}>Half Length (minutes)</div>
-              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                <button style={{ background:'#1A1A1A', border:'1px solid #333', color:'#FFF', width:36, height:36, borderRadius:8, cursor:'pointer', fontSize:18, lineHeight:1 }} onClick={()=>upd('halfMins',Math.max(5,(form.halfMins||24)-5))}>−</button>
-                <span style={{ fontSize:15, fontWeight:700, color:'#FFF', minWidth:52, textAlign:'center' }}>{form.halfMins||24} min</span>
-                <button style={{ background:'#1A1A1A', border:'1px solid #333', color:'#FFF', width:36, height:36, borderRadius:8, cursor:'pointer', fontSize:18, lineHeight:1 }} onClick={()=>upd('halfMins',Math.min(60,(form.halfMins||24)+5))}>+</button>
-              </div>
-            </div>
-            <div>
-              <div style={S.fieldLbl}>Rotation Periods per Half</div>
-              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                <button style={{ background:'#1A1A1A', border:'1px solid #333', color:'#FFF', width:36, height:36, borderRadius:8, cursor:'pointer', fontSize:18, lineHeight:1 }} onClick={()=>upd('numPeriods',Math.max(1,(form.numPeriods||3)-1))}>−</button>
-                <span style={{ fontSize:15, fontWeight:700, color:'#FFF', minWidth:20, textAlign:'center' }}>{form.numPeriods||3}</span>
-                <button style={{ background:'#1A1A1A', border:'1px solid #333', color:'#FFF', width:36, height:36, borderRadius:8, cursor:'pointer', fontSize:18, lineHeight:1 }} onClick={()=>upd('numPeriods',Math.min(6,(form.numPeriods||3)+1))}>+</button>
-              </div>
+          ))}
+          <button style={{...S.btnGreen, width:'100%'}} onClick={save}>Save Settings</button>
+          <button style={{...S.btnDark, width:'100%', fontSize:13, display:'flex', alignItems:'center', justifyContent:'center', gap:8}} onClick={onViewImportExport}>
+            📦 Import / Export Data
+          </button>
+        </>}
+
+        {/* ── FORMATION TAB ── */}
+        {settingsTab === 'Formation' && <>
+          <div>
+            <div style={S.fieldLbl}>Default Formation</div>
+            <select style={{...S.inp,width:'100%'}} value={form.formation||DEFAULT_FORMATION} onChange={e=>upd('formation',e.target.value)}>
+              {Object.keys(FORMATIONS).map(f=><option key={f} value={f}>{f}</option>)}
+            </select>
+          </div>
+          <button style={{...S.btnGreen, width:'100%'}} onClick={save}>Save Settings</button>
+        </>}
+
+        {/* ── DEFAULTS TAB ── */}
+        {settingsTab === 'Defaults' && <>
+          <div>
+            <div style={S.fieldLbl}>Half Length (minutes)</div>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <button style={{ background:'#1A1A1A', border:'1px solid #333', color:'#FFF', width:36, height:36, borderRadius:8, cursor:'pointer', fontSize:18, lineHeight:1 }} onClick={()=>upd('halfMins',Math.max(5,(form.halfMins||24)-5))}>−</button>
+              <span style={{ fontSize:15, fontWeight:700, color:'#FFF', minWidth:52, textAlign:'center' }}>{form.halfMins||24} min</span>
+              <button style={{ background:'#1A1A1A', border:'1px solid #333', color:'#FFF', width:36, height:36, borderRadius:8, cursor:'pointer', fontSize:18, lineHeight:1 }} onClick={()=>upd('halfMins',Math.min(60,(form.halfMins||24)+5))}>+</button>
             </div>
           </div>
-        </div>
+          <div>
+            <div style={S.fieldLbl}>Rotation Periods per Half</div>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <button style={{ background:'#1A1A1A', border:'1px solid #333', color:'#FFF', width:36, height:36, borderRadius:8, cursor:'pointer', fontSize:18, lineHeight:1 }} onClick={()=>upd('numPeriods',Math.max(1,(form.numPeriods||3)-1))}>−</button>
+              <span style={{ fontSize:15, fontWeight:700, color:'#FFF', minWidth:20, textAlign:'center' }}>{form.numPeriods||3}</span>
+              <button style={{ background:'#1A1A1A', border:'1px solid #333', color:'#FFF', width:36, height:36, borderRadius:8, cursor:'pointer', fontSize:18, lineHeight:1 }} onClick={()=>upd('numPeriods',Math.min(6,(form.numPeriods||3)+1))}>+</button>
+            </div>
+          </div>
+          <button style={{...S.btnGreen, width:'100%'}} onClick={save}>Save Settings</button>
+        </>}
 
-        <button style={{...S.btnGreen, width:'100%'}} onClick={save}>Save Settings</button>
-        <button style={{...S.btnDark, width:'100%', fontSize:13, display:'flex', alignItems:'center', justifyContent:'center', gap:8}} onClick={onViewImportExport}>
-          📦 Import / Export Data
-        </button>
       </div>
     </div>
   );
 }
-
 // ════════════════════════════════════════════════════════════════════════════════
 //  SCREEN: PLAYER STATS
 // ════════════════════════════════════════════════════════════════════════════════
@@ -2787,9 +2917,10 @@ function GameLogScreen({ onBack, onOpenGame, onDeleteGame }) {
           const dateStr = r.dateStr || (g ? fmtDate(new Date(g.date).toISOString().slice(0,10)) : '');
           const locLabel = r.isHome===true ? 'Home' : r.isHome===false ? 'Away' : null;
 
+          const viewGame = g || { _fixtureOnly:true, id:r.id, opponent:r.opponent, date:r.dateStr, round:r.round, linkedFixtureKey:r.type==='fixture'?r.id:null, fixtureIsHome:r.isHome, scoreUs:r.us, scoreThem:r.them, goals:[], halves:[], matchEvents:[], voiceNotes:'' };
           return (
-            <div key={r.id||i} onClick={hasDetail?()=>onOpenGame(g.id):undefined}
-              style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'12px 0', borderBottom: notLast?'1px solid #1A1A1A':'none', cursor:hasDetail?'pointer':'default' }}>
+            <div key={r.id||i} onClick={()=>onOpenGame(viewGame)}
+              style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'12px 0', borderBottom: notLast?'1px solid #1A1A1A':'none', cursor:'pointer' }}>
               {/* W/D/L badge */}
               <div style={{ width:34, height:34, borderRadius:8, background:resBg, border:`1px solid ${resColor}44`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:2 }}>
                 <span style={{ fontSize:13, fontWeight:800, color:resColor }}>{res}</span>
@@ -2901,11 +3032,6 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout, onM
     return <GameDetailScreen game={fixtureDetailGame} onBack={()=>setFixtureDetailGame(null)} onUpdateGame={null} />;
   }
 
-  // ── Game Log ────────────────────────────────────────────────────────────────
-  if (subScreen === 'log') {
-    return <GameLogScreen onBack={()=>setSubScreen(null)} onOpenGame={onOpenGame} onDeleteGame={onDeleteGame} />;
-  }
-
   // ── Fixtures ────────────────────────────────────────────────────────────────
   if (subScreen === 'fixtures') return subPage('Fixtures', (
     <div style={{ overflowY:'auto', flex:1 }}>
@@ -2953,56 +3079,28 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout, onM
     );
   }
 
-  // ── Team Stats (was Insights) ────────────────────────────────────────────────
-  if (subScreen === 'insights' || subScreen === 'stats') return subPage('Team Statistics', (
-    <InsightsScreen games={games} />
-  ));
+  // ── Game Log ────────────────────────────────────────────────────────────────
+  if (subScreen === 'log') return (
+    <GameLogScreen
+      onBack={()=>setSubScreen(null)}
+      onOpenGame={game => setFixtureDetailGame(game)}
+      onDeleteGame={onDeleteGame}
+    />
+  );
 
-  // ── Player Development ───────────────────────────────────────────────────────
-  if (subScreen === 'player-dev') return subPage('Player Development', (
-    <div style={{ flex:1, overflowY:'auto', padding:'16px 16px 20px' }}>
-      {/* Player list with tap to view stats */}
-      {(() => {
-        const squad = loadSquad();
-        if (squad.length === 0) return (
-          <div style={{ textAlign:'center', color:'#555', fontSize:13, padding:'40px 0' }}>
-            <div style={{ fontSize:32, marginBottom:10 }}>👤</div>
-            No players in squad. Add players via the Team tab.
-          </div>
-        );
-        return squad.map((p, i) => {
-          const goals = (games||[]).reduce((s,g)=>(g.goals||[]).filter(x=>x.team==='us'&&x.scorer===p.name).length+s, 0);
-          const apps  = (games||[]).filter(g=>g.halves&&g.halves.some(h=>h.some(per=>per.slots&&Object.values(per.slots).includes(p.name)))).length;
-          const potm  = (games||[]).filter(g=>{ const arr=Array.isArray(g.potm)?g.potm:(g.potm?[g.potm]:[]); return arr.includes(p.name); }).length;
-          return (
-            <div key={p.name} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', background:'#111111', border:'1px solid #1E1E1E', borderRadius:14, marginBottom:8 }}>
-              <div style={{ width:40, height:40, borderRadius:10, background:'#1A1A1A', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, fontWeight:700, color:'#F5C04A', flexShrink:0 }}>
-                {p.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)}
-              </div>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:14, fontWeight:700, color:'#FFF' }}>{p.name}</div>
-                <div style={{ fontSize:11, color:'#555', marginTop:1 }}>{[p.pos,p.pos2,p.pos3].filter(Boolean).join(' · ')||'No position'}</div>
-              </div>
-              <div style={{ display:'flex', gap:12, flexShrink:0 }}>
-                {apps>0 && <div style={{ textAlign:'center' }}><div style={{ fontSize:13, fontWeight:700, color:'#FFF' }}>{apps}</div><div style={{ fontSize:8, color:'#555', textTransform:'uppercase', letterSpacing:0.5 }}>Apps</div></div>}
-                {goals>0 && <div style={{ textAlign:'center' }}><div style={{ fontSize:13, fontWeight:700, color:'#F5C04A' }}>{goals}</div><div style={{ fontSize:8, color:'#555', textTransform:'uppercase', letterSpacing:0.5 }}>Goals</div></div>}
-                {potm>0 && <div style={{ textAlign:'center' }}><div style={{ fontSize:13, fontWeight:700, color:'#F5C04A' }}>⭐{potm}</div><div style={{ fontSize:8, color:'#555', textTransform:'uppercase', letterSpacing:0.5 }}>POM</div></div>}
-              </div>
-            </div>
-          );
-        });
-      })()}
-    </div>
-  ));
+  // ── Hub (Overview) ──────────────────────────────────────────────────────────
+  const allR    = getAllResults();
+  const last5   = [...allR].slice(-5).reverse();
+  const lastRes = allR.length > 0 ? allR[allR.length - 1] : null;
 
-  // ── Hub (dashboard) ─────────────────────────────────────────────────────────
   const QUICK = [
-    { id:'fixtures',   icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>, label:'Fixtures' },
-    { id:'log',        icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>, label:'Game Log' },
-    { id:'ladder',     icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>, label:'Ladder' },
-    { id:'scout',      icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="1.8"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>, label:'Scout' },
-    // Player Dev and Team Stats removed — reserved for Team module
+    { id:'fixtures', label:'Fixtures', icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> },
+    { id:'ladder',   label:'Ladder',   icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> },
+    { id:'scout',    label:'Scout',    icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="1.8"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> },
+    { id:'log',      label:'Game Log', icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> },
   ];
+
+  const ordinal = n => { if(!n) return '—'; const s=['th','st','nd','rd']; const v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); };
 
   return (
     <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:90, overflowY:'auto' }}>
@@ -3014,88 +3112,144 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout, onM
         <div style={{ fontSize:13, color:'#666', marginTop:4 }}>Fixtures, results and standings</div>
       </div>
 
-      <div style={{ padding:'14px 16px', display:'flex', flexDirection:'column', gap:14 }}>
+      <div style={{ padding:'0 16px 16px', display:'flex', flexDirection:'column', gap:14 }}>
 
-
-        {/* SEASON SNAPSHOT */}
-        {played > 0 && (() => {
-          const allR = getAllResults();
-          const last5 = [...allR].slice(-5).reverse();
-          return (
-            <div style={{ background:'#111111', border:'1px solid #1E1E1E', borderRadius:16, padding:'14px 16px' }}>
-              <div style={{ fontSize:9, fontWeight:700, color:'#A1A1A1', letterSpacing:1.5, textTransform:'uppercase', marginBottom:12 }}>SEASON SNAPSHOT</div>
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:8 }}>
-                {[[played,'Played','#FFF'],[wins,'Won','#22c55e'],[draws,'Drawn','#F5C04A'],[losses,'Lost','#ef4444']].map(([v,l,c])=>(
-                  <div key={l} style={{ textAlign:'center', background:'#0D0D0D', borderRadius:10, padding:'10px 4px' }}>
-                    <div style={{ fontSize:22, fontWeight:800, color:c, lineHeight:1 }}>{v}</div>
-                    <div style={{ fontSize:9, color:'#555', fontWeight:700, textTransform:'uppercase', letterSpacing:0.8, marginTop:4 }}>{l}</div>
-                  </div>
-                ))}
+        {/* ── Stats card ── */}
+        <div style={{ background:'#111111', border:'1px solid #1E1E1E', borderRadius:16, padding:'14px 16px' }}>
+          {/* Row 1: P W D L */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:8 }}>
+            {[[played,'Played','#FFF'],[wins,'Won','#22c55e'],[draws,'Drawn','#F5C04A'],[losses,'Lost','#ef4444']].map(([v,l,c])=>(
+              <div key={l} style={{ textAlign:'center', background:'#0D0D0D', borderRadius:10, padding:'10px 4px' }}>
+                <div style={{ fontSize:22, fontWeight:800, color:c, lineHeight:1 }}>{v}</div>
+                <div style={{ fontSize:9, color:'#555', fontWeight:700, textTransform:'uppercase', letterSpacing:0.8, marginTop:4 }}>{l}</div>
               </div>
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom: last5.length>0?12:0 }}>
-                {[[gf,'GF','#FFF'],[ga,'GA','#A1A1A1'],[(gd>=0?'+':'')+gd,'GD',gd>0?'#22c55e':gd<0?'#ef4444':'#A1A1A1'],[points,'Pts','#F5C04A']].map(([v,l,c])=>(
-                  <div key={l} style={{ textAlign:'center', background:'#0D0D0D', borderRadius:10, padding:'10px 4px' }}>
-                    <div style={{ fontSize:22, fontWeight:800, color:c, lineHeight:1 }}>{v}</div>
-                    <div style={{ fontSize:9, color:'#555', fontWeight:700, textTransform:'uppercase', letterSpacing:0.8, marginTop:4 }}>{l}</div>
-                  </div>
-                ))}
-              </div>
-              {/* Current Form */}
-              {last5.length > 0 && (
-                <div style={{ borderTop:'1px solid #1A1A1A', paddingTop:10 }}>
-                  <div style={{ fontSize:9, fontWeight:700, color:'#555', letterSpacing:1, textTransform:'uppercase', marginBottom:8 }}>Current Form</div>
-                  <div style={{ display:'flex', gap:6 }}>
-                    {last5.map((r,i) => {
-                      const res = r.us>r.them?'W':r.us<r.them?'L':'D';
-                      const col = res==='W'?'#22c55e':res==='L'?'#ef4444':'#F5C04A';
-                      return (
-                        <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
-                          <div style={{ width:30, height:30, borderRadius:7, background:col+'22', border:`1px solid ${col}55`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:col }}>{res}</div>
-                          <div style={{ fontSize:8, color:'#555', maxWidth:32, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign:'center' }}>{r.opponent.split(' ')[0]}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
-
-
-        {/* QUICK ACCESS */}
-        <div>
-          <div style={{ fontSize:9, fontWeight:700, color:'#A1A1A1', letterSpacing:1.5, textTransform:'uppercase', marginBottom:10 }}>QUICK ACCESS</div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:8 }}>
-            {QUICK.map(item => (
-              <button key={item.id} onClick={()=>setSubScreen(item.id)} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, padding:'14px 4px', background:'#111111', border:'1px solid #1E1E1E', borderRadius:14, cursor:'pointer' }}>
-                {item.icon}
-                <span style={{ fontSize:10, fontWeight:600, color:'#A1A1A1', textAlign:'center' }}>{item.label}</span>
-              </button>
             ))}
           </div>
+          {/* Row 2: GF GA GD Pts */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:last5.length>0?12:0 }}>
+            {[[gf,'GF','#FFF'],[ga,'GA','#A1A1A1'],[(gd>=0?'+':'')+gd,'GD',gd>0?'#22c55e':gd<0?'#ef4444':'#A1A1A1'],[points,'Pts','#F5C04A']].map(([v,l,c])=>(
+              <div key={l} style={{ textAlign:'center', background:'#0D0D0D', borderRadius:10, padding:'10px 4px' }}>
+                <div style={{ fontSize:22, fontWeight:800, color:c, lineHeight:1 }}>{v}</div>
+                <div style={{ fontSize:9, color:'#555', fontWeight:700, textTransform:'uppercase', letterSpacing:0.8, marginTop:4 }}>{l}</div>
+              </div>
+            ))}
+          </div>
+          {/* Form dots */}
+          {last5.length > 0 && (
+            <div style={{ borderTop:'1px solid #1A1A1A', paddingTop:10 }}>
+              <div style={{ fontSize:9, fontWeight:700, color:'#555', letterSpacing:1, textTransform:'uppercase', marginBottom:8 }}>Current Form</div>
+              <div style={{ display:'flex', gap:6 }}>
+                {last5.map((r,i) => {
+                  const res = r.us>r.them?'W':r.us<r.them?'L':'D';
+                  const col = res==='W'?'#22c55e':res==='L'?'#ef4444':'#F5C04A';
+                  return (
+                    <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+                      <div style={{ width:30, height:30, borderRadius:7, background:col+'22', border:`1px solid ${col}55`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:col }}>{res}</div>
+                      <div style={{ fontSize:8, color:'#555', maxWidth:32, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign:'center' }}>{r.opponent.split(' ')[0]}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* RECENT GAMES */}
-        {(() => {
-          const recent = [...getAllResults()].reverse().slice(0, 5);
-          if (recent.length === 0) return null;
+        {/* ── Season Snapshot ── */}
+        <div style={{ background:'#111111', border:'1px solid #1E1E1E', borderRadius:16, padding:'14px 16px' }}>
+          <div style={{ fontSize:9, fontWeight:700, color:'#A1A1A1', letterSpacing:1.5, textTransform:'uppercase', marginBottom:10 }}>Season Snapshot</div>
+          {/* Ladder position */}
+          <div style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:'1px solid #1A1A1A' }}>
+            <div style={{ width:32, height:32, borderRadius:8, background:'rgba(245,192,74,0.1)', border:'1px solid rgba(245,192,74,0.25)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2"><path d="M8 6v12M12 2v16M16 9v9"/></svg>
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:11, color:'#555', fontWeight:600 }}>Ladder position</div>
+            </div>
+            <div style={{ fontSize:15, fontWeight:800, color: myPos>0?'#F5C04A':'#555' }}>{myPos>0?ordinal(myPos):'—'}</div>
+          </div>
+          {/* Next match */}
+          {nextFix && nextOpp ? (
+            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:'1px solid #1A1A1A' }}>
+              <div style={{ width:32, height:32, borderRadius:8, background:'rgba(56,189,248,0.1)', border:'1px solid rgba(56,189,248,0.25)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:11, color:'#555', fontWeight:600 }}>Next match</div>
+                <div style={{ fontSize:12, fontWeight:700, color:'#FFF', marginTop:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{nextOpp}{nextFix.date ? ' · '+fmtFixDate(nextFix.date) : ''}{nextFix.time ? ' '+nextFix.time : ''}</div>
+              </div>
+              {daysLabel && <div style={{ fontSize:11, fontWeight:700, color:daysAway===0?'#22c55e':'#38bdf8', flexShrink:0 }}>{daysLabel}</div>}
+            </div>
+          ) : (
+            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:'1px solid #1A1A1A' }}>
+              <div style={{ width:32, height:32, borderRadius:8, background:'#0D0D0D', border:'1px solid #1A1A1A', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </div>
+              <div style={{ flex:1 }}><div style={{ fontSize:11, color:'#555', fontWeight:600 }}>Next match</div><div style={{ fontSize:12, color:'#444', marginTop:1 }}>No upcoming fixtures</div></div>
+            </div>
+          )}
+          {/* Last result */}
+          {lastRes ? (() => {
+            const res = lastRes.us>lastRes.them?'W':lastRes.us<lastRes.them?'L':'D';
+            const col = res==='W'?'#22c55e':res==='L'?'#ef4444':'#F5C04A';
+            const label = res==='W'?'Won':res==='L'?'Lost':'Drew';
+            return (
+              <div style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0' }}>
+                <div style={{ width:32, height:32, borderRadius:8, background:`${col}18`, border:`1px solid ${col}33`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <span style={{ fontSize:13, fontWeight:800, color:col }}>{res}</span>
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:11, color:'#555', fontWeight:600 }}>Last result</div>
+                  <div style={{ fontSize:12, fontWeight:700, color:'#FFF', marginTop:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{label} {lastRes.us}–{lastRes.them} vs {lastRes.opponent}</div>
+                </div>
+              </div>
+            );
+          })() : (
+            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0' }}>
+              <div style={{ width:32, height:32, borderRadius:8, background:'#0D0D0D', border:'1px solid #1A1A1A', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              </div>
+              <div style={{ flex:1 }}><div style={{ fontSize:11, color:'#555', fontWeight:600 }}>Last result</div><div style={{ fontSize:12, color:'#444', marginTop:1 }}>No results yet</div></div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Quick Actions ── */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
+          {QUICK.filter(q=>q.id!=='log').map(item => (
+            <button key={item.id} onClick={()=>setSubScreen(item.id)} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, padding:'14px 4px', background:'#111111', border:'1px solid #1E1E1E', borderRadius:14, cursor:'pointer' }}>
+              {item.icon}
+              <span style={{ fontSize:11, fontWeight:600, color:'#A1A1A1', textAlign:'center' }}>{item.label}</span>
+            </button>
+          ))}
+        </div>
+        {/* ── Game Log ── */}
+        <button onClick={()=>setSubScreen('log')} style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 16px', background:'#111111', border:'1px solid #1E1E1E', borderRadius:14, cursor:'pointer', width:'100%', textAlign:'left' }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:14, fontWeight:700, color:'#FFF' }}>Game Log</div>
+            <div style={{ fontSize:11, color:'#555', marginTop:1 }}>All recorded match results</div>
+          </div>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2.5"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+
+        {/* ── Recent Games ── */}
+        {allR.length > 0 && (() => {
+          const recent = [...allR].reverse().slice(0, 5);
           return (
             <div>
-              <div style={{ fontSize:9, fontWeight:700, color:'#A1A1A1', letterSpacing:1.5, textTransform:'uppercase', marginBottom:10 }}>RECENT GAMES</div>
+              <div style={{ fontSize:9, fontWeight:700, color:'#A1A1A1', letterSpacing:1.5, textTransform:'uppercase', marginBottom:10 }}>Recent Games</div>
               <div style={{ background:'#111111', border:'1px solid #1E1E1E', borderRadius:16, overflow:'hidden' }}>
                 {recent.map((r, i) => {
                   const res = r.us > r.them ? 'W' : r.us < r.them ? 'L' : 'D';
                   const resBg  = res==='W'?'#22c55e22':res==='L'?'#ef444422':'#F5C04A22';
                   const resCol = res==='W'?'#22c55e':res==='L'?'#ef4444':'#F5C04A';
-                  const sub = [r.round, r.dateStr, r.isHome===true?'Home':r.isHome===false?'Away':null].filter(Boolean).join(' · ');
+                  const viewGame = r.game || { _fixtureOnly:true, id:r.id, opponent:r.opponent, date:r.dateStr, round:r.round, linkedFixtureKey:r.type==='fixture'?r.id:null, fixtureIsHome:r.isHome, scoreUs:r.us, scoreThem:r.them, goals:[], halves:[], matchEvents:[], voiceNotes:'' };
                   return (
-                    <div key={r.id+i} style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 14px', borderBottom: i<recent.length-1?'1px solid #1A1A1A':'none' }}>
-                      {/* Result badge */}
+                    <div key={r.id+i}
+                      onClick={() => setFixtureDetailGame(viewGame)}
+                      style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 14px', borderBottom: i<recent.length-1?'1px solid #1A1A1A':'none', cursor:'pointer' }}>
                       <div style={{ width:32, height:32, borderRadius:8, background:resBg, border:`1px solid ${resCol}44`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:800, color:resCol, flexShrink:0 }}>{res}</div>
-                      {/* Team badge */}
                       <TeamBadge name={r.opponent} size={36} radius={8} />
-                      {/* Text */}
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:14, fontWeight:700, color:'#FFF', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.opponent}</div>
                         <div style={{ fontSize:11, color:'#555', marginTop:2 }}>
@@ -3104,9 +3258,8 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout, onM
                           {r.isHome !== null && <span style={{ color: r.isHome?'#F5C04A':'#A1A1A1' }}> · {r.isHome?'Home':'Away'}</span>}
                         </div>
                       </div>
-                      {/* Score */}
                       <div style={{ fontSize:15, fontWeight:800, color:'#FFF', flexShrink:0, marginRight:6 }}>{r.us}–{r.them}</div>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2.5"><path d="M9 18l6-6-6-6"/></svg>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#A1A1A1" strokeWidth="2.5"><path d="M9 18l6-6-6-6"/></svg>
                     </div>
                   );
                 })}
@@ -3115,10 +3268,10 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout, onM
           );
         })()}
 
-        {/* NEXT MATCH card */}
+        {/* ── Next Match card ── */}
         {nextFix && nextOpp && (
-          <div style={{ background:'#111111', border:'1px solid #1E1E1E', borderRadius:16, padding:'16px' }}>
-            <div style={{ fontSize:9, fontWeight:700, color:'#A1A1A1', letterSpacing:1.5, textTransform:'uppercase', marginBottom:12 }}>NEXT MATCH</div>
+          <div style={{ background:'#111111', border:'1px solid rgba(245,192,74,0.22)', borderRadius:16, padding:'16px' }}>
+            <div style={{ fontSize:9, fontWeight:700, color:'#A1A1A1', letterSpacing:1.5, textTransform:'uppercase', marginBottom:12 }}>Next Match</div>
             <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:14 }}>
               <TeamBadge name={nextOpp} size={52} radius={10} />
               <div style={{ flex:1, minWidth:0 }}>
@@ -3378,7 +3531,7 @@ function TeamSquadScreen({ onBack, onManageSquad, onViewPlayer, onAddPlayer, onE
   const season      = settings.season   || '';
   const formation   = settings.formation || DEFAULT_FORMATION;
   const totalPlayers   = squad.length;
-  const availableCount = squad.filter(p=>!p.injured&&!p.resting).length;
+  const availableCount = squad.filter(p=>!p.injured&&!p.archived).length;
 
   const filtered = React.useMemo(() => {
     let list = search.trim()
@@ -3390,7 +3543,8 @@ function TeamSquadScreen({ onBack, onManageSquad, onViewPlayer, onAddPlayer, onE
   }, [squad, search, sortBy]);
 
   const statusFor = p => {
-    if (p.injured || p.resting) return { label:'Unavailable', color:'#F59E0B', bg:'rgba(245,158,11,0.12)' };
+    if (p.injured) return { label:'Injured', color:'#ef4444', bg:'rgba(239,68,68,0.1)' };
+    if (p.archived) return { label:'Archived', color:'#F59E0B', bg:'rgba(245,158,11,0.12)' };
     return { label:'Available', color:'#22c55e', bg:'rgba(34,197,94,0.1)' };
   };
 
@@ -3477,12 +3631,12 @@ function TeamSquadScreen({ onBack, onManageSquad, onViewPlayer, onAddPlayer, onE
       </div>
 
       {/* ── Column headers ── */}
-      <div style={{ padding:'0 14px 6px', display:'grid', gridTemplateColumns:'32px 46px 1fr auto auto', gap:8, alignItems:'center', flexShrink:0 }}>
+      <div style={{ padding:'0 14px 6px', display:'grid', gridTemplateColumns:'32px 46px 1fr 1fr 100px', gap:8, alignItems:'center', flexShrink:0 }}>
         <div style={{ fontSize:10, fontWeight:700, color:'#444', letterSpacing:0.5, textTransform:'uppercase' }}>#</div>
         <div></div>
         <div style={{ fontSize:10, fontWeight:700, color:'#444', letterSpacing:0.5, textTransform:'uppercase' }}>Player</div>
-        <div style={{ fontSize:10, fontWeight:700, color:'#444', letterSpacing:0.5, textTransform:'uppercase', minWidth:80 }}>Positions</div>
-        <div style={{ fontSize:10, fontWeight:700, color:'#444', letterSpacing:0.5, textTransform:'uppercase', minWidth:90 }}>Status</div>
+        <div style={{ fontSize:10, fontWeight:700, color:'#444', letterSpacing:0.5, textTransform:'uppercase' }}>Positions</div>
+        <div style={{ fontSize:10, fontWeight:700, color:'#444', letterSpacing:0.5, textTransform:'uppercase', textAlign:'right' }}>Status</div>
       </div>
 
       {/* ── Player list ── */}
@@ -3501,12 +3655,12 @@ function TeamSquadScreen({ onBack, onManageSquad, onViewPlayer, onAddPlayer, onE
           <div style={{ background:'#111', borderRadius:14, border:'1px solid #1E1E1E', overflow:'hidden' }}>
             {filtered.map((p, idx) => {
               const positions = [p.pos, p.pos2, p.pos3].filter(Boolean);
-              const posLabel  = positions.map(pid => { const pg=ALL_POSITIONS.find(x=>x.id===pid); return pg?pg.short:pid.toUpperCase(); }).join(', ');
+              const posFull   = positions.map(pid => { const pg=ALL_POSITIONS.find(x=>x.id===pid); return pg ? pg.label : pid.toUpperCase(); });
               const st = statusFor(p);
               return (
                 <div key={p.name}
                   onClick={() => onViewPlayer && onViewPlayer(p.name)}
-                  style={{ display:'grid', gridTemplateColumns:'32px 46px 1fr auto auto', gap:8, alignItems:'center', padding:'10px 14px', borderBottom: idx < filtered.length-1 ? '1px solid #1A1A1A' : 'none', cursor:'pointer', WebkitTapHighlightColor:'transparent' }}>
+                  style={{ display:'grid', gridTemplateColumns:'32px 46px 1fr 1fr 100px', gap:8, alignItems:'center', padding:'10px 14px', borderBottom: idx < filtered.length-1 ? '1px solid #1A1A1A' : 'none', cursor:'pointer', WebkitTapHighlightColor:'transparent' }}>
 
                   {/* Number */}
                   <div style={{ fontSize:14, fontWeight:700, color:'#F5C04A', textAlign:'center' }}>{p.number || '—'}</div>
@@ -3519,16 +3673,20 @@ function TeamSquadScreen({ onBack, onManageSquad, onViewPlayer, onAddPlayer, onE
                     {p.firstName || p.name}
                   </div>
 
-                  {/* Positions */}
-                  <div style={{ fontSize:12, color:'#777', minWidth:80, whiteSpace:'nowrap' }}>{posLabel || '—'}</div>
+                  {/* Positions — pill cards */}
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+                    {posFull.length > 0 ? posFull.map((label, i) => (
+                      <span key={i} style={{ fontSize:10, fontWeight:600, color: i===0 ? '#F5C04A' : '#888', background: i===0 ? 'rgba(245,192,74,0.12)' : 'rgba(255,255,255,0.05)', border: `1px solid ${i===0 ? 'rgba(245,192,74,0.3)' : 'rgba(255,255,255,0.08)'}`, borderRadius:6, padding:'2px 6px', whiteSpace:'nowrap' }}>
+                        {label}
+                      </span>
+                    )) : <span style={{ fontSize:11, color:'#444' }}>—</span>}
+                  </div>
 
                   {/* Status + chevron */}
-                  <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:90, justifyContent:'flex-end' }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-                      <div style={{ width:7, height:7, borderRadius:'50%', background:st.color, flexShrink:0 }} />
-                      <span style={{ fontSize:11, fontWeight:600, color:st.color }}>{st.label}</span>
-                    </div>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                  <div style={{ display:'flex', alignItems:'center', gap:4, justifyContent:'flex-end' }}>
+                    <div style={{ width:7, height:7, borderRadius:'50%', background:st.color, flexShrink:0 }} />
+                    <span style={{ fontSize:11, fontWeight:600, color:st.color }}>{st.label}</span>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
                   </div>
 
                 </div>
@@ -3542,7 +3700,7 @@ function TeamSquadScreen({ onBack, onManageSquad, onViewPlayer, onAddPlayer, onE
 }
 
 
-function TeamScreen({ onBack, onViewStats, onManageSquad, onGoMatch, onGoFixtures, games, settings, onEditTeam, onViewSquad, onViewInsights, onViewAvailability, onViewPositions }) {
+function TeamScreen({ onBack, onViewStats, onManageSquad, onGoMatch, onGoFixtures, games, settings, onEditTeam, onViewSquad }) {
   const squad        = React.useMemo(()=>loadSquad(),[]);
   const myTeam       = settings?.teamName || localStorage.getItem('soccerCoach_fixtureTeam') || 'My Team';
   const ageGroup     = settings?.ageGroup || '';
@@ -3550,7 +3708,9 @@ function TeamScreen({ onBack, onViewStats, onManageSquad, onGoMatch, onGoFixture
   const venue        = settings?.venue    || '';
   const formation    = settings?.formation || DEFAULT_FORMATION;
   const totalPlayers = squad.length;
-  const available    = squad.filter(p=>!p.injured&&!p.resting).length;
+  const available    = squad.filter(p=>!p.injured&&!p.archived).length;
+  const injured      = squad.filter(p=>p.injured).length;
+  const archived     = squad.filter(p=>p.archived&&!p.injured).length;
 
   const MONTHS_S = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const DAYS_S   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -3560,25 +3720,21 @@ function TeamScreen({ onBack, onViewStats, onManageSquad, onGoMatch, onGoFixture
   const isHome     = nextFix ? nextFix.home === myTeam : false;
   const opponent   = nextFix ? (isHome ? nextFix.away : nextFix.home) : null;
 
-  const NAV_ITEMS = [
+  // Recent activity: last 5 games
+  const recentGames = React.useMemo(() => {
+    if (!games || !games.length) return [];
+    return [...games].sort((a,b) => (b.date||'').localeCompare(a.date||'')).slice(0,5);
+  }, [games]);
+
+  const QUICK_ACTIONS = [
     {
       icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><circle cx="18" cy="9" r="3"/><path d="M22 21v-1a3 3 0 0 0-2-2.83"/></svg>,
-      title:'Players', subtitle:'Manage your squad, player profiles and information',
+      title:'Players', subtitle:'Manage your squad and player profiles',
       action:()=>onViewSquad&&onViewSquad(),
     },
     {
-      icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z"/></svg>,
-      title:'Player Insights', subtitle:'AI powered insights and team analysis',
-      action: onViewInsights,
-    },
-    {
-      icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/></svg>,
-      title:'Availability', subtitle:'Track player availability for upcoming matches',
-      action: onViewAvailability,
-    },
-    {
       icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
-      title:'Team Settings', subtitle:'Formation, game defaults and team preferences',
+      title:'Team Settings', subtitle:'Formation, colours and team preferences',
       action: onEditTeam,
     },
   ];
@@ -3630,7 +3786,7 @@ function TeamScreen({ onBack, onViewStats, onManageSquad, onGoMatch, onGoFixture
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5, borderRight:'1px solid #1A1A1A' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
               <div style={{ fontSize:20, fontWeight:800, color:'#FFF', lineHeight:1 }}>{available}</div>
-              <div style={{ fontSize:9, color:'#555', fontWeight:600, textAlign:'center', lineHeight:1.4 }}>Available{'\n'}This Week</div>
+              <div style={{ fontSize:9, color:'#555', fontWeight:600, textAlign:'center', lineHeight:1.4 }}>Available</div>
             </div>
 
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5, borderRight:'1px solid #1A1A1A' }}>
@@ -3689,14 +3845,38 @@ function TeamScreen({ onBack, onViewStats, onManageSquad, onGoMatch, onGoFixture
           </div>
         )}
 
-        {/* ── Team Management nav rows ── */}
+        {/* ── Squad Status strip ── */}
+        {(injured > 0 || archived > 0) && (
+          <div style={{ display:'flex', gap:8 }}>
+            {injured > 0 && (
+              <div style={{ flex:1, background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.22)', borderRadius:12, padding:'10px 12px', display:'flex', alignItems:'center', gap:8 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <div>
+                  <div style={{ fontSize:16, fontWeight:800, color:'#ef4444', lineHeight:1 }}>{injured}</div>
+                  <div style={{ fontSize:9, color:'#ef4444', opacity:0.7, fontWeight:600 }}>Injured</div>
+                </div>
+              </div>
+            )}
+            {archived > 0 && (
+              <div style={{ flex:1, background:'rgba(245,192,74,0.06)', border:'1px solid rgba(245,192,74,0.18)', borderRadius:12, padding:'10px 12px', display:'flex', alignItems:'center', gap:8 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2" strokeLinecap="round"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+                <div>
+                  <div style={{ fontSize:16, fontWeight:800, color:'#F5C04A', lineHeight:1 }}>{archived}</div>
+                  <div style={{ fontSize:9, color:'#F5C04A', opacity:0.7, fontWeight:600 }}>Archived</div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Quick Actions ── */}
         <div>
-          <div style={{ fontSize:10, fontWeight:800, color:'#F5C04A', letterSpacing:1.5, textTransform:'uppercase', marginBottom:8, paddingLeft:2 }}>Team Management</div>
+          <div style={{ fontSize:10, fontWeight:800, color:'#F5C04A', letterSpacing:1.5, textTransform:'uppercase', marginBottom:8, paddingLeft:2 }}>Quick Actions</div>
           <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, overflow:'hidden' }}>
-            {NAV_ITEMS.map((item, i) => (
+            {QUICK_ACTIONS.map((item, i) => (
               <button key={i} onClick={item.action} style={{
                 width:'100%', background:'none', border:'none',
-                borderBottom: i < NAV_ITEMS.length-1 ? '1px solid #1A1A1A' : 'none',
+                borderBottom: i < QUICK_ACTIONS.length-1 ? '1px solid #1A1A1A' : 'none',
                 padding:'14px', display:'flex', alignItems:'center', gap:12,
                 cursor: item.action ? 'pointer' : 'default', textAlign:'left',
                 opacity: item.action ? 1 : 0.4,
@@ -3708,10 +3888,49 @@ function TeamScreen({ onBack, onViewStats, onManageSquad, onGoMatch, onGoFixture
                   <div style={{ fontSize:14, fontWeight:600, color:'#FFF', lineHeight:1.2 }}>{item.title}</div>
                   <div style={{ fontSize:11, color:'#555', marginTop:2, lineHeight:1.3 }}>{item.subtitle}</div>
                 </div>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={item.action ? '#F5C04A' : '#333'} strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
               </button>
             ))}
           </div>
+        </div>
+
+        {/* ── Recent Activity ── */}
+        <div>
+          <div style={{ fontSize:10, fontWeight:800, color:'#F5C04A', letterSpacing:1.5, textTransform:'uppercase', marginBottom:8, paddingLeft:2 }}>Recent Activity</div>
+          {recentGames.length === 0 ? (
+            <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'20px', textAlign:'center' }}>
+              <div style={{ fontSize:13, color:'#555' }}>No matches logged yet</div>
+              <div style={{ fontSize:11, color:'#3A3A3A', marginTop:4 }}>Results will appear here after your first match</div>
+            </div>
+          ) : (
+            <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, overflow:'hidden' }}>
+              {recentGames.map((game, i) => {
+                const opp = game.config?.opponent || game.opponent || 'Unknown';
+                const myScore = game.myScore ?? game.score?.home ?? '—';
+                const oppScore = game.oppScore ?? game.score?.away ?? '—';
+                const isWin = typeof myScore === 'number' && typeof oppScore === 'number' && myScore > oppScore;
+                const isDraw = typeof myScore === 'number' && typeof oppScore === 'number' && myScore === oppScore;
+                const resultColor = isWin ? '#22c55e' : isDraw ? '#F5C04A' : '#ef4444';
+                const resultLabel = isWin ? 'W' : isDraw ? 'D' : 'L';
+                const dateStr = game.date ? game.date.slice(0,10) : '';
+                return (
+                  <div key={game.id||i} style={{
+                    borderBottom: i < recentGames.length-1 ? '1px solid #1A1A1A' : 'none',
+                    padding:'12px 14px', display:'flex', alignItems:'center', gap:12,
+                  }}>
+                    <div style={{ width:32, height:32, borderRadius:8, background:`${resultColor}18`, border:`1px solid ${resultColor}44`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                      <span style={{ fontSize:12, fontWeight:800, color:resultColor }}>{resultLabel}</span>
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:600, color:'#FFF', lineHeight:1.2 }}>vs {opp}</div>
+                      {dateStr && <div style={{ fontSize:11, color:'#555', marginTop:2 }}>{dateStr}</div>}
+                    </div>
+                    <div style={{ fontSize:15, fontWeight:800, color:'#FFF', letterSpacing:0.5 }}>{myScore}–{oppScore}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
       </div>
@@ -3827,7 +4046,7 @@ function GameDetailScreen({ game, onBack, onUpdateGame }) {
   );
   const [loading, setLoading] = useState(false);
   const [potm, setPotm] = useState(game.potm||"");
-  const [view, setView] = useState("summary");
+  const [view, setView] = useState("Summary");
   const [lineupHalf, setLineupHalf] = useState(0);
   const [lineupPeriod, setLineupPeriod] = useState(0);
   const [editReport, setEditReport] = useState(false);
@@ -3885,16 +4104,16 @@ function GameDetailScreen({ game, onBack, onUpdateGame }) {
       </div>
 
       {/* Tabs */}
-      <div style={{ display:'flex', gap:0, background:'#111111', borderBottom:'1px solid #1E1E1E', flexShrink:0 }}>
-        {[["summary","Summary"],["lineup","Lineup"],["events","Events"]].map(([k,l])=>(
-          <button key={k} style={{ flex:1, padding:'11px 0', background:'none', border:'none', borderBottom: view===k ? '2px solid #F5C04A' : '2px solid transparent', cursor:'pointer', fontSize:13, fontWeight:700, color: view===k ? '#F5C04A' : '#A1A1A1' }} onClick={()=>setView(k)}>{l}</button>
-        ))}
-      </div>
+      <SectionTabs
+        tabs={['Summary','Lineup','Events']}
+        activeTab={view}
+        onTabChange={setView}
+      />
 
       {/* Content */}
       <div style={{ flex:1, overflowY:'auto', padding:'16px 16px 20px' }}>
 
-        {view==="summary" && <>
+        {view==="Summary" && <>
           {/* Key facts */}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:14 }}>
             {[['Goalkeeper', gk],['Formation', formation], ...(potm?[['Player of Match', potm]]:[])].map(([lbl,val])=>(
@@ -4014,7 +4233,7 @@ function GameDetailScreen({ game, onBack, onUpdateGame }) {
           )}
         </>}
 
-        {view==="events" && (() => {
+        {view==="Events" && (() => {
           const evts = game.matchEvents||[];
           const goalEvts = (game.goals||[]).map(g=>({id:'g_'+g.secs+'_'+g.team,type:'GOAL',team:g.team,minute:Math.floor(g.secs/60),timestamp:g.secs*1000}));
           const evGoalKeys=new Set(evts.filter(e=>e.type==='GOAL').map(e=>e.team+'_'+e.minute));
@@ -4072,7 +4291,7 @@ function GameDetailScreen({ game, onBack, onUpdateGame }) {
           );
         })()}
 
-        {view==="lineup" && (
+        {view==="Lineup" && (
           <div>
             {numHalves > 1 && (
               <div style={{display:'flex',gap:6,marginBottom:8}}>
@@ -4141,12 +4360,12 @@ function PlayerProfileScreen({ playerName, isNew, onBack, onSave, games }) {
       }
       return p;
     }
-    return { firstName:'', lastName:'', name:'', nickname:'', number:'', pos:'', pos2:'', pos3:'', dob:'', foot:'right', height:'', canPlayGK:false, injured:false, resting:false, joined:'', coachNotes:'', devFocus:'', skills:{}, photo:'' };
+    return { firstName:'', lastName:'', name:'', nickname:'', number:'', pos:'', pos2:'', pos3:'', dob:'', foot:'right', height:'', canPlayGK:false, injured:false, archived:false, joined:'', coachNotes:'', devFocus:'', skills:{}, photo:'' };
   };
 
   const [draft,   setDraft]   = React.useState(loadPlayer);
   const [editing, setEditing] = React.useState(!!isNew);
-  const [activeTab, setActiveTab]         = React.useState('overview');
+  const [activeTab, setActiveTab]         = React.useState('Overview');
   const [activeChartTab, setActiveChartTab] = React.useState('goals');
   const [aiContent, setAiContent]         = React.useState(null);
   const [aiLoading, setAiLoading]         = React.useState(false);
@@ -4307,7 +4526,7 @@ function PlayerProfileScreen({ playerName, isNew, onBack, onSave, games }) {
     const DAYS_S   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
     const availStatus = draft.injured ? { label:'Injured', color:'#ef4444', desc:'Excluded from selection' }
-      : draft.resting ? { label:'Resting', color:'#F5C04A', desc:'Resting this week' }
+      : draft.archived ? { label:'Archived', color:'#F5C04A', desc:'Archived — not in active squad' }
       : { label:'Available', color:'#22c55e', desc:'No issues' };
 
     const statusDotColor = (avail) => {
@@ -4353,28 +4572,20 @@ function PlayerProfileScreen({ playerName, isNew, onBack, onSave, games }) {
       <div style={{ background:'#0D0D0D', minHeight:'100dvh', display:'flex', flexDirection:'column' }}>
 
         {/* ── Sticky header block ── */}
-        <div style={{ flexShrink:0, background:'#0D0D0D', borderBottom:'1px solid #1A1A1A' }}>
-
-          <KhulaHeader showBack={true} onBack={onBack} title="Player Profile" moreActions={[
-            { label:'Edit Profile', action: ()=>setEditing(true), icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> },
-          ]} />
-
-          {/* Tab bar */}
-          <div style={{ display:'flex', overflowX:'auto', scrollbarWidth:'none', padding:'0 12px' }}>
-            {[['overview','Overview'],['stats','Stats'],['development','Development'],['history','History'],['aicoach','AI Coach']].map(([id,label]) => (
-              <button key={id} onClick={() => setActiveTab(id)}
-                style={{ background:'none', border:'none', borderBottom: activeTab===id ? '2px solid #F5C04A' : '2px solid transparent', padding:'8px 10px', fontSize:13, fontWeight: activeTab===id ? 700 : 500, color: activeTab===id ? '#F5C04A' : '#555', cursor:'pointer', whiteSpace:'nowrap', flexShrink:0 }}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <KhulaHeader showBack={true} onBack={onBack} title="Player Profile" moreActions={[
+          { label:'Edit Profile', action: ()=>setEditing(true), icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> },
+        ]} />
+        <SectionTabs
+          tabs={['Overview','Stats','Development','History','AI Coach']}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
 
         {/* ── Scrollable content ── */}
         <div style={{ flex:1, overflowY:'auto', paddingBottom:'calc(80px + env(safe-area-inset-bottom))' }}>
 
           {/* ════ OVERVIEW TAB ════ */}
-          {activeTab==='overview' && (
+          {activeTab==='Overview' && (
             <div>
 
               {/* Hero */}
@@ -4483,58 +4694,6 @@ function PlayerProfileScreen({ playerName, isNew, onBack, onSave, games }) {
                 </div>
               </div>
 
-              {/* Availability card */}
-              <div style={{ margin:'10px 14px 0', background:'#111', border:'1px solid #1E1E1E', borderRadius:14, overflow:'hidden' }}>
-                <div style={{ padding:'14px 14px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid #1A1A1A' }}>
-                  <span style={{ fontSize:14, fontWeight:700, color:'#FFF' }}>Availability</span>
-                  <button onClick={()=>{ setDraft(loadPlayer()); setEditing(true); }}
-                    style={{ background:'none', border:'none', cursor:'pointer', color:'#F5C04A', fontSize:12, fontWeight:600, display:'flex', alignItems:'center', gap:4, padding:0 }}>
-                    Edit
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                  </button>
-                </div>
-                <div style={{ padding:'14px' }}>
-                  <div style={{ display:'flex', gap:14, alignItems:'flex-start' }}>
-                    {/* Current status */}
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontSize:10, color:'#555', fontWeight:600, letterSpacing:0.5, textTransform:'uppercase', marginBottom:8 }}>Current Status</div>
-                      <div style={{ background: `${availStatus.color}15`, border:`1px solid ${availStatus.color}40`, borderRadius:10, padding:'10px 14px' }}>
-                        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                          <div style={{ width:8, height:8, borderRadius:'50%', background:availStatus.color }} />
-                          <span style={{ fontSize:14, fontWeight:700, color:availStatus.color }}>{availStatus.label}</span>
-                        </div>
-                        <div style={{ fontSize:11, color:'#666', marginTop:4 }}>{availStatus.desc}</div>
-                      </div>
-                    </div>
-                    {/* Next fixtures */}
-                    {nextFixtures.length > 0 && (
-                      <div style={{ flex:2 }}>
-                        <div style={{ fontSize:10, color:'#555', fontWeight:600, letterSpacing:0.5, textTransform:'uppercase', marginBottom:8 }}>Next {nextFixtures.length} Fixtures</div>
-                        <div style={{ display:'flex', gap:8 }}>
-                          {nextFixtures.map((f, i) => {
-                            const fd = parseFixtureDate(f.date);
-                            const myT = loadSettings().teamName || '';
-                            const opp = (f.home===myT?f.away:f.home)||'?';
-                            const oppShort = opp.split(' ').map(w=>w[0]).join('').slice(0,3).toUpperCase();
-                            const dot = draft.injured||draft.resting ? '#F59E0B' : '#22c55e';
-                            return (
-                              <div key={i} style={{ textAlign:'center', flex:1 }}>
-                                <div style={{ background:'#0D0D0D', borderRadius:8, padding:'6px 4px', border:'1px solid #1E1E1E' }}>
-                                  <div style={{ fontSize:9, fontWeight:700, color:'#F5C04A', textTransform:'uppercase' }}>{fd ? MONTHS_S[fd.getMonth()] : ''}</div>
-                                  <div style={{ fontSize:16, fontWeight:800, color:'#FFF', lineHeight:1, margin:'2px 0' }}>{fd ? fd.getDate() : '?'}</div>
-                                  <div style={{ fontSize:9, color:'#666' }}>vs {oppShort}</div>
-                                </div>
-                                <div style={{ width:6, height:6, borderRadius:'50%', background:dot, margin:'5px auto 0' }} />
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
               {/* Coach Notes card */}
               <div style={{ margin:'10px 14px 14px', background:'#111', border:'1px solid #1E1E1E', borderRadius:14, overflow:'hidden' }}>
                 <div style={{ padding:'14px 14px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid #1A1A1A' }}>
@@ -4557,7 +4716,7 @@ function PlayerProfileScreen({ playerName, isNew, onBack, onSave, games }) {
           )}
 
           {/* ════ STATS TAB ════ */}
-          {activeTab==='stats' && (
+          {activeTab==='Stats' && (
             <div style={{ padding:'12px 14px' }}>
 
               {/* Season selector */}
@@ -4658,7 +4817,7 @@ function PlayerProfileScreen({ playerName, isNew, onBack, onSave, games }) {
           )}
 
           {/* ════ DEVELOPMENT TAB ════ */}
-          {activeTab==='development' && (
+          {activeTab==='Development' && (
             <div style={{ padding:'12px 14px' }}>
               {SKILL_GROUPS.map((group, gi) => (
                 <div key={gi} style={{ marginBottom:10 }}>
@@ -4703,7 +4862,7 @@ function PlayerProfileScreen({ playerName, isNew, onBack, onSave, games }) {
           )}
 
           {/* ════ HISTORY TAB ════ */}
-          {activeTab==='history' && (
+          {activeTab==='History' && (
             <div style={{ padding:'12px 14px' }}>
               {historyEntries.length === 0
                 ? <div style={{ textAlign:'center', padding:'40px 0', color:'#444', fontSize:13 }}>No history yet — notes will appear after matches.</div>
@@ -4736,7 +4895,7 @@ function PlayerProfileScreen({ playerName, isNew, onBack, onSave, games }) {
           )}
 
           {/* ════ AI COACH TAB ════ */}
-          {activeTab==='aicoach' && (
+          {activeTab==='AI Coach' && (
             <div style={{ padding:'12px 14px' }}>
               {!aiContent ? (
                 <div style={{ textAlign:'center', padding:'40px 0 20px' }}>
@@ -4979,45 +5138,6 @@ Respond in this exact JSON format:
                 style={{ width:50, height:28, borderRadius:14, background:draft.canPlayGK?'#22c55e':'#333', border:'none', cursor:'pointer', position:'relative', transition:'background 0.2s', flexShrink:0, padding:0 }}>
                 <div style={{ width:22, height:22, borderRadius:'50%', background:'#FFF', position:'absolute', top:3, left:draft.canPlayGK?24:3, transition:'left 0.2s' }} />
               </button>
-            </div>
-          </div>
-
-          {/* Player Status — Injured / Resting */}
-          <div style={{ background:'#111111', borderRadius:14, padding:'16px', border:'1px solid #1E1E1E', marginBottom:12 }}>
-            <div style={{ fontSize:10, fontWeight:700, color:'#777', letterSpacing:1.5, textTransform:'uppercase', marginBottom:12 }}>Player Status</div>
-            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-              {/* Injured */}
-              <div style={{ background: draft.injured ? 'rgba(239,68,68,0.07)' : '#0D0D0D', borderRadius:10, padding:'12px 14px', border: draft.injured ? '1px solid rgba(239,68,68,0.35)' : '1px solid #1E1E1E', transition:'background 0.2s, border-color 0.2s' }}>
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                  <div>
-                    <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-                      <span style={{ fontSize:14 }}>🩹</span>
-                      <div style={{ fontSize:13, fontWeight:600, color: draft.injured ? '#ef4444' : '#EEE' }}>Injured</div>
-                    </div>
-                    <div style={{ fontSize:11, color:'#666', marginTop:2, paddingLeft:21 }}>{draft.injured ? 'Excluded from lineup until cleared' : 'Fit for selection'}</div>
-                  </div>
-                  <button onClick={()=>{ upd('injured',!draft.injured); if(!draft.injured) upd('resting',false); }}
-                    style={{ width:46, height:26, borderRadius:13, background:draft.injured?'#ef4444':'#333', border:'none', cursor:'pointer', position:'relative', transition:'background 0.2s', flexShrink:0, padding:0 }}>
-                    <div style={{ width:20, height:20, borderRadius:'50%', background:'#FFF', position:'absolute', top:3, left:draft.injured?22:3, transition:'left 0.2s' }} />
-                  </button>
-                </div>
-              </div>
-              {/* Resting */}
-              <div style={{ background: draft.resting ? 'rgba(245,192,74,0.07)' : '#0D0D0D', borderRadius:10, padding:'12px 14px', border: draft.resting ? '1px solid rgba(245,192,74,0.35)' : '1px solid #1E1E1E', transition:'background 0.2s, border-color 0.2s' }}>
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                  <div>
-                    <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-                      <span style={{ fontSize:14 }}>😴</span>
-                      <div style={{ fontSize:13, fontWeight:600, color: draft.resting ? '#F5C04A' : '#EEE' }}>Resting</div>
-                    </div>
-                    <div style={{ fontSize:11, color:'#666', marginTop:2, paddingLeft:21 }}>{draft.resting ? 'Skipping next match — pre-set unavailable' : 'Available for upcoming matches'}</div>
-                  </div>
-                  <button onClick={()=>{ upd('resting',!draft.resting); if(!draft.resting) upd('injured',false); }}
-                    style={{ width:46, height:26, borderRadius:13, background:draft.resting?'#F5C04A':'#333', border:'none', cursor:'pointer', position:'relative', transition:'background 0.2s', flexShrink:0, padding:0 }}>
-                    <div style={{ width:20, height:20, borderRadius:'50%', background:'#FFF', position:'absolute', top:3, left:draft.resting?22:3, transition:'left 0.2s' }} />
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -5306,7 +5426,7 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
   const myTeam = localStorage.getItem('soccerCoach_fixtureTeam') || '';
 
   const [squad,  setSquad]  = useState(()=>{
-    const base=loadSquad().filter(p=>!p.injured&&!p.resting);
+    const base=loadSquad().filter(p=>!p.injured&&!p.archived);
     if(contextKey){
       const cx=loadContextData(contextKey);
       const mp=cx.matchPlayers;
@@ -9108,7 +9228,7 @@ function MatchPlayersScreen({ contextKey, onBack }) {
   const initStatuses = () => {
     const saved = mp0.statuses || {};
     const out = {};
-    globalSquad.forEach(p => { out[p.name] = saved[p.name] || (p.resting||p.injured ? 'unavailable' : 'available'); });
+    globalSquad.forEach(p => { out[p.name] = saved[p.name] || (p.archived||p.injured ? 'unavailable' : 'available'); });
     return out;
   };
   const [statuses,    setStatuses]    = React.useState(initStatuses);
@@ -10975,7 +11095,7 @@ export default function App() {
     if(screen==="importExport") return <ImportExportScreen onBack={()=>setScreen("account")} />;
     if(screen==="season")       return <SeasonHubScreen games={games} onBack={()=>goTab("home")} onOpenGame={id=>{setOpenGameId(id);setScreen("gameDetail");}} onDeleteGame={deleteGame} onScout={t=>{setScoutTeam(t);setSquadBackTo("season");setScreen("opponentStats");}} onMatchDay={()=>goTab("match")} />;
     if(screen==="gameDetail"){  const game=games.find(g=>g.id===openGameId); return <GameDetailScreen game={game} onBack={()=>{_pendingSeasonSub='log';setScreen("season");}} onUpdateGame={updateGame} />; }
-    if(screen==="teamScreen")   return <TeamScreen onBack={()=>goTab("home")} onViewStats={()=>setScreen("stats")} onGoMatch={()=>{setSquadMode("newGame");setSquadBackTo("home");goTab("match");}} onGoFixtures={()=>{_pendingSeasonSub="fixtures";setActiveTab("season");setScreen("season");}} games={games} settings={settings} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("teamSquad");setScreen("squad");}} onEditTeam={()=>{setSettingsBackTo("teamScreen");setScreen("settings");}} onViewSquad={(name)=>{if(name==='__add__'){setPlayerProfileName(null);setPlayerProfileIsNew(true);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}else if(name){setPlayerProfileName(name);setPlayerProfileIsNew(false);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}else setScreen("teamSquad");}} onViewInsights={null} onViewAvailability={null} onViewPositions={null} />;
+    if(screen==="teamScreen")   return <TeamScreen onBack={()=>goTab("home")} onViewStats={()=>setScreen("stats")} onGoMatch={()=>{setSquadMode("newGame");setSquadBackTo("home");goTab("match");}} onGoFixtures={()=>{_pendingSeasonSub="fixtures";setActiveTab("season");setScreen("season");}} games={games} settings={settings} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("teamSquad");setScreen("squad");}} onEditTeam={()=>{setSettingsBackTo("teamScreen");setScreen("settings");}} onViewSquad={(name)=>{if(name==='__add__'){setPlayerProfileName(null);setPlayerProfileIsNew(true);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}else if(name){setPlayerProfileName(name);setPlayerProfileIsNew(false);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}else setScreen("teamSquad");}} />;
     if(screen==="teamSquad")    return <TeamSquadScreen onBack={()=>setScreen("teamScreen")} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("teamSquad");setScreen("squad");}} onViewPlayer={name=>{setPlayerProfileName(name);setPlayerProfileIsNew(false);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}} onAddPlayer={()=>{setPlayerProfileName(null);setPlayerProfileIsNew(true);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}} onEditTeam={()=>{setSettingsBackTo("teamSquad");setScreen("settings");}} />;
     if(screen==="stats")        return <StatsScreen games={games} onBack={()=>setScreen("teamScreen")} />;
     if(screen==="opponentStats") return <OpponentStatsScreen opponent={scoutTeam} onBack={()=>setScreen(squadBackTo==="matchDay"?"matchDay":squadBackTo==="picker"?"picker":squadBackTo==="season"?"season":"squad")} />;
