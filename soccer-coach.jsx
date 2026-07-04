@@ -74,11 +74,11 @@ const SETTINGS_KEY = "soccerCoach_settings";
 
 function loadSquad()    { try { const v=JSON.parse(localStorage.getItem(SQUAD_KEY)); if(!Array.isArray(v))return[]; return v.map(x=>typeof x==="string"?{name:x,pos:""}:x); } catch{return[];} }
 function saveSquad(l)   { try{localStorage.setItem(SQUAD_KEY,JSON.stringify(l));}catch{} }
-function loadConfig()   { try{return JSON.parse(localStorage.getItem(CONFIG_KEY))||{halfMins:24,numPeriods:3,formation:DEFAULT_FORMATION};}catch{return{halfMins:24,numPeriods:3,formation:DEFAULT_FORMATION};} }
+function loadConfig()   { try{ const s=loadSettings(); const base={halfMins:s.halfMins||24,numPeriods:s.numPeriods||3,formation:s.formation||DEFAULT_FORMATION}; const stored=JSON.parse(localStorage.getItem(CONFIG_KEY)); return stored?{...base,...stored}:base; }catch{return{halfMins:24,numPeriods:3,formation:DEFAULT_FORMATION};} }
 function saveConfig(c)  { try{localStorage.setItem(CONFIG_KEY,JSON.stringify(c));}catch{} }
 function loadGames()    { try{return JSON.parse(localStorage.getItem(GAMES_KEY))||[];}catch{return[];} }
 function saveGames(g)   { try{localStorage.setItem(GAMES_KEY,JSON.stringify(g));}catch{} }
-function loadSettings() { try{return JSON.parse(localStorage.getItem(SETTINGS_KEY))||{teamName:"",coachName:"",managerName:""};}catch{return{teamName:"",coachName:"",managerName:""};} }
+function loadSettings() { try{return {...{teamName:"",coachName:"",managerName:"",ageGroup:"",season:"",venue:"",formation:DEFAULT_FORMATION,halfMins:24,numPeriods:3},...(JSON.parse(localStorage.getItem(SETTINGS_KEY))||{})};}catch{return{teamName:"",coachName:"",managerName:""};} }
 function saveSettings(s){ try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(s));}catch{} }
 
 const FX_SCORES_KEY   = "soccerCoach_fixtureScores";
@@ -1534,6 +1534,149 @@ let FIXTURES = loadFixtures() || HARDCODED_FIXTURES;
 // ════════════════════════════════════════════════════════════════════════════════
 //  SCREEN: FIXTURES
 // ════════════════════════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════════════════════════
+//  CONTEXT: global navigation (consumed by KhulaHeader without prop-drilling)
+// ════════════════════════════════════════════════════════════════════════════════
+const KhulaNavContext = React.createContext(null);
+
+// ════════════════════════════════════════════════════════════════════════════════
+//  LAYER 1 — App Bar (56px + safe area, identical on every screen)
+// ════════════════════════════════════════════════════════════════════════════════
+function KhulaAppBar() {
+  const [navOpen, setNavOpen] = React.useState(false);
+  const navigate = React.useContext(KhulaNavContext);
+
+  const NAV_ITEMS = [
+    { id:'home',     label:'Home',      icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
+    { id:'match',    label:'Match Day', icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="2" y1="12" x2="22" y2="12"/></svg> },
+    { id:'season',   label:'Season',    icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> },
+    { id:'team',     label:'Team',      icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><circle cx="18" cy="9" r="3"/><path d="M21 21v-2a3 3 0 0 0-2-2.83"/></svg> },
+    { id:'training', label:'Training',  icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg> },
+    { id:'account',  label:'Account',   icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg> },
+  ];
+
+  return (
+    <>
+      <div style={{ background:'#000000', borderBottom:'1px solid #1A1A1A', paddingTop:'env(safe-area-inset-top)' }}>
+        <div style={{ height:75, display:'flex', alignItems:'center', justifyContent:'space-between', paddingLeft:4, paddingRight:4 }}>
+          {/* Hamburger — 44×44 touch target */}
+          <button onClick={() => setNavOpen(o => !o)} style={{ width:44, height:44, background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <svg width="22" height="16" viewBox="0 0 22 16" fill="none">
+              <line x1="0" y1="1"  x2="22" y2="1"  stroke="#F5C04A" strokeWidth="2" strokeLinecap="round"/>
+              <line x1="0" y1="8"  x2="22" y2="8"  stroke="#F5C04A" strokeWidth="2" strokeLinecap="round"/>
+              <line x1="0" y1="15" x2="22" y2="15" stroke="#F5C04A" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </button>
+          {/* Logo — centred, taps to Home */}
+          <img src={KHULA_LOGO} alt="Khula" onClick={() => navigate && navigate('home')} style={{ height:75, objectFit:'contain', cursor:'pointer' }} />
+          {/* Account — 44×44 touch target */}
+          <button onClick={() => navigate && navigate('account')} style={{ width:44, height:44, background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, color:'#A1A1A1' }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Nav drawer — rendered outside sticky so it overlays correctly */}
+      {navOpen && (
+        <>
+          <div onClick={() => setNavOpen(false)} style={{ position:'fixed', inset:0, zIndex:500, background:'rgba(0,0,0,0.65)' }} />
+          <div style={{ position:'fixed', left:0, top:0, bottom:0, width:260, background:'#111111', zIndex:501, display:'flex', flexDirection:'column', boxShadow:'4px 0 32px rgba(0,0,0,0.7)', borderRight:'1px solid #2A2A2A' }}>
+            <div style={{ paddingTop:'max(env(safe-area-inset-top),16px)', padding:'max(env(safe-area-inset-top),16px) 20px 16px', borderBottom:'1px solid #1A1A1A' }}>
+              <img src={KHULA_LOGO} alt="Khula" style={{ height:36, objectFit:'contain' }} />
+            </div>
+            <div style={{ flex:1, overflowY:'auto', padding:'8px 0' }}>
+              {NAV_ITEMS.map(item => (
+                <button key={item.id}
+                  onClick={() => { setNavOpen(false); navigate && navigate(item.id); }}
+                  style={{ display:'flex', alignItems:'center', gap:14, width:'100%', background:'none', border:'none', padding:'16px 22px', cursor:'pointer', color:'#FFFFFF', borderBottom:'1px solid rgba(255,255,255,0.04)', textAlign:'left' }}>
+                  <span style={{ color:'#F5C04A', flexShrink:0 }}>{item.icon}</span>
+                  <span style={{ fontSize:15, fontWeight:500 }}>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+//  LAYER 2 — Page Header (48px, changes per screen)
+// ════════════════════════════════════════════════════════════════════════════════
+function PageHeader({ title, onBack, moreActions = [] }) {
+  const [moreOpen, setMoreOpen] = React.useState(false);
+
+  if (!title && !onBack && moreActions.length === 0) return null;
+
+  return (
+    <div style={{ background:'#161616', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+      <div style={{ height:48, display:'flex', alignItems:'center', paddingLeft:4, paddingRight:4, position:'relative' }}>
+        {/* Left — back chevron, 44×44 */}
+        <div style={{ width:44, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', zIndex:1 }}>
+          {onBack && (
+            <button onClick={onBack} style={{ width:44, height:44, background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFC107" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+          )}
+        </div>
+        {/* Title — left-aligned after chevron */}
+        {title ? (
+          <div style={{ flex:1, paddingLeft:4, paddingRight:4 }}>
+            <span style={{ fontSize:18, fontWeight:700, color:'#FFFFFF', letterSpacing:0.1 }}>{title}</span>
+          </div>
+        ) : <div style={{ flex:1 }} />}
+        {/* Right — overflow menu or spacer, 44×44 */}
+        <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', zIndex:1 }}>
+          {moreActions.length > 0 ? (
+            <div style={{ position:'relative' }}>
+              <button onClick={() => setMoreOpen(o => !o)} style={{ width:44, height:44, background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A1A1A1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="19" r="1.2"/>
+                </svg>
+              </button>
+              {moreOpen && (
+                <>
+                  <div onClick={() => setMoreOpen(false)} style={{ position:'fixed', inset:0, zIndex:200 }} />
+                  <div style={{ position:'absolute', top:44, right:0, background:'#1E1E1E', border:'1px solid rgba(255,255,255,0.1)', borderRadius:12, overflow:'hidden', zIndex:201, minWidth:192, boxShadow:'0 8px 32px rgba(0,0,0,0.6)' }}>
+                    {moreActions.map((a, i) => (
+                      <button key={i} onClick={() => { setMoreOpen(false); a.action && a.action(); }}
+                        style={{ display:'flex', alignItems:'center', gap:12, width:'100%', background:'none', border:'none', padding:'13px 16px', cursor:'pointer', color:a.destructive?'#ef4444':'#FFFFFF', fontSize:14, fontWeight:500, textAlign:'left', borderBottom: i < moreActions.length-1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+                        {a.icon && <span style={{ flexShrink:0 }}>{a.icon}</span>}
+                        {a.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <div style={{ width:44 }} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+//  COMPONENT: KHULA HEADER — sticky wrapper used by every screen
+//  Layer 1 (App Bar) + Layer 2 (Page Header) combined
+// ════════════════════════════════════════════════════════════════════════════════
+function KhulaHeader({ title = '', onBack, showBack, moreActions = [] }) {
+  return (
+    <div style={{ position:'sticky', top:0, zIndex:100, flexShrink:0 }}>
+      <KhulaAppBar />
+      <PageHeader title={title} onBack={onBack} moreActions={moreActions} />
+    </div>
+  );
+}
+
 function FixturesScreen({ onBack, embedded, games=[], onViewGame=null }) {
   const [myTeam, setMyTeam] = useState(() => localStorage.getItem('soccerCoach_fixtureTeam') || '');
   const [filter, setFilter]   = useState(() => {
@@ -2120,16 +2263,10 @@ function OpponentStatsScreen({ opponent, onBack, embedded }) {
   if (embedded) return statsContent;
 
   return (
-    <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
-      {/* Header */}
-      <div style={{ background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', paddingTop:'max(env(safe-area-inset-top),14px)', paddingBottom:14, paddingLeft:16, paddingRight:16, display:'flex', alignItems:'center', flexShrink:0, position:'relative' }}>
-        <button onClick={onBack} style={{ background:'none', border:'none', color:'#F5C04A', fontSize:22, cursor:'pointer', padding:0, lineHeight:1, flexShrink:0, zIndex:1 }}>←</button>
-        <div style={{ position:'absolute', left:0, right:0, textAlign:'center', pointerEvents:'none' }}>
-          <span style={{ fontSize:17, fontWeight:500, color:'#CCC' }}>Scout Report</span>
-        </div>
-        <div style={{ flex:1 }} />
-        <button onClick={startEdit} style={{ background:'none', border:'none', color:'#F5C04A', fontSize:13, fontWeight:700, cursor:'pointer', padding:'4px 8px' }}>Edit</button>
-      </div>
+    <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:90, display:'flex', flexDirection:'column' }}>
+      <KhulaHeader showBack={true} onBack={onBack} title="Scout Report" moreActions={[
+        { label:'Edit Report', action: startEdit },
+      ]} />
       <div style={{ flex:1, overflowY:'auto', padding:'14px 16px 20px' }}>
         {statsContent}
       </div>
@@ -2448,12 +2585,8 @@ function SettingsScreen({ settings, onSave, onBack, onViewImportExport }) {
 
 
   return (
-    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
-      {/* Header */}
-      <div style={{ position:'relative', display:'flex', alignItems:'center', padding:'14px 16px 10px', background:'#111111', borderBottom:'1px solid #1A1A1A', flexShrink:0 }}>
-        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', color:'#A1A1A1', fontSize:22, padding:0, lineHeight:1, position:'absolute', left:16 }}>←</button>
-        <div style={{ flex:1, textAlign:'center', fontSize:14, fontWeight:700, color:'#FFFFFF', letterSpacing:2, textTransform:'uppercase' }}>Settings</div>
-      </div>
+    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, display:'flex', flexDirection:'column' }}>
+      <KhulaHeader showBack={true} onBack={onBack} title="Settings" />
       {/* Fields */}
       <div style={{ flex:1, overflowY:'auto', padding:'20px 16px', display:'flex', flexDirection:'column', gap:16 }}>
         <div>
@@ -2463,12 +2596,42 @@ function SettingsScreen({ settings, onSave, onBack, onViewImportExport }) {
             {allTeams.map(t=><option key={t} value={t}>{t}</option>)}
           </select>
         </div>
-        {[["coachName","Coach name"],["managerName","Manager name"]].map(([key,lbl])=>(
+        {[["coachName","Coach name"],["managerName","Manager name"],["ageGroup","Age Group (e.g. U11 Girls)"],["season","Season (e.g. 2026 Season)"],["venue","Home Venue"]].map(([key,lbl])=>(
           <div key={key}>
             <div style={S.fieldLbl}>{lbl}</div>
             <input style={{...S.inp,width:'100%'}} value={form[key]||''} onChange={e=>upd(key,e.target.value)} />
           </div>
         ))}
+
+        {/* ── Match Defaults ── */}
+        <div style={{ background:'#111111', borderRadius:12, padding:'14px 16px', border:'1px solid #1E1E1E' }}>
+          <div style={{ fontSize:10, fontWeight:700, color:'#555', letterSpacing:1.2, textTransform:'uppercase', marginBottom:12 }}>Match Defaults</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+            <div>
+              <div style={S.fieldLbl}>Default Formation</div>
+              <select style={{...S.inp,width:'100%'}} value={form.formation||DEFAULT_FORMATION} onChange={e=>upd('formation',e.target.value)}>
+                {Object.keys(FORMATIONS).map(f=><option key={f} value={f}>{f}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={S.fieldLbl}>Half Length (minutes)</div>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <button style={{ background:'#1A1A1A', border:'1px solid #333', color:'#FFF', width:36, height:36, borderRadius:8, cursor:'pointer', fontSize:18, lineHeight:1 }} onClick={()=>upd('halfMins',Math.max(5,(form.halfMins||24)-5))}>−</button>
+                <span style={{ fontSize:15, fontWeight:700, color:'#FFF', minWidth:52, textAlign:'center' }}>{form.halfMins||24} min</span>
+                <button style={{ background:'#1A1A1A', border:'1px solid #333', color:'#FFF', width:36, height:36, borderRadius:8, cursor:'pointer', fontSize:18, lineHeight:1 }} onClick={()=>upd('halfMins',Math.min(60,(form.halfMins||24)+5))}>+</button>
+              </div>
+            </div>
+            <div>
+              <div style={S.fieldLbl}>Rotation Periods per Half</div>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <button style={{ background:'#1A1A1A', border:'1px solid #333', color:'#FFF', width:36, height:36, borderRadius:8, cursor:'pointer', fontSize:18, lineHeight:1 }} onClick={()=>upd('numPeriods',Math.max(1,(form.numPeriods||3)-1))}>−</button>
+                <span style={{ fontSize:15, fontWeight:700, color:'#FFF', minWidth:20, textAlign:'center' }}>{form.numPeriods||3}</span>
+                <button style={{ background:'#1A1A1A', border:'1px solid #333', color:'#FFF', width:36, height:36, borderRadius:8, cursor:'pointer', fontSize:18, lineHeight:1 }} onClick={()=>upd('numPeriods',Math.min(6,(form.numPeriods||3)+1))}>+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <button style={{...S.btnGreen, width:'100%'}} onClick={save}>Save Settings</button>
         <button style={{...S.btnDark, width:'100%', fontSize:13, display:'flex', alignItems:'center', justifyContent:'center', gap:8}} onClick={onViewImportExport}>
           📦 Import / Export Data
@@ -2485,14 +2648,8 @@ function StatsScreen({ games, onBack }) {
   const rows = computePlayerStats(games).sort((a,b)=>b.apps-a.apps||b.goals-a.goals);
   const COL = {width:38,textAlign:"center",fontSize:13,fontWeight:700,flexShrink:0};
   return (
-    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
-      <div style={{ background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', paddingTop:'max(env(safe-area-inset-top),14px)', paddingBottom:14, paddingLeft:16, paddingRight:16, display:'flex', alignItems:'center', flexShrink:0, position:'relative' }}>
-        <button onClick={onBack} style={{ background:'none', border:'none', color:'#F5C04A', fontSize:22, cursor:'pointer', padding:0, lineHeight:1, flexShrink:0, zIndex:1 }}>←</button>
-        <img src={KHULA_LOGO} alt="Khula" style={{ height:40, objectFit:'contain', marginLeft:8, zIndex:1 }} />
-        <div style={{ position:'absolute', left:0, right:0, textAlign:'center', pointerEvents:'none' }}>
-          <span style={{ fontSize:17, fontWeight:500, color:'#CCC' }}>Player Stats</span>
-        </div>
-      </div>
+    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, display:'flex', flexDirection:'column' }}>
+      <KhulaHeader showBack={true} onBack={onBack} title="Player Stats" />
       <div style={{ fontSize:12, color:'#666', padding:'8px 16px 8px 16px', background:'#0D0D0D' }}>{games.length} game{games.length!==1?"s":""} recorded</div>
       <div style={{ flex:1, overflowY:'auto' }}>
         {rows.length===0
@@ -2597,17 +2754,9 @@ function GameLogScreen({ onBack, onOpenGame, onDeleteGame }) {
   ];
 
   return (
-    <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
+    <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:90, display:'flex', flexDirection:'column' }}>
 
-      {/* Header */}
-      <div style={{ background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', paddingTop:'max(env(safe-area-inset-top),14px)', paddingBottom:14, paddingLeft:16, paddingRight:16, display:'flex', alignItems:'center', flexShrink:0, position:'relative' }}>
-        <button onClick={onBack} style={{ background:'none', border:'none', color:'#F5C04A', fontSize:22, cursor:'pointer', padding:0, lineHeight:1, flexShrink:0, zIndex:1 }}>←</button>
-        <div style={{ position:'absolute', left:0, right:0, textAlign:'center', pointerEvents:'none' }}>
-          <span style={{ fontSize:17, fontWeight:500, color:'#CCC' }}>Game Log</span>
-        </div>
-        <div style={{ flex:1 }} />
-        <div style={{ fontSize:12, color:'#A1A1A1' }}>{allRes.length} result{allRes.length!==1?'s':''}</div>
-      </div>
+      <KhulaHeader showBack={true} onBack={onBack} title="Game Log" />
 
       {/* Filter pills */}
       <div style={{ display:'flex', gap:6, padding:'8px 12px', background:'#111111', borderBottom:'1px solid #1E1E1E', overflowX:'auto', flexShrink:0 }}>
@@ -2742,13 +2891,7 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout, onM
   // Shared sub-screen page wrapper
   const subPage = (title, children) => (
     <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:90, display:'flex', flexDirection:'column' }}>
-      <div style={{ background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', paddingTop:'max(env(safe-area-inset-top),14px)', paddingBottom:14, paddingLeft:16, paddingRight:16, display:'flex', alignItems:'center', flexShrink:0, position:'relative' }}>
-        <button onClick={()=>setSubScreen(null)} style={{ background:'none', border:'none', color:'#F5C04A', fontSize:22, cursor:'pointer', padding:0, lineHeight:1, flexShrink:0, zIndex:1 }}>←</button>
-        <img src={KHULA_LOGO} alt="Khula" style={{ height:40, objectFit:'contain', marginLeft:8, zIndex:1 }} />
-        <div style={{ position:'absolute', left:0, right:0, textAlign:'center', pointerEvents:'none' }}>
-          <span style={{ fontSize:17, fontWeight:500, color:'#CCC' }}>{title}</span>
-        </div>
-      </div>
+      <KhulaHeader showBack={true} onBack={()=>setSubScreen(null)} title="" />
       {children}
     </div>
   );
@@ -2782,14 +2925,7 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout, onM
     const filtered = allTeams.filter(t => !scoutSearch || t.toLowerCase().includes(scoutSearch.toLowerCase()));
     return (
       <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:90, display:'flex', flexDirection:'column' }}>
-        {/* Header */}
-        <div style={{ background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', paddingTop:'max(env(safe-area-inset-top),14px)', paddingBottom:14, paddingLeft:16, paddingRight:16, display:'flex', alignItems:'center', flexShrink:0, position:'relative' }}>
-          <img src={KHULA_LOGO} alt="Khula" style={{ height:38, objectFit:'contain', zIndex:1 }} />
-          <div style={{ position:'absolute', left:0, right:0, textAlign:'center', pointerEvents:'none' }}>
-            <span style={{ fontSize:17, fontWeight:500, color:'#CCC' }}>Scout</span>
-          </div>
-          <button onClick={()=>{ setSubScreen(null); setScoutSearch(''); }} style={{ background:'none', border:'none', color:'#F5C04A', fontSize:22, cursor:'pointer', padding:0, lineHeight:1, flexShrink:0, zIndex:1, marginLeft:'auto' }}>←</button>
-        </div>
+        <KhulaHeader showBack={true} onBack={()=>{ setSubScreen(null); setScoutSearch(''); }} title="Scout" />
         {/* Search */}
         <div style={{ padding:'10px 16px 6px', flexShrink:0 }}>
           <div style={{ display:'flex', alignItems:'center', background:'#111111', border:'1px solid #1E1E1E', borderRadius:10, padding:'8px 12px', gap:8 }}>
@@ -2871,10 +3007,11 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout, onM
   return (
     <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:90, overflowY:'auto' }}>
 
-      {/* Header */}
-      <div style={{ background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', paddingTop:'max(env(safe-area-inset-top),10px)', paddingBottom:10, paddingLeft:16, paddingRight:16, display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
-        <img src={KHULA_LOGO} alt="Khula" style={{ height:38, objectFit:'contain' }} />
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A1A1A1" strokeWidth="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <KhulaHeader />
+      {/* ── Page title ── */}
+      <div style={{ padding:'16px 16px 10px', flexShrink:0 }}>
+        <div style={{ fontSize:24, fontWeight:800, color:'#FFF', lineHeight:1.1 }}>Season</div>
+        <div style={{ fontSize:13, color:'#666', marginTop:4 }}>Fixtures, results and standings</div>
       </div>
 
       <div style={{ padding:'14px 16px', display:'flex', flexDirection:'column', gap:14 }}>
@@ -3231,15 +3368,17 @@ function InsightsScreen({ games }) {
 // ════════════════════════════════════════════════════════════════════════════════
 //  SCREEN: TEAM SQUAD (lineup view — full screen, from Team > Squad tab)
 // ════════════════════════════════════════════════════════════════════════════════
-function TeamSquadScreen({ onBack, onManageSquad, onViewPlayer, onAddPlayer }) {
+function TeamSquadScreen({ onBack, onManageSquad, onViewPlayer, onAddPlayer, onEditTeam }) {
   const [squad, setSquad]   = React.useState(()=>loadSquad());
   const [search, setSearch] = React.useState('');
   const [sortBy, setSortBy] = React.useState('number');
-  const myTeam    = localStorage.getItem('soccerCoach_fixtureTeam') || '';
-  const settings  = loadSettings();
-  const teamName  = settings.teamName || myTeam || 'My Team';
-  const league    = settings.league   || 'U11 Girls';
-  const season    = settings.season   || '2026 Season';
+  const settings    = loadSettings();
+  const myTeam      = settings.teamName || localStorage.getItem('soccerCoach_fixtureTeam') || 'My Team';
+  const ageGroup    = settings.ageGroup || '';
+  const season      = settings.season   || '';
+  const formation   = settings.formation || DEFAULT_FORMATION;
+  const totalPlayers   = squad.length;
+  const availableCount = squad.filter(p=>!p.injured&&!p.resting).length;
 
   const filtered = React.useMemo(() => {
     let list = search.trim()
@@ -3250,463 +3389,330 @@ function TeamSquadScreen({ onBack, onManageSquad, onViewPlayer, onAddPlayer }) {
     return list;
   }, [squad, search, sortBy]);
 
-  const FunnelIcon = () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-    </svg>
-  );
+  const statusFor = p => {
+    if (p.injured || p.resting) return { label:'Unavailable', color:'#F59E0B', bg:'rgba(245,158,11,0.12)' };
+    return { label:'Available', color:'#22c55e', bg:'rgba(34,197,94,0.1)' };
+  };
+
+  const AvatarCircle = ({ p }) => {
+    const initials = (p.firstName || p.name || '?')[0].toUpperCase();
+    const colors   = ['#1d4ed8','#7c3aed','#db2777','#0891b2','#059669','#d97706','#dc2626'];
+    const idx      = (p.name||'').charCodeAt(0) % colors.length;
+    if (p.photo) return (
+      <div style={{ width:38, height:38, borderRadius:'50%', overflow:'hidden', flexShrink:0 }}>
+        <img src={p.photo} alt={p.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+      </div>
+    );
+    return (
+      <div style={{ width:38, height:38, borderRadius:'50%', background:colors[idx], display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:15, fontWeight:700, color:'#fff' }}>
+        {initials}
+      </div>
+    );
+  };
 
   return (
-    <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingTop:'max(env(safe-area-inset-top),0px)', paddingBottom:'calc(72px + env(safe-area-inset-bottom))' }}>
+    <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:'calc(80px + env(safe-area-inset-bottom))', display:'flex', flexDirection:'column' }}>
 
-      {/* Team banner card */}
-      <div style={{ margin:'12px 16px 0', background:'#111111', borderRadius:16, border:'1px solid #1E1E1E', padding:'14px 16px', display:'flex', alignItems:'center', gap:14, cursor:'pointer' }}
-        onClick={onBack}>
-        <TeamBadge name={myTeam||teamName} size={62} radius={10} />
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontSize:18, fontWeight:800, color:'#FFF', lineHeight:1.2 }}>{teamName}</div>
-          {league && <div style={{ fontSize:12, color:'#A1A1A1', marginTop:3 }}>{league}</div>}
-          {season && <div style={{ fontSize:12, color:'#A1A1A1', marginTop:1 }}>{season}</div>}
+      <KhulaHeader showBack={true} onBack={onBack} title="Players" moreActions={[
+        { label:'Add Player', action: onAddPlayer, icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> },
+        { label:'Team Settings', action: onEditTeam, icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> },
+      ]} />
+
+
+      {/* ── Compact team card ── */}
+      <div style={{ margin:'0 14px 12px', background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'14px 14px 0' }}>
+        <div style={{ display:'flex', alignItems:'flex-start', gap:12 }}>
+          <TeamBadge name={myTeam} size={58} radius={10} />
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:18, fontWeight:800, color:'#FFF', lineHeight:1.1 }}>{myTeam}</div>
+            {(ageGroup||season) && (
+              <div style={{ fontSize:12, color:'#777', marginTop:3 }}>{[ageGroup,season].filter(Boolean).join(' • ')}</div>
+            )}
+          </div>
+          <button onClick={onEditTeam||onBack} style={{ background:'none', border:'1px solid #2A2A2A', borderRadius:8, padding:'5px 10px', color:'#777', fontSize:10, fontWeight:600, cursor:'pointer', flexShrink:0, display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap' }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Edit Team
+          </button>
         </div>
-        <div style={{ color:'#F5C04A', fontSize:22, lineHeight:1, flexShrink:0 }}>›</div>
+        {/* 3-stat row */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', marginTop:14, paddingTop:12, borderTop:'1px solid #1A1A1A', paddingBottom:14 }}>
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5, borderRight:'1px solid #1A1A1A' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.8" strokeLinecap="round"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><circle cx="18" cy="9" r="3"/><path d="M22 21v-1a3 3 0 0 0-2-2.83"/></svg>
+            <div style={{ fontSize:22, fontWeight:800, color:'#FFF', lineHeight:1 }}>{totalPlayers}</div>
+            <div style={{ fontSize:10, color:'#555', fontWeight:600, textAlign:'center' }}>Players</div>
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5, borderRight:'1px solid #1A1A1A' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
+            <div style={{ fontSize:22, fontWeight:800, color:'#FFF', lineHeight:1 }}>{availableCount}</div>
+            <div style={{ fontSize:10, color:'#555', fontWeight:600, textAlign:'center', lineHeight:1.4 }}>Available{'\n'}This Week</div>
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            <div style={{ fontSize:14, fontWeight:800, color:'#FFF', lineHeight:1, letterSpacing:-0.3 }}>{formation}</div>
+            <div style={{ fontSize:10, color:'#555', fontWeight:600, textAlign:'center', lineHeight:1.4 }}>Default{'\n'}Formation</div>
+          </div>
+        </div>
       </div>
 
-      {/* Search + filter */}
-      <div style={{ margin:'12px 16px 0', display:'flex', gap:10, alignItems:'center' }}>
+      {/* ── Search + Filter + Add Player ── */}
+      <div style={{ padding:'0 14px 10px', display:'flex', gap:8, alignItems:'center', flexShrink:0 }}>
         <div style={{ flex:1, position:'relative' }}>
-          <div style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', color:'#555', fontSize:15, pointerEvents:'none' }}>🔍</div>
+          <svg style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input
             value={search} onChange={e=>setSearch(e.target.value)}
             placeholder="Search players..."
-            style={{ width:'100%', background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:12, padding:'12px 14px 12px 40px', color:'#FFF', fontSize:14, outline:'none', boxSizing:'border-box' }}
+            style={{ width:'100%', background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:12, padding:'11px 12px 11px 36px', color:'#FFF', fontSize:13, outline:'none', boxSizing:'border-box' }}
           />
         </div>
-        <button
-          onClick={()=>setSortBy(s=>s==='number'?'name':'number')}
-          style={{ width:48, height:48, background:'#1A1A1A', border:'1px solid rgba(245,192,74,0.35)', borderRadius:12, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
-          <FunnelIcon />
+        <button onClick={()=>setSortBy(s=>s==='number'?'name':'number')}
+          style={{ height:42, padding:'0 13px', background:'#1A1A1A', border:'1px solid rgba(245,192,74,0.4)', borderRadius:12, display:'flex', alignItems:'center', gap:6, cursor:'pointer', flexShrink:0, color:'#F5C04A', fontSize:13, fontWeight:600, whiteSpace:'nowrap' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+          Filter
+        </button>
+        <button onClick={()=>onAddPlayer&&onAddPlayer()}
+          style={{ height:42, padding:'0 14px', background:'#F5C04A', border:'none', borderRadius:12, display:'flex', alignItems:'center', gap:5, cursor:'pointer', flexShrink:0, color:'#000', fontSize:13, fontWeight:700, whiteSpace:'nowrap' }}>
+          <span style={{ fontSize:16, lineHeight:1 }}>+</span>
+          Add Player
         </button>
       </div>
 
-      {/* Count + sort */}
-      <div style={{ margin:'10px 16px 6px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-        <div style={{ fontSize:14, fontWeight:700, color:'#FFF' }}>{filtered.length} Players</div>
-        <button onClick={()=>setSortBy(s=>s==='name'?'number':'name')}
-          style={{ background:'none', border:'none', color:'#A1A1A1', fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:4, padding:0 }}>
-          Sort: {sortBy==='name'?'Name':'Number'}
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="#A1A1A1"><path d="M2 3.5L5 7 8 3.5"/></svg>
-        </button>
+      {/* ── Column headers ── */}
+      <div style={{ padding:'0 14px 6px', display:'grid', gridTemplateColumns:'32px 46px 1fr auto auto', gap:8, alignItems:'center', flexShrink:0 }}>
+        <div style={{ fontSize:10, fontWeight:700, color:'#444', letterSpacing:0.5, textTransform:'uppercase' }}>#</div>
+        <div></div>
+        <div style={{ fontSize:10, fontWeight:700, color:'#444', letterSpacing:0.5, textTransform:'uppercase' }}>Player</div>
+        <div style={{ fontSize:10, fontWeight:700, color:'#444', letterSpacing:0.5, textTransform:'uppercase', minWidth:80 }}>Positions</div>
+        <div style={{ fontSize:10, fontWeight:700, color:'#444', letterSpacing:0.5, textTransform:'uppercase', minWidth:90 }}>Status</div>
       </div>
 
-      {/* Player list — grouped card */}
-      <div style={{ margin:'0 16px' }}>
+      {/* ── Player list ── */}
+      <div style={{ flex:1, overflowY:'auto', padding:'0 14px' }}>
         {filtered.length === 0 && !search && (
           <div style={{ textAlign:'center', padding:'48px 0' }}>
-            <div style={{ fontSize:40, marginBottom:12 }}>👥</div>
+            <div style={{ fontSize:36, marginBottom:12 }}>👥</div>
             <div style={{ fontSize:16, fontWeight:800, color:'#FFF', marginBottom:6 }}>No players yet</div>
-            <div style={{ fontSize:13, color:'#666' }}>Tap Add New Player to get started</div>
+            <div style={{ fontSize:13, color:'#666' }}>Tap Add Player to get started</div>
           </div>
         )}
         {filtered.length === 0 && search && (
           <div style={{ textAlign:'center', padding:'32px 0', color:'#555', fontSize:13 }}>No players match "{search}"</div>
         )}
         {filtered.length > 0 && (
-          <div style={{ background:'#111111', borderRadius:16, border:'1px solid #1E1E1E', overflow:'hidden' }}>
+          <div style={{ background:'#111', borderRadius:14, border:'1px solid #1E1E1E', overflow:'hidden' }}>
             {filtered.map((p, idx) => {
               const positions = [p.pos, p.pos2, p.pos3].filter(Boolean);
+              const posLabel  = positions.map(pid => { const pg=ALL_POSITIONS.find(x=>x.id===pid); return pg?pg.short:pid.toUpperCase(); }).join(', ');
+              const st = statusFor(p);
               return (
                 <div key={p.name}
                   onClick={() => onViewPlayer && onViewPlayer(p.name)}
-                  style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 16px', borderBottom: idx < filtered.length-1 ? '1px solid #1A1A1A' : 'none', cursor:'pointer', WebkitTapHighlightColor:'transparent' }}>
+                  style={{ display:'grid', gridTemplateColumns:'32px 46px 1fr auto auto', gap:8, alignItems:'center', padding:'10px 14px', borderBottom: idx < filtered.length-1 ? '1px solid #1A1A1A' : 'none', cursor:'pointer', WebkitTapHighlightColor:'transparent' }}>
 
-                  {/* Jersey number circle */}
-                  <div style={{ width:40, height:40, borderRadius:'50%', border:'2px solid rgba(245,192,74,0.6)', background:'rgba(245,192,74,0.06)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                    <span style={{ fontSize:14, fontWeight:800, color:'#F5C04A' }}>{p.number || '?'}</span>
+                  {/* Number */}
+                  <div style={{ fontSize:14, fontWeight:700, color:'#F5C04A', textAlign:'center' }}>{p.number || '—'}</div>
+
+                  {/* Avatar */}
+                  <AvatarCircle p={p} />
+
+                  {/* Name */}
+                  <div style={{ fontSize:15, fontWeight:600, color:'#FFF', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                    {p.firstName || p.name}
                   </div>
 
-                  {/* Photo (if set) */}
-                  {p.photo && (
-                    <div style={{ width:36, height:36, borderRadius:'50%', overflow:'hidden', flexShrink:0 }}>
-                      <img src={p.photo} alt={p.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                    </div>
-                  )}
+                  {/* Positions */}
+                  <div style={{ fontSize:12, color:'#777', minWidth:80, whiteSpace:'nowrap' }}>{posLabel || '—'}</div>
 
-                  {/* Name + nickname inline */}
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:15, fontWeight:500, color:'#FFF', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                      {p.name}
-                      {p.nickname && <span style={{ color:'#F5C04A', marginLeft:6 }}>"{p.nickname}"</span>}
+                  {/* Status + chevron */}
+                  <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:90, justifyContent:'flex-end' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+                      <div style={{ width:7, height:7, borderRadius:'50%', background:st.color, flexShrink:0 }} />
+                      <span style={{ fontSize:11, fontWeight:600, color:st.color }}>{st.label}</span>
                     </div>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
                   </div>
 
-                  {/* Position badges */}
-                  {positions.length > 0 && (
-                    <div style={{ display:'flex', gap:5, flexShrink:0 }}>
-                      {positions.map((pid, i) => {
-                        const pg = ALL_POSITIONS.find(x=>x.id===pid);
-                        return (
-                          <div key={i} style={{ background:'#1A1A1A', border:'1px solid #333', borderRadius:6, padding:'4px 8px', fontSize:11, fontWeight:700, color:'#CCC', whiteSpace:'nowrap' }}>
-                            {pg ? pg.short : pid.toUpperCase()}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Chevron */}
-                  <div style={{ color:'#F5C04A', fontSize:20, flexShrink:0, lineHeight:1 }}>›</div>
                 </div>
               );
             })}
           </div>
         )}
       </div>
-
-      {/* Add New Player */}
-      <button
-        onClick={() => onAddPlayer && onAddPlayer()}
-        style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:10, width:'calc(100% - 32px)', margin:'12px 16px 0', padding:'16px', background:'transparent', color:'#F5C04A', border:'2px dashed rgba(245,192,74,0.4)', borderRadius:16, fontSize:15, fontWeight:700, cursor:'pointer', boxSizing:'border-box' }}>
-        <span style={{ fontSize:22, lineHeight:1 }}>+</span>
-        <span>Add New Player</span>
-      </button>
     </div>
   );
 }
 
 
-function TeamScreen({ onBack, onViewStats, onManageSquad, onGoMatch, onGoFixtures, games, settings, onEditTeam, onViewSquad }) {
-  const [tab, setTab] = React.useState('overview');
-  const [fixtureDetailGame, setFixtureDetailGame] = React.useState(null);
-  // Inline squad management state (Squad tab)
-  const [squadData, setSquadData] = React.useState(()=>loadSquad());
-  const [sqInput, setSqInput] = React.useState('');
-  const [sqShowAdd, setSqShowAdd] = React.useState(false);
-  function sqAddPlayer() {
-    const name = sqInput.trim();
-    if (!name || squadData.some(p=>p.name===name)) return;
-    const next = [...squadData, {name, pos:'', pos2:'', pos3:''}];
-    setSquadData(next); saveSquad(next); setSqInput(''); setSqShowAdd(false);
-  }
-  function sqRemove(name) {
-    const next = squadData.filter(p=>p.name!==name);
-    setSquadData(next); saveSquad(next);
-  }
-  function sqSetPos(name, field, val) {
-    const next = squadData.map(p=>p.name===name?{...p,[field]:val}:p);
-    setSquadData(next); saveSquad(next);
-  }
+function TeamScreen({ onBack, onViewStats, onManageSquad, onGoMatch, onGoFixtures, games, settings, onEditTeam, onViewSquad, onViewInsights, onViewAvailability, onViewPositions }) {
+  const squad        = React.useMemo(()=>loadSquad(),[]);
+  const myTeam       = settings?.teamName || localStorage.getItem('soccerCoach_fixtureTeam') || 'My Team';
+  const ageGroup     = settings?.ageGroup || '';
+  const season       = settings?.season   || '';
+  const venue        = settings?.venue    || '';
+  const formation    = settings?.formation || DEFAULT_FORMATION;
+  const totalPlayers = squad.length;
+  const available    = squad.filter(p=>!p.injured&&!p.resting).length;
 
-  const teamName    = settings?.teamName || localStorage.getItem('soccerCoach_fixtureTeam') || 'My Team';
-  const coachName   = settings?.coachName || '';
-  const playerCount = (() => { try { return JSON.parse(localStorage.getItem('soccerCoach_squad')||'[]').length; } catch { return 0; } })();
-  const myTeam      = localStorage.getItem('soccerCoach_fixtureTeam') || '';
-  const venue       = settings?.venue || '';
+  const MONTHS_S = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const DAYS_S   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
-  const { played, wins, draws, losses, gf, ga, gd } = computeSeasonStats();
-  const winRate     = played > 0 ? Math.round(wins / played * 100) : 0;
-  const cleanSheets = getAllResults().filter(r => r.them === 0 && r.us > r.them).length;
-  const allRes      = getAllResults();
-  const last5       = [...allRes].slice(-5).reverse();
-  const nextFix     = FIXTURES.find(f => isUpcoming(f) && (f.home===myTeam||f.away===myTeam));
-  const fxScores    = loadFxScores();
+  const nextFix    = FIXTURES.find(f=>isUpcoming(f)&&(f.home===myTeam||f.away===myTeam));
+  const nextFxDate = nextFix ? parseFixtureDate(nextFix.date) : null;
+  const isHome     = nextFix ? nextFix.home === myTeam : false;
+  const opponent   = nextFix ? (isHome ? nextFix.away : nextFix.home) : null;
 
-  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  function fmtDate(ds) {
-    const d = parseFixtureDate(ds); if (!d) return ds;
-    return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
-  }
-
-  // Player stats from games
-  const playerStats = React.useMemo(() => {
-    const map = {};
-    (games||[]).forEach(g => {
-      (g.goals||[]).filter(x=>x.team==='us').forEach(x => {
-        if (!x.scorer) return;
-        if (!map[x.scorer]) map[x.scorer] = { name:x.scorer, goals:0, assists:0, games:0 };
-        map[x.scorer].goals++;
-      });
-      const pts = Array.isArray(g.potm) ? g.potm : (g.potm ? [g.potm] : []);
-      pts.forEach(n => { if (!map[n]) map[n]={name:n,goals:0,assists:0,games:0}; map[n].games++; });
-    });
-    return Object.values(map).sort((a,b)=>b.goals-a.goals||b.games-a.games).slice(0,3);
-  }, [games]);
-
-  const squad = (() => { try { return JSON.parse(localStorage.getItem('soccerCoach_squad')||'[]'); } catch { return []; } })();
-
-  const TABS = ['Overview','Squad','Stats','Fixtures'];
-
-  if (fixtureDetailGame) {
-    return <GameDetailScreen game={fixtureDetailGame} onBack={()=>setFixtureDetailGame(null)} onUpdateGame={null} />;
-  }
+  const NAV_ITEMS = [
+    {
+      icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><circle cx="18" cy="9" r="3"/><path d="M22 21v-1a3 3 0 0 0-2-2.83"/></svg>,
+      title:'Players', subtitle:'Manage your squad, player profiles and information',
+      action:()=>onViewSquad&&onViewSquad(),
+    },
+    {
+      icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z"/></svg>,
+      title:'Player Insights', subtitle:'AI powered insights and team analysis',
+      action: onViewInsights,
+    },
+    {
+      icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/></svg>,
+      title:'Availability', subtitle:'Track player availability for upcoming matches',
+      action: onViewAvailability,
+    },
+    {
+      icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
+      title:'Team Settings', subtitle:'Formation, game defaults and team preferences',
+      action: onEditTeam,
+    },
+  ];
 
   return (
-    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
+    <div style={{ minHeight:'100dvh', background:'#0D0D0D', paddingBottom:'calc(80px + env(safe-area-inset-bottom))', display:'flex', flexDirection:'column' }}>
 
-      {/* ── Header ── */}
-      <div style={{ background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', paddingTop:'max(env(safe-area-inset-top),14px)', paddingBottom:14, paddingLeft:16, paddingRight:16, display:'flex', alignItems:'center', flexShrink:0, position:'relative' }}>
-        <button onClick={onBack} style={{ background:'none', border:'none', color:'#F5C04A', fontSize:22, cursor:'pointer', padding:0, lineHeight:1, flexShrink:0, zIndex:1 }}>←</button>
-        <img src={KHULA_LOGO} alt="Khula" style={{ height:40, objectFit:'contain', marginLeft:8, zIndex:1 }} />
-        <div style={{ position:'absolute', left:0, right:0, textAlign:'center', pointerEvents:'none' }}>
-          <span style={{ fontSize:17, fontWeight:500, color:'#CCC' }}>Your Team</span>
-        </div>
-        <div style={{ flex:1 }} />
-        <button onClick={onEditTeam||onManageSquad} style={{ background:'none', border:'none', cursor:'pointer', padding:0, zIndex:1 }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#777" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-          </svg>
-        </button>
+      <KhulaHeader />
+      {/* ── Page title ── */}
+      <div style={{ padding:'16px 16px 10px', flexShrink:0 }}>
+        <div style={{ fontSize:24, fontWeight:800, color:'#FFF', lineHeight:1.1 }}>Team Overview</div>
+        <div style={{ fontSize:13, color:'#666', marginTop:4 }}>Your squad, stats and settings</div>
       </div>
 
-      {/* ── Hero card ── */}
-      <div style={{ position:'relative', background:'#111111', borderBottom:'1px solid #1A1A1A', padding:'16px', overflow:'hidden', flexShrink:0 }}>
-        <div style={{ position:'absolute', right:-20, top:-20, opacity:0.06 }}>
-          <img src={TEAM_LOGO} style={{ width:160, height:160, objectFit:'contain' }}/>
-        </div>
-        <div style={{ display:'flex', alignItems:'center', gap:14 }}>
-          <TeamBadge name={teamName} size={64} radius={12} />
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontSize:20, fontWeight:700, color:'#FFFFFF', lineHeight:1.1 }}>{teamName}</div>
-            {coachName && <div style={{ fontSize:12, color:'#F5C04A', marginTop:2 }}>Coach: {coachName}</div>}
-            <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:6, flexWrap:'wrap' }}>
-              {playerCount > 0 && <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#A1A1A1" strokeWidth="2"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4"/><circle cx="18" cy="9" r="3"/><path d="M22 21v-1a3 3 0 0 0-2-2.83"/></svg>
-                <span style={{ fontSize:11, color:'#A1A1A1' }}>{playerCount} Players</span>
-              </div>}
-              {venue && <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#A1A1A1" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                <span style={{ fontSize:11, color:'#A1A1A1' }}>{venue}</span>
-              </div>}
-            </div>
-          </div>
-          <button onClick={onEditTeam||onManageSquad} style={{ background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:8, padding:'6px 10px', color:'#A1A1A1', fontSize:11, fontWeight:600, cursor:'pointer', flexShrink:0 }}>
-            ✏️ Edit Team
-          </button>
-        </div>
-      </div>
+      {/* ── Scrollable body ── */}
+      <div style={{ flex:1, overflowY:'auto', padding:'0 14px 16px', display:'flex', flexDirection:'column', gap:12 }}>
 
-      {/* ── Tabs ── */}
-      <div style={{ display:'flex', background:'#111111', borderBottom:'1px solid #1A1A1A', overflowX:'auto', flexShrink:0 }}>
-        {TABS.map(t => (
-          <button key={t} onClick={()=>{ if(t==='Stats'){onViewStats();return;} setTab(t.toLowerCase()); }} style={{ flex:'0 0 auto', padding:'11px 18px', background:'none', border:'none', borderBottom: tab===t.toLowerCase() ? '2px solid #F5C04A' : '2px solid transparent', cursor:'pointer', fontSize:13, fontWeight:600, color: tab===t.toLowerCase() ? '#F5C04A' : '#A1A1A1', whiteSpace:'nowrap' }}>{t}</button>
-        ))}
-      </div>
-
-      {/* ── Tab content ── */}
-      <div style={{ flex:1, overflowY:'auto' }}>
-
-        {/* OVERVIEW */}
-        {tab === 'overview' && (
-          <div style={{ padding:'12px 14px', display:'flex', flexDirection:'column', gap:12 }}>
-
-            {/* Team Form */}
-            <div style={{ background:'#1A1A1A', borderRadius:14, padding:'14px', border:'1px solid #2A2A2A' }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-                <span style={{ fontSize:13, fontWeight:600, color:'#FFFFFF' }}>Team Form</span>
-                <span style={{ fontSize:11, color:'#A1A1A1' }}>Last {Math.min(last5.length,5)} Matches</span>
-              </div>
-              {last5.length === 0 ? (
-                <div style={{ textAlign:'center', color:'#A1A1A1', fontSize:12, padding:'8px 0' }}>No results yet</div>
-              ) : (
-                <>
-                  <div style={{ display:'flex', gap:6, marginBottom:10 }}>
-                    {last5.map((r,i) => {
-                      const res = r.us>r.them?'W':r.us<r.them?'L':'D';
-                      const col = res==='W'?'#22c55e':res==='L'?'#ef4444':'#f59e0b';
-                      return (
-                        <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
-                          <div style={{ width:36, height:36, borderRadius:'50%', background:col+'22', border:`2px solid ${col}`, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                            <span style={{ fontSize:13, fontWeight:700, color:col }}>{res}</span>
-                          </div>
-                          <span style={{ fontSize:10, color:'#A1A1A1' }}>{r.us}–{r.them}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div style={{ display:'flex', gap:0, borderTop:'1px solid #2A2A2A', paddingTop:10 }}>
-                    {[['WON',wins,'#F5C04A'],['DRAWN',draws,'#A1A1A1'],['LOST',losses,'#ef4444'],['GF',gf,'#22c55e'],['GA',ga,'#A1A1A1']].map(([l,v,c])=>(
-                      <div key={l} style={{ flex:1, textAlign:'center' }}>
-                        <div style={{ fontSize:17, fontWeight:700, color:c }}>{v}</div>
-                        <div style={{ fontSize:9, color:'#A1A1A1', marginTop:1 }}>{l}</div>
-                      </div>
-                    ))}
-                  </div>
-                </>
+        {/* ── Team Card ── */}
+        <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'14px' }}>
+          <div style={{ display:'flex', alignItems:'flex-start', gap:12 }}>
+            <TeamBadge name={myTeam} size={60} radius={10} />
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:19, fontWeight:800, color:'#FFF', lineHeight:1.1 }}>{myTeam}</div>
+              {(ageGroup||season) && (
+                <div style={{ fontSize:12, color:'#777', marginTop:3 }}>{[ageGroup,season].filter(Boolean).join(' • ')}</div>
+              )}
+              {venue && (
+                <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:5 }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2.2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  <span style={{ fontSize:11, color:'#666' }}>{venue}</span>
+                </div>
               )}
             </div>
-
-            {/* Team Stats */}
-            <div style={{ background:'#1A1A1A', borderRadius:14, padding:'14px', border:'1px solid #2A2A2A' }}>
-              <div style={{ fontSize:13, fontWeight:600, color:'#FFFFFF', marginBottom:12 }}>Team Stats</div>
-              {played === 0 ? (
-                <div style={{ textAlign:'center', color:'#A1A1A1', fontSize:12, padding:'8px 0' }}>No stats yet</div>
-              ) : [
-                ['Win Rate', winRate+'%', winRate],
-                ['Goals For', gf, Math.min(gf*5,100)],
-                ['Goals Against', ga, Math.min(ga*5,100)],
-                ['Clean Sheets', cleanSheets, Math.min(cleanSheets*20,100)],
-              ].map(([label, val, pct]) => (
-                <div key={label} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
-                  <div style={{ fontSize:12, color:'#A1A1A1', minWidth:100 }}>{label}</div>
-                  <div style={{ flex:1, height:4, background:'#2A2A2A', borderRadius:2, overflow:'hidden' }}>
-                    <div style={{ width:pct+'%', height:'100%', background:'#F5C04A', borderRadius:2 }}/>
-                  </div>
-                  <div style={{ fontSize:13, fontWeight:700, color:'#FFFFFF', minWidth:30, textAlign:'right' }}>{val}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Next Match */}
-            {nextFix && (
-              <div style={{ background:'#1A1A1A', borderRadius:14, padding:'14px', border:'1px solid #2A2A2A' }}>
-                <div style={{ fontSize:13, fontWeight:600, color:'#FFFFFF', marginBottom:12 }}>Next Match</div>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
-                  <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
-                    <TeamBadge name={nextFix.home} size={44} radius={10} />
-                    <div style={{ fontSize:11, fontWeight:600, color:'#FFFFFF', textAlign:'center', lineHeight:1.2 }}>{nextFix.home}</div>
-                  </div>
-                  <div style={{ padding:'4px 10px', background:'#0D0D0D', borderRadius:6, border:'1px solid #2A2A2A', fontSize:11, color:'#A1A1A1', fontWeight:600 }}>VS</div>
-                  <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
-                    <TeamBadge name={nextFix.away} size={44} radius={10} />
-                    <div style={{ fontSize:11, fontWeight:600, color:'#FFFFFF', textAlign:'center', lineHeight:1.2 }}>{nextFix.away}</div>
-                  </div>
-                </div>
-                <div style={{ display:'flex', gap:12, marginBottom:12, flexWrap:'wrap' }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#A1A1A1" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                    <span style={{ fontSize:11, color:'#A1A1A1' }}>{fmtDate(nextFix.date)}</span>
-                  </div>
-                  {nextFix.time && <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#A1A1A1" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    <span style={{ fontSize:11, color:'#A1A1A1' }}>{nextFix.time}</span>
-                  </div>}
-                  {nextFix.venue && <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#A1A1A1" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                    <span style={{ fontSize:11, color:'#A1A1A1' }}>{nextFix.venue}</span>
-                  </div>}
-                </div>
-                <button onClick={onGoMatch} style={{ width:'100%', background:'#F5C04A', color:'#0D0D0D', border:'none', borderRadius:10, padding:'11px 0', fontWeight:700, fontSize:13, cursor:'pointer' }}>View Match Centre ›</button>
-              </div>
-            )}
-
-            {/* Quick Actions */}
-            <div style={{ background:'#1A1A1A', borderRadius:14, padding:'14px', border:'1px solid #2A2A2A' }}>
-              <div style={{ fontSize:13, fontWeight:600, color:'#FFFFFF', marginBottom:12 }}>Quick Actions</div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-                {[
-                  { label:'Manage Squad', icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>, action: onManageSquad },
-                  { label:'Player Stats', icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>, action: onViewStats },
-                  { label:'Fixtures', icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>, action: onGoFixtures },
-                  { label:'New Match', icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="2" y1="12" x2="22" y2="12"/></svg>, action: onGoMatch },
-                ].map((item,i) => (
-                  <button key={i} onClick={item.action} style={{ background:'#0D0D0D', border:'1px solid #2A2A2A', borderRadius:10, padding:'14px 10px', display:'flex', flexDirection:'column', alignItems:'center', gap:8, cursor:'pointer', color:'#F5C04A' }}>
-                    {item.icon}
-                    <span style={{ fontSize:11, fontWeight:600, color:'#FFFFFF' }}>{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Top Performers */}
-            {playerStats.length > 0 && (
-              <div style={{ background:'#1A1A1A', borderRadius:14, padding:'14px', border:'1px solid #2A2A2A', marginBottom:4 }}>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-                  <span style={{ fontSize:13, fontWeight:600, color:'#FFFFFF' }}>Top Performers</span>
-                  <button onClick={onViewStats} style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, fontWeight:600, color:'#F5C04A', padding:0 }}>See All</button>
-                </div>
-                <div style={{ display:'flex', gap:8 }}>
-                  {playerStats.map((p,i) => (
-                    <div key={i} style={{ flex:1, background:'#0D0D0D', borderRadius:10, padding:'10px 8px', textAlign:'center' }}>
-                      <div style={{ width:36, height:36, borderRadius:'50%', background:'#F5C04A22', border:'2px solid #F5C04A44', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 6px', fontSize:14, fontWeight:700, color:'#F5C04A' }}>
-                        {(p.name||'?')[0]}
-                      </div>
-                      <div style={{ fontSize:11, fontWeight:600, color:'#FFFFFF', marginBottom:4 }}>{p.name.split(' ')[0]}</div>
-                      <div style={{ fontSize:16, fontWeight:700, color:'#F5C04A' }}>{p.goals}</div>
-                      <div style={{ fontSize:9, color:'#A1A1A1' }}>Goals</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* SQUAD tab */}
-        {tab === 'squad' && (
-          <div style={{ padding:'12px 14px' }}>
-            {squadData.length === 0 ? (
-              <div style={{ textAlign:'center', padding:'40px 0' }}>
-                <div style={{ fontSize:36, marginBottom:10 }}>👥</div>
-                <div style={{ fontSize:15, fontWeight:800, color:'#FFF', marginBottom:6 }}>No players yet</div>
-                <div style={{ fontSize:13, color:'#666', marginBottom:20 }}>Tap below to add your first player</div>
-              </div>
-            ) : (
-              <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:8 }}>
-                {squadData.map(p => {
-                  const pInitials = (p.name||'?').split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
-                  const positions = [p.pos, p.pos2, p.pos3].filter(Boolean);
-                  return (
-                    <div key={p.name}
-                      onClick={()=>onViewSquad&&onViewSquad(p.name)}
-                      style={{ background:'#111111', borderRadius:14, padding:'12px 14px', border:'1px solid #1E1E1E', display:'flex', alignItems:'center', gap:10, cursor:'pointer', WebkitTapHighlightColor:'transparent' }}>
-                      {p.number ? (
-                        <div style={{ width:36, height:36, borderRadius:'50%', background:'rgba(245,192,74,0.12)', border:'2px solid rgba(245,192,74,0.35)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                          <span style={{ fontSize:12, fontWeight:900, color:'#F5C04A' }}>{p.number}</span>
-                        </div>
-                      ) : (
-                        <div style={{ width:36, height:36, borderRadius:'50%', background:'#1A1A1A', border:'1px solid #2A2A2A', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                          <span style={{ fontSize:12, fontWeight:800, color:'#555' }}>{pInitials}</span>
-                        </div>
-                      )}
-                      {p.photo && (
-                        <div style={{ width:36, height:36, borderRadius:'50%', overflow:'hidden', flexShrink:0 }}>
-                          <img src={p.photo} alt={p.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                        </div>
-                      )}
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:14, fontWeight:500, color:'#FFF', lineHeight:1.2 }}>{p.name}</div>
-                        {p.nickname && <div style={{ fontSize:11, color:'#F5C04A', marginTop:1 }}>"{p.nickname}"</div>}
-                      </div>
-                      {positions.length > 0 && (
-                        <div style={{ display:'flex', gap:4, flexWrap:'wrap', justifyContent:'flex-end', maxWidth:90 }}>
-                          {positions.map((pid, i) => {
-                            const pg = ALL_POSITIONS.find(x=>x.id===pid);
-                            return <div key={i} style={{ background: i===0?'rgba(245,192,74,0.15)':'rgba(255,255,255,0.05)', border:`1px solid ${i===0?'rgba(245,192,74,0.4)':'#2A2A2A'}`, borderRadius:5, padding:'2px 7px', fontSize:10, fontWeight:800, color: i===0?'#F5C04A':'#555' }}>{pg?pg.short:pid.toUpperCase()}</div>;
-                          })}
-                        </div>
-                      )}
-                      <div style={{ color:'#444', fontSize:18, flexShrink:0 }}>›</div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            <button
-              onClick={()=>{ if(onViewSquad) onViewSquad('__add__'); }}
-              style={{ width:'100%', padding:'14px', background:'transparent', color:'#F5C04A', border:'2px dashed rgba(245,192,74,0.35)', borderRadius:14, fontSize:13, fontWeight:800, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8, boxSizing:'border-box' }}>
-              <span style={{ fontSize:18 }}>＋</span>
-              <span>Add New Player</span>
+            <button onClick={onEditTeam||onManageSquad} style={{ background:'none', border:'1px solid #2A2A2A', borderRadius:8, padding:'5px 10px', color:'#777', fontSize:10, fontWeight:600, cursor:'pointer', flexShrink:0, display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap' }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Edit Team
             </button>
           </div>
-        )}
 
-        {/* STATS tab */}
-        {tab === 'stats' && (
-          <div style={{ padding:'12px 14px' }}>
-            <div style={{ background:'#1A1A1A', borderRadius:14, padding:'16px', border:'1px solid #2A2A2A', textAlign:'center' }}>
-              <div style={{ fontSize:13, fontWeight:600, color:'#FFFFFF', marginBottom:8 }}>Player Statistics</div>
-              <div style={{ fontSize:12, color:'#A1A1A1', marginBottom:16 }}>Detailed goals, assists and performance data</div>
-              <button onClick={onViewStats} style={{ background:'#F5C04A', color:'#0D0D0D', border:'none', borderRadius:10, padding:'12px 24px', fontWeight:700, fontSize:13, cursor:'pointer' }}>View Full Stats ›</button>
+          {/* 4-up stat grid */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', marginTop:14, paddingTop:12, borderTop:'1px solid #1A1A1A' }}>
+
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5, borderRight:'1px solid #1A1A1A' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><circle cx="18" cy="9" r="3"/><path d="M22 21v-1a3 3 0 0 0-2-2.83"/></svg>
+              <div style={{ fontSize:20, fontWeight:800, color:'#FFF', lineHeight:1 }}>{totalPlayers}</div>
+              <div style={{ fontSize:9, color:'#555', fontWeight:600, textAlign:'center', lineHeight:1.4 }}>Players{'\n'}In Squad</div>
+            </div>
+
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5, borderRight:'1px solid #1A1A1A' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
+              <div style={{ fontSize:20, fontWeight:800, color:'#FFF', lineHeight:1 }}>{available}</div>
+              <div style={{ fontSize:9, color:'#555', fontWeight:600, textAlign:'center', lineHeight:1.4 }}>Available{'\n'}This Week</div>
+            </div>
+
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5, borderRight:'1px solid #1A1A1A' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2"><rect x="2" y="2" width="20" height="20" rx="2"/><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+              <div style={{ fontSize:12, fontWeight:800, color:'#FFF', lineHeight:1, letterSpacing:-0.3 }}>{formation}</div>
+              <div style={{ fontSize:9, color:'#555', fontWeight:600, textAlign:'center', lineHeight:1.4 }}>Default{'\n'}Formation</div>
+            </div>
+
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              {nextFxDate
+                ? <><div style={{ fontSize:11, fontWeight:800, color:'#FFF', lineHeight:1, textAlign:'center' }}>{DAYS_S[nextFxDate.getDay()]} {nextFxDate.getDate()} {MONTHS_S[nextFxDate.getMonth()]}</div>
+                    {nextFix.time&&<div style={{ fontSize:9, fontWeight:700, color:'#F5C04A', lineHeight:1 }}>{nextFix.time}</div>}</>
+                : <div style={{ fontSize:12, fontWeight:700, color:'#444' }}>—</div>
+              }
+              <div style={{ fontSize:9, color:'#555', fontWeight:600, textAlign:'center', lineHeight:1.4 }}>Next{'\n'}Match</div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* ── Next Match Detail ── */}
+        {nextFix && nextFxDate && (
+          <div style={{ background:'#111', border:'1px solid rgba(245,192,74,0.22)', borderRadius:14, padding:'12px 14px' }}>
+            <div style={{ fontSize:10, fontWeight:800, color:'#F5C04A', letterSpacing:1.5, textTransform:'uppercase', marginBottom:10 }}>Next Match</div>
+            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+              {/* Calendar date block */}
+              <div style={{ background:'#0D0D0D', border:'1px solid #1E1E1E', borderRadius:10, padding:'8px 10px', flexShrink:0, textAlign:'center', minWidth:50 }}>
+                <div style={{ fontSize:9, fontWeight:800, color:'#F5C04A', letterSpacing:1, textTransform:'uppercase', lineHeight:1, marginBottom:3 }}>{MONTHS_S[nextFxDate.getMonth()]}</div>
+                <div style={{ fontSize:28, fontWeight:800, color:'#FFF', lineHeight:1 }}>{nextFxDate.getDate()}</div>
+                <div style={{ fontSize:9, fontWeight:600, color:'#555', textTransform:'uppercase', letterSpacing:0.5, marginTop:2 }}>{DAYS_S[nextFxDate.getDay()]}</div>
+              </div>
+              {/* Details */}
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:15, fontWeight:700, color:'#FFF', lineHeight:1.2 }}>vs {opponent}</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:4, marginTop:6 }}>
+                  {nextFix.time && (
+                    <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      <span style={{ fontSize:11, color:'#777' }}>{nextFix.time}</span>
+                    </div>
+                  )}
+                  {nextFix.venue && (
+                    <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                      <span style={{ fontSize:11, color:'#777' }}>{nextFix.venue}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {/* Home/Away badge */}
+              <div style={{ background: isHome ? '#F5C04A' : '#1A1A1A', border: isHome ? 'none' : '1px solid #2A2A2A', borderRadius:8, padding:'6px 10px', flexShrink:0 }}>
+                <span style={{ fontSize:11, fontWeight:800, color: isHome ? '#000' : '#666', letterSpacing:0.5 }}>{isHome ? 'HOME' : 'AWAY'}</span>
+              </div>
             </div>
           </div>
         )}
 
-        {/* FIXTURES tab */}
-        {tab === 'fixtures' && (
-          <div style={{ padding:'0' }}>
-            <FixturesScreen embedded games={games||[]} onViewGame={g=>setFixtureDetailGame(g)} />
+        {/* ── Team Management nav rows ── */}
+        <div>
+          <div style={{ fontSize:10, fontWeight:800, color:'#F5C04A', letterSpacing:1.5, textTransform:'uppercase', marginBottom:8, paddingLeft:2 }}>Team Management</div>
+          <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, overflow:'hidden' }}>
+            {NAV_ITEMS.map((item, i) => (
+              <button key={i} onClick={item.action} style={{
+                width:'100%', background:'none', border:'none',
+                borderBottom: i < NAV_ITEMS.length-1 ? '1px solid #1A1A1A' : 'none',
+                padding:'14px', display:'flex', alignItems:'center', gap:12,
+                cursor: item.action ? 'pointer' : 'default', textAlign:'left',
+                opacity: item.action ? 1 : 0.4,
+              }}>
+                <div style={{ width:40, height:40, borderRadius:10, background:'rgba(245,192,74,0.08)', border:'1px solid rgba(245,192,74,0.18)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, color:'#F5C04A' }}>
+                  {item.icon}
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:14, fontWeight:600, color:'#FFF', lineHeight:1.2 }}>{item.title}</div>
+                  <div style={{ fontSize:11, color:'#555', marginTop:2, lineHeight:1.3 }}>{item.subtitle}</div>
+                </div>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={item.action ? '#F5C04A' : '#333'} strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            ))}
           </div>
-        )}
+        </div>
 
       </div>
     </div>
@@ -3861,17 +3867,8 @@ function GameDetailScreen({ game, onBack, onUpdateGame }) {
   const resColor = res==='W'?'#22c55e':res==='L'?'#ef4444':'#F5C04A';
 
   return (
-    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
-
-      {/* Header */}
-      <div style={{ background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', paddingTop:'max(env(safe-area-inset-top),14px)', paddingBottom:14, paddingLeft:16, paddingRight:16, display:'flex', alignItems:'center', flexShrink:0, position:'relative' }}>
-        <button onClick={onBack} style={{ background:'none', border:'none', color:'#F5C04A', fontSize:22, cursor:'pointer', padding:0, lineHeight:1, flexShrink:0, zIndex:1 }}>←</button>
-        <img src={KHULA_LOGO} alt="Khula" style={{ height:40, objectFit:'contain', marginLeft:8, zIndex:1 }} />
-        <div style={{ position:'absolute', left:0, right:0, textAlign:'center', pointerEvents:'none' }}>
-          <span style={{ fontSize:17, fontWeight:500, color:'#CCC' }}>Match Report</span>
-        </div>
-        <div style={{ flex:1 }} />
-      </div>
+    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, display:'flex', flexDirection:'column' }}>
+      <KhulaHeader showBack={true} onBack={onBack} title="Match Report" />
 
       {/* Score hero */}
       <div style={{ background:'#111111', borderBottom:'1px solid #1E1E1E', padding:'16px 20px', display:'flex', alignItems:'center', gap:14, flexShrink:0 }}>
@@ -4133,13 +4130,26 @@ function PlayerProfileScreen({ playerName, isNew, onBack, onSave, games }) {
         const parts = (p.name||'').trim().split(' ');
         p.firstName = parts[0]||''; p.lastName = parts.slice(1).join(' ')||'';
       }
+      // Merge soccerCoach_teamNotes into coachNotes (consolidate two note sources)
+      const _tn = loadTeamNotes();
+      const _extNote = _tn[p.name]||_tn[playerName]||'';
+      if(_extNote && _extNote.trim()) {
+        const _existing = p.coachNotes||'';
+        if(!_existing.includes(_extNote.trim())) {
+          p.coachNotes = _existing ? _existing+'\n'+_extNote.trim() : _extNote.trim();
+        }
+      }
       return p;
     }
-    return { firstName:'', lastName:'', name:'', nickname:'', number:'', pos:'', pos2:'', pos3:'', dob:'', foot:'right', canPlayGK:false, joined:'', coachNotes:'', devFocus:'', photo:'' };
+    return { firstName:'', lastName:'', name:'', nickname:'', number:'', pos:'', pos2:'', pos3:'', dob:'', foot:'right', height:'', canPlayGK:false, injured:false, resting:false, joined:'', coachNotes:'', devFocus:'', skills:{}, photo:'' };
   };
 
   const [draft,   setDraft]   = React.useState(loadPlayer);
   const [editing, setEditing] = React.useState(!!isNew);
+  const [activeTab, setActiveTab]         = React.useState('overview');
+  const [activeChartTab, setActiveChartTab] = React.useState('goals');
+  const [aiContent, setAiContent]         = React.useState(null);
+  const [aiLoading, setAiLoading]         = React.useState(false);
 
   function upd(k,v) { setDraft(d=>({...d,[k]:v})); }
   function pickPhoto() { photoRef.current && photoRef.current.click(); }
@@ -4199,231 +4209,695 @@ function PlayerProfileScreen({ playerName, isNew, onBack, onSave, games }) {
   const inputStyle = { background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:10, padding:'11px 14px', color:'#FFF', fontSize:14, outline:'none', width:'100%', boxSizing:'border-box', fontFamily:'inherit' };
   const labelStyle = { fontSize:10, color:'#555', fontWeight:700, letterSpacing:1, textTransform:'uppercase', marginBottom:5 };
 
-  const KhulaHeader = ({ rightEl }) => (
-    <div style={{ background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', paddingTop:'max(env(safe-area-inset-top),14px)', paddingBottom:14, paddingLeft:16, paddingRight:16, display:'flex', alignItems:'center', flexShrink:0, position:'relative' }}>
-      <button onClick={onBack} style={{ background:'none', border:'none', color:'#F5C04A', fontSize:22, cursor:'pointer', padding:0, lineHeight:1, flexShrink:0, zIndex:1 }}>←</button>
-      <img src={KHULA_LOGO} alt="Khula" style={{ height:56, objectFit:'contain', marginLeft:8, zIndex:1 }} />
-      <div style={{ position:'absolute', left:0, right:0, textAlign:'center', pointerEvents:'none' }}>
-        <span style={{ fontSize:17, fontWeight:500, color:'#CCC' }}>Player Profile</span>
-      </div>
-      <div style={{ flex:1 }} />
-      {rightEl && <div style={{ zIndex:1 }}>{rightEl}</div>}
-    </div>
-  );
+
+
+  // ── Hooks that must live at top-level (Rules of Hooks) ──────────────────────
+  const assists = React.useMemo(() => {
+    if (!games || !displayName) return 0;
+    return games.reduce((s,g)=>s+(g.goals||[]).filter(x=>x.assist===displayName).length,0);
+  }, [games, displayName]);
+
+  const historyEntries = React.useMemo(() => {
+    const entries = [];
+    const nm = displayName;
+    const notes = (draft.coachNotes||'').split('\n').filter(s=>s.trim());
+    notes.forEach(line => {
+      const m = line.match(/^\[([^\]]+)\]\s*(.+)$/);
+      if (m) {
+        const tag  = m[1].trim();
+        const text = m[2].trim();
+        const isTraining = /training/i.test(tag);
+        entries.push({ date: tag, text, type: isTraining ? 'training' : 'match' });
+      } else if (line.trim()) {
+        entries.push({ date: null, text: line.trim(), type: 'coach' });
+      }
+    });
+    try {
+      const apm = JSON.parse(localStorage.getItem('soccerCoach_allPostMatch')||'[]');
+      apm.forEach(g => {
+        const pNote = (g.playerNotes||{})[nm];
+        if (pNote && pNote.trim()) {
+          const d = g.date ? new Date(g.date).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) : '';
+          entries.push({ date: d ? `${d} vs ${g.opponent||'Opp'}` : `vs ${g.opponent||'Opp'}`, text: pNote.trim(), type: 'match' });
+        }
+      });
+    } catch {}
+    return entries.reverse();
+  }, [draft.coachNotes, displayName]);
+
+  const nextFixtures = React.useMemo(() => {
+    const myT = loadSettings().teamName || localStorage.getItem('soccerCoach_fixtureTeam') || '';
+    return FIXTURES.filter(f => isUpcoming(f) && (f.home===myT||f.away===myT)).slice(0,4);
+  }, []);
+
+  const positionBreakdown = React.useMemo(() => {
+    const positions = [draft.pos, draft.pos2, draft.pos3].filter(Boolean);
+    const weights   = [70, 20, 10];
+    return positions.map((pid, i) => {
+      const pg = ALL_POSITIONS.find(x=>x.id===pid);
+      return { id: pid, label: pg ? pg.label : pid.toUpperCase(), short: pg ? pg.short : pid.toUpperCase(), pct: weights[i] || 5 };
+    });
+  }, [draft.pos, draft.pos2, draft.pos3]);
+
+  const goalsPerMatch = React.useMemo(() => {
+    if (!games || !displayName) return [];
+    return [...games].sort((a,b) => new Date(a.date)-new Date(b.date))
+      .map(g => (g.goals||[]).filter(x=>x.scorer===displayName).length);
+  }, [games, displayName]);
+
+  const assistsPerMatch = React.useMemo(() => {
+    if (!games || !displayName) return [];
+    return [...games].sort((a,b) => new Date(a.date)-new Date(b.date))
+      .map(g => (g.goals||[]).filter(x=>x.assist===displayName).length);
+  }, [games, displayName]);
 
   /* ── VIEW MODE ─────────────────────────────────────────────────────────── */
   if (!isNew && !editing) {
-    const preferredPos = [draft.pos, draft.pos2].filter(Boolean);
-    const secondaryPos = [draft.pos3].filter(Boolean);
-    const coachLines   = (draft.coachNotes||'').split('\n').filter(s=>s.trim());
-    const devLines     = (draft.devFocus||'').split('\n').filter(s=>s.trim());
+
+    const saveSkill = (key, val) => {
+      const newSkills = {...(draft.skills||{}), [key]: val};
+      setDraft(d => ({...d, skills: newSkills}));
+      const sq = loadSquad();
+      const updated = sq.map(p => p.name===displayName ? {...p, skills: newSkills} : p);
+      saveSquad(updated);
+    };
+
+    const SKILL_GROUPS = [
+      { label:'Technical', keys:['ballControl','passing','shooting','firstTouch','dribbling','crossing','finishing'],
+        labels:['Ball Control','Passing','Shooting','First Touch','Dribbling','Crossing','Finishing'] },
+      { label:'Physical', keys:['speed','stamina','strength','workRate'],
+        labels:['Speed','Stamina','Strength','Work Rate'] },
+      { label:'Mental', keys:['positioning','decisionMaking','confidence'],
+        labels:['Positioning','Decision Making','Confidence'] },
+    ];
+
+    const StarRating = ({ skillKey }) => {
+      const val = (draft.skills||{})[skillKey] || 0;
+      return (
+        <div style={{ display:'flex', gap:1 }}>
+          {[1,2,3,4,5].map(s => (
+            <button key={s} onClick={() => saveSkill(skillKey, s)}
+              style={{ background:'none', border:'none', cursor:'pointer', padding:'2px 1px', color: s <= val ? '#F5C04A' : '#2A2A2A', fontSize:18, lineHeight:1 }}>★</button>
+          ))}
+        </div>
+      );
+    };
+
+    const MONTHS_S = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const DAYS_S   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+    const availStatus = draft.injured ? { label:'Injured', color:'#ef4444', desc:'Excluded from selection' }
+      : draft.resting ? { label:'Resting', color:'#F5C04A', desc:'Resting this week' }
+      : { label:'Available', color:'#22c55e', desc:'No issues' };
+
+    const statusDotColor = (avail) => {
+      if (avail === 'unavailable') return '#F59E0B';
+      if (avail === 'available')   return '#22c55e';
+      return '#555';
+    };
+
+    const fmtDob = (dob) => {
+      if (!dob) return '—';
+      try { return new Date(dob).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}); } catch { return dob; }
+    };
+
+    const MiniChart = ({ data, color='#F5C04A' }) => {
+      if (!data || data.length < 2) return (
+        <div style={{ height:80, display:'flex', alignItems:'center', justifyContent:'center', color:'#333', fontSize:12 }}>No data yet</div>
+      );
+      const W=280, H=72, pad=8;
+      const max = Math.max(...data, 1);
+      const pts = data.map((v,i) => [
+        pad + (i/(data.length-1))*(W-pad*2),
+        H - pad - (v/max)*(H-pad*2)
+      ]);
+      const pathD = pts.map((p,i) => `${i===0?'M':'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+      const areaD = pathD + ` L${pts[pts.length-1][0].toFixed(1)},${H-pad} L${pts[0][0].toFixed(1)},${H-pad} Z`;
+      return (
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width:'100%', height:H }}>
+          <defs>
+            <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity="0.25"/>
+              <stop offset="100%" stopColor={color} stopOpacity="0"/>
+            </linearGradient>
+          </defs>
+          <path d={areaD} fill="url(#cg)" />
+          <path d={pathD} stroke={color} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+          {pts.map((p,i) => <circle key={i} cx={p[0].toFixed(1)} cy={p[1].toFixed(1)} r="3" fill={color} />)}
+          {pts.map((p,i) => <text key={i} x={p[0]} y={p[1]-6} textAnchor="middle" fill="#888" fontSize="8">{data[i]||''}</text>)}
+        </svg>
+      );
+    };
 
     return (
       <div style={{ background:'#0D0D0D', minHeight:'100dvh', display:'flex', flexDirection:'column' }}>
-        <KhulaHeader rightEl={
-          <button onClick={()=>{ setDraft(loadPlayer()); setEditing(true); }}
-            style={{ background:'none', border:'none', color:'#F5C04A', fontSize:15, fontWeight:600, cursor:'pointer', padding:0 }}>
-            Edit
-          </button>
-        } />
 
+        {/* ── Sticky header block ── */}
+        <div style={{ flexShrink:0, background:'#0D0D0D', borderBottom:'1px solid #1A1A1A' }}>
+
+          <KhulaHeader showBack={true} onBack={onBack} title="Player Profile" moreActions={[
+            { label:'Edit Profile', action: ()=>setEditing(true), icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> },
+          ]} />
+
+          {/* Tab bar */}
+          <div style={{ display:'flex', overflowX:'auto', scrollbarWidth:'none', padding:'0 12px' }}>
+            {[['overview','Overview'],['stats','Stats'],['development','Development'],['history','History'],['aicoach','AI Coach']].map(([id,label]) => (
+              <button key={id} onClick={() => setActiveTab(id)}
+                style={{ background:'none', border:'none', borderBottom: activeTab===id ? '2px solid #F5C04A' : '2px solid transparent', padding:'8px 10px', fontSize:13, fontWeight: activeTab===id ? 700 : 500, color: activeTab===id ? '#F5C04A' : '#555', cursor:'pointer', whiteSpace:'nowrap', flexShrink:0 }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Scrollable content ── */}
         <div style={{ flex:1, overflowY:'auto', paddingBottom:'calc(80px + env(safe-area-inset-bottom))' }}>
 
-          {/* ── Hero ── */}
-          <div style={{ background:'#111111', padding:'16px 16px 14px', borderBottom:'1px solid #1E1E1E' }}>
-            <div style={{ display:'flex', gap:14, alignItems:'flex-start' }}>
+          {/* ════ OVERVIEW TAB ════ */}
+          {activeTab==='overview' && (
+            <div>
 
-              {/* Photo + number */}
-              <div style={{ position:'relative', flexShrink:0 }}>
-                <div style={{ width:80, height:80, borderRadius:'50%', overflow:'hidden', border:'3px solid rgba(245,192,74,0.4)', background:'rgba(245,192,74,0.08)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  {draft.photo ? <img src={draft.photo} alt={displayName} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <span style={{ fontSize:26, fontWeight:700, color:'#F5C04A' }}>{initials}</span>}
+              {/* Hero */}
+              <div style={{ background:'#111', borderBottom:'1px solid #1E1E1E', padding:'16px 16px 18px' }}>
+                <div style={{ display:'flex', alignItems:'flex-start', gap:14 }}>
+                  {/* Photo + number badge */}
+                  <div style={{ position:'relative', flexShrink:0 }}>
+                    <div style={{ width:88, height:88, borderRadius:'50%', overflow:'hidden', border:'3px solid rgba(245,192,74,0.35)', background:'rgba(245,192,74,0.06)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      {draft.photo
+                        ? <img src={draft.photo} alt={displayName} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                        : <span style={{ fontSize:28, fontWeight:700, color:'#F5C04A' }}>{initials}</span>}
+                    </div>
+                    {draft.number && (
+                      <div style={{ position:'absolute', bottom:-2, left:-2, width:26, height:26, borderRadius:'50%', background:'#F5C04A', border:'2px solid #111', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        <span style={{ fontSize:11, fontWeight:700, color:'#000' }}>{draft.number}</span>
+                      </div>
+                    )}
+                  </div>
+                  {/* Name + status info */}
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                      <div style={{ fontSize:20, fontWeight:700, color:'#FFF', lineHeight:1.1 }}>{displayName}</div>
+                      <button onClick={()=>{ setDraft(loadPlayer()); setEditing(true); }}
+                        style={{ background:'none', border:'none', cursor:'pointer', color:'#F5C04A', padding:2, lineHeight:1 }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      </button>
+                    </div>
+                    {/* Position · # · status */}
+                    <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:5, flexWrap:'wrap' }}>
+                      {draft.pos && <span style={{ fontSize:13, color:'#AAA' }}>{(ALL_POSITIONS.find(x=>x.id===draft.pos)||{}).short||draft.pos.toUpperCase()}</span>}
+                      {draft.number && <><span style={{ color:'#444' }}>•</span><span style={{ fontSize:13, color:'#AAA' }}>#{draft.number}</span></>}
+                      <span style={{ color:'#444' }}>•</span>
+                      <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                        <div style={{ width:7, height:7, borderRadius:'50%', background:availStatus.color }} />
+                        <span style={{ fontSize:13, fontWeight:600, color:availStatus.color }}>{availStatus.label}</span>
+                      </div>
+                    </div>
+                    {/* Team badge row */}
+                    <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:8 }}>
+                      <TeamBadge name={loadSettings().teamName||''} size={20} radius={4} />
+                      <span style={{ fontSize:11, color:'#666' }}>{[loadSettings().teamName, loadSettings().ageGroup, loadSettings().season].filter(Boolean).join(' • ')}</span>
+                    </div>
+                  </div>
                 </div>
-                {draft.number && (
-                  <div style={{ position:'absolute', bottom:-2, right:-2, width:26, height:26, borderRadius:'50%', background:'#F5C04A', border:'2px solid #111111', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    <span style={{ fontSize:11, fontWeight:700, color:'#000' }}>{draft.number}</span>
+              </div>
+
+              {/* Basic Information card */}
+              <div style={{ margin:'10px 14px 0', background:'#111', border:'1px solid #1E1E1E', borderRadius:14, overflow:'hidden' }}>
+                <div style={{ padding:'14px 14px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid #1A1A1A' }}>
+                  <span style={{ fontSize:14, fontWeight:700, color:'#FFF' }}>Basic Information</span>
+                  <button onClick={()=>{ setDraft(loadPlayer()); setEditing(true); }}
+                    style={{ background:'none', border:'none', cursor:'pointer', color:'#F5C04A', fontSize:12, fontWeight:600, display:'flex', alignItems:'center', gap:4, padding:0 }}>
+                    Edit
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                </div>
+                <div style={{ padding:'12px 14px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:'14px 20px' }}>
+                  {/* DOB */}
+                  <div>
+                    <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:3 }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                      <span style={{ fontSize:10, color:'#555', fontWeight:600, letterSpacing:0.5, textTransform:'uppercase' }}>Date of Birth</span>
+                    </div>
+                    <div style={{ fontSize:13, color:'#FFF' }}>{fmtDob(draft.dob)}</div>
+                  </div>
+                  {/* Preferred Positions */}
+                  <div>
+                    <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:3 }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+                      <span style={{ fontSize:10, color:'#555', fontWeight:600, letterSpacing:0.5, textTransform:'uppercase' }}>Preferred Positions</span>
+                    </div>
+                    <div style={{ fontSize:13, color:'#FFF' }}>
+                      {[draft.pos,draft.pos2].filter(Boolean).map((pid,i) => {
+                        const pg=ALL_POSITIONS.find(x=>x.id===pid);
+                        return <span key={i}>{i>0&&', '}{pg?pg.short:pid.toUpperCase()}{i===0?' (Primary)':' (Secondary)'}</span>;
+                      })}
+                      {!draft.pos && '—'}
+                    </div>
+                  </div>
+                  {/* Preferred Foot */}
+                  <div>
+                    <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:3 }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+                      <span style={{ fontSize:10, color:'#555', fontWeight:600, letterSpacing:0.5, textTransform:'uppercase' }}>Preferred Foot</span>
+                    </div>
+                    <div style={{ fontSize:13, color:'#FFF', textTransform:'capitalize' }}>{draft.foot||'—'}</div>
+                  </div>
+                  {/* Emergency Positions */}
+                  <div>
+                    <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:3 }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                      <span style={{ fontSize:10, color:'#555', fontWeight:600, letterSpacing:0.5, textTransform:'uppercase' }}>Emergency Positions</span>
+                    </div>
+                    <div style={{ fontSize:13, color:'#FFF' }}>
+                      {draft.pos3 ? (()=>{ const pg=ALL_POSITIONS.find(x=>x.id===draft.pos3); return pg?pg.short:draft.pos3.toUpperCase(); })() : '—'}
+                    </div>
+                  </div>
+                  {/* Shirt Number */}
+                  <div>
+                    <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:3 }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><path d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.57a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.57a2 2 0 0 0-1.34-2.23z"/></svg>
+                      <span style={{ fontSize:10, color:'#555', fontWeight:600, letterSpacing:0.5, textTransform:'uppercase' }}>Shirt Number</span>
+                    </div>
+                    <div style={{ fontSize:13, color:'#FFF' }}>{draft.number||'—'}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Availability card */}
+              <div style={{ margin:'10px 14px 0', background:'#111', border:'1px solid #1E1E1E', borderRadius:14, overflow:'hidden' }}>
+                <div style={{ padding:'14px 14px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid #1A1A1A' }}>
+                  <span style={{ fontSize:14, fontWeight:700, color:'#FFF' }}>Availability</span>
+                  <button onClick={()=>{ setDraft(loadPlayer()); setEditing(true); }}
+                    style={{ background:'none', border:'none', cursor:'pointer', color:'#F5C04A', fontSize:12, fontWeight:600, display:'flex', alignItems:'center', gap:4, padding:0 }}>
+                    Edit
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                </div>
+                <div style={{ padding:'14px' }}>
+                  <div style={{ display:'flex', gap:14, alignItems:'flex-start' }}>
+                    {/* Current status */}
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:10, color:'#555', fontWeight:600, letterSpacing:0.5, textTransform:'uppercase', marginBottom:8 }}>Current Status</div>
+                      <div style={{ background: `${availStatus.color}15`, border:`1px solid ${availStatus.color}40`, borderRadius:10, padding:'10px 14px' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                          <div style={{ width:8, height:8, borderRadius:'50%', background:availStatus.color }} />
+                          <span style={{ fontSize:14, fontWeight:700, color:availStatus.color }}>{availStatus.label}</span>
+                        </div>
+                        <div style={{ fontSize:11, color:'#666', marginTop:4 }}>{availStatus.desc}</div>
+                      </div>
+                    </div>
+                    {/* Next fixtures */}
+                    {nextFixtures.length > 0 && (
+                      <div style={{ flex:2 }}>
+                        <div style={{ fontSize:10, color:'#555', fontWeight:600, letterSpacing:0.5, textTransform:'uppercase', marginBottom:8 }}>Next {nextFixtures.length} Fixtures</div>
+                        <div style={{ display:'flex', gap:8 }}>
+                          {nextFixtures.map((f, i) => {
+                            const fd = parseFixtureDate(f.date);
+                            const myT = loadSettings().teamName || '';
+                            const opp = (f.home===myT?f.away:f.home)||'?';
+                            const oppShort = opp.split(' ').map(w=>w[0]).join('').slice(0,3).toUpperCase();
+                            const dot = draft.injured||draft.resting ? '#F59E0B' : '#22c55e';
+                            return (
+                              <div key={i} style={{ textAlign:'center', flex:1 }}>
+                                <div style={{ background:'#0D0D0D', borderRadius:8, padding:'6px 4px', border:'1px solid #1E1E1E' }}>
+                                  <div style={{ fontSize:9, fontWeight:700, color:'#F5C04A', textTransform:'uppercase' }}>{fd ? MONTHS_S[fd.getMonth()] : ''}</div>
+                                  <div style={{ fontSize:16, fontWeight:800, color:'#FFF', lineHeight:1, margin:'2px 0' }}>{fd ? fd.getDate() : '?'}</div>
+                                  <div style={{ fontSize:9, color:'#666' }}>vs {oppShort}</div>
+                                </div>
+                                <div style={{ width:6, height:6, borderRadius:'50%', background:dot, margin:'5px auto 0' }} />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Coach Notes card */}
+              <div style={{ margin:'10px 14px 14px', background:'#111', border:'1px solid #1E1E1E', borderRadius:14, overflow:'hidden' }}>
+                <div style={{ padding:'14px 14px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid #1A1A1A' }}>
+                  <span style={{ fontSize:14, fontWeight:700, color:'#FFF' }}>Coach Notes</span>
+                  <button onClick={()=>{ setDraft(loadPlayer()); setEditing(true); }}
+                    style={{ background:'none', border:'none', cursor:'pointer', color:'#F5C04A', fontSize:12, fontWeight:600, display:'flex', alignItems:'center', gap:4, padding:0 }}>
+                    Edit
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                </div>
+                <div style={{ padding:'14px' }}>
+                  {draft.coachNotes && draft.coachNotes.trim()
+                    ? <div style={{ fontSize:13, color:'#CCC', lineHeight:1.7 }}>{draft.coachNotes.replace(/\[.*?\]\s*/g,'').trim()||draft.coachNotes.trim()}</div>
+                    : <div style={{ fontSize:13, color:'#444', fontStyle:'italic' }}>No notes added yet.</div>
+                  }
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* ════ STATS TAB ════ */}
+          {activeTab==='stats' && (
+            <div style={{ padding:'12px 14px' }}>
+
+              {/* Season selector */}
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
+                <div style={{ background:'#111', border:'1px solid #2A2A2A', borderRadius:10, padding:'8px 14px', display:'flex', alignItems:'center', gap:8, cursor:'pointer' }}>
+                  <span style={{ fontSize:13, fontWeight:600, color:'#FFF' }}>{new Date().getFullYear()} Season</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#777" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+              </div>
+
+              {/* 3×3 stat grid */}
+              <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, overflow:'hidden', marginBottom:10 }}>
+                {[
+                  [
+                    { icon:'📅', val: appearances,       label:'Matches'   },
+                    { icon:'▶️',  val: appearances,       label:'Starts'    },
+                    { icon:'⏱',  val: appearances>0 ? appearances*60 : 0, label:'Minutes' },
+                  ],[
+                    { icon:'⚽', val: playerGoals,        label:'Goals'     },
+                    { icon:'🎯', val: assists,            label:'Assists'   },
+                    { icon:'🏃', val: '—',               label:'Shots'     },
+                  ],[
+                    { icon:'🔑', val: '—',               label:'Key Passes'},
+                    { icon:'🛡', val: '—',               label:'Tackles'   },
+                    { icon:'🏅', val: potmList.length,   label:'POTM Awards'},
+                  ]
+                ].map((row, ri) => (
+                  <div key={ri} style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', borderBottom: ri<2 ? '1px solid #1A1A1A' : 'none' }}>
+                    {row.map((s, ci) => (
+                      <div key={ci} style={{ padding:'14px 8px', textAlign:'center', borderRight: ci<2 ? '1px solid #1A1A1A' : 'none' }}>
+                        <div style={{ fontSize:11, marginBottom:4 }}>{s.icon}</div>
+                        <div style={{ fontSize:20, fontWeight:800, color:'#FFF', lineHeight:1 }}>{s.val}</div>
+                        <div style={{ fontSize:10, color:'#555', marginTop:4, fontWeight:600 }}>{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+
+              {/* 2 wide stats */}
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
+                <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'14px', textAlign:'center' }}>
+                  <div style={{ fontSize:11, marginBottom:6 }}>⭐</div>
+                  <div style={{ fontSize:22, fontWeight:800, color:'#FFF', lineHeight:1 }}>—</div>
+                  <div style={{ fontSize:10, color:'#555', marginTop:4, fontWeight:600, lineHeight:1.4 }}>Avg Match<br/>Rating</div>
+                </div>
+                <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'14px', textAlign:'center' }}>
+                  <div style={{ fontSize:11, marginBottom:6 }}>👥</div>
+                  <div style={{ fontSize:22, fontWeight:800, color:'#FFF', lineHeight:1 }}>{availability}%</div>
+                  <div style={{ fontSize:10, color:'#555', marginTop:4, fontWeight:600, lineHeight:1.4 }}>Training<br/>Attendance</div>
+                </div>
+              </div>
+
+              {/* Performance Over Time */}
+              <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'14px', marginBottom:10 }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+                  <span style={{ fontSize:13, fontWeight:700, color:'#FFF' }}>Performance Over Time</span>
+                  <span style={{ fontSize:11, color:'#F5C04A', cursor:'pointer' }}>View all</span>
+                </div>
+                <div style={{ display:'flex', gap:6, marginBottom:12 }}>
+                  {[['goals','Goals'],['assists','Assists'],['minutes','Minutes'],['rating','Rating']].map(([id,lbl]) => (
+                    <button key={id} onClick={()=>setActiveChartTab(id)}
+                      style={{ background: activeChartTab===id ? '#F5C04A' : '#1A1A1A', border:`1px solid ${activeChartTab===id?'#F5C04A':'#2A2A2A'}`, borderRadius:8, padding:'5px 10px', fontSize:11, fontWeight:600, color: activeChartTab===id ? '#000' : '#666', cursor:'pointer' }}>
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+                <MiniChart data={activeChartTab==='goals' ? goalsPerMatch : activeChartTab==='assists' ? assistsPerMatch : []} />
+                {/* X axis labels */}
+                {goalsPerMatch.length > 0 && (
+                  <div style={{ display:'flex', justifyContent:'space-between', marginTop:4 }}>
+                    {goalsPerMatch.map((_,i) => <span key={i} style={{ fontSize:8, color:'#444' }}>{i+1}</span>)}
                   </div>
                 )}
               </div>
 
-              {/* Name + nickname + positions + GK */}
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:19, fontWeight:700, color:'#FFF', lineHeight:1.2 }}>{displayName}</div>
-                {draft.nickname && <div style={{ fontSize:13, color:'#F5C04A', marginTop:2, fontWeight:400 }}>"{draft.nickname}"</div>}
-                <div style={{ display:'flex', gap:6, marginTop:8, flexWrap:'wrap' }}>
-                  {[draft.pos,draft.pos2,draft.pos3].filter(Boolean).map((pid,i)=>{
-                    const pg=ALL_POSITIONS.find(p=>p.id===pid);
-                    return <div key={i} style={{ background:i===0?'#F5C04A':'rgba(255,255,255,0.07)', border:i===0?'none':'1px solid #3A3A3A', borderRadius:6, padding:'4px 10px', fontSize:12, fontWeight:600, color:i===0?'#000':'#BBB' }}>{pg?pg.short:pid.toUpperCase()}</div>;
-                  })}
-                </div>
-                <div style={{ fontSize:11, color:'#777', marginTop:8 }}>Can Play GK: <span style={{ color:'#CCC', fontWeight:500 }}>{draft.canPlayGK?'Yes':'No'}</span></div>
-              </div>
-
-              {/* Team badge — bigger */}
-              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', flexShrink:0, minWidth:68 }}>
-                <TeamBadge name={myTeam||teamName} size={62} radius={10} />
-                <div style={{ fontSize:10, fontWeight:600, color:'#DDD', marginTop:6, textAlign:'center', lineHeight:1.3 }}>{teamName}</div>
-                <div style={{ fontSize:9, color:'#777', marginTop:2, textAlign:'center' }}>{league}</div>
-              </div>
-            </div>
-
-            {/* Joined */}
-            {draft.joined && (
-              <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:10 }}>
-                <span style={{ fontSize:12 }}>📅</span>
-                <span style={{ fontSize:12, color:'#777' }}>Joined {fmtJoined(draft.joined)}</span>
-              </div>
-            )}
-          </div>
-
-          {/* ── Season Summary ── */}
-          <div style={{ margin:'10px 16px 0', background:'#111111', borderRadius:14, border:'1px solid #1E1E1E', padding:'14px 8px' }}>
-            <div style={{ fontSize:9, fontWeight:700, color:'#777', letterSpacing:1.5, textTransform:'uppercase', marginBottom:12, paddingLeft:8 }}>Season Summary</div>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)' }}>
-              {[
-                ['⚽', playerGoals,    'Goals'],
-                ['👕', appearances,    'Matches'],
-                ['⭐', potmList.length,'Awards'],
-                [availability+'%', null, 'Availability'],
-              ].map(([icon, val, label], i) => (
-                <div key={label} style={{ textAlign:'center', padding:'4px', borderRight:i<3?'1px solid #1E1E1E':'none' }}>
-                  <div style={{ fontSize:val===null?0:20, lineHeight:1 }}>{val===null?'':icon}</div>
-                  <div style={{ fontSize:20, fontWeight:600, color:'#FFF', lineHeight:1.1, marginTop:val===null?0:6 }}>{val===null?icon:val}</div>
-                  <div style={{ fontSize:10, color:'#666', marginTop:4, fontWeight:500 }}>{label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* ── Positions | Recognition ── */}
-          <div style={{ margin:'10px 16px 0', display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-
-            {/* Preferred + Secondary */}
-            <div style={{ background:'#111111', borderRadius:14, border:'1px solid #1E1E1E', padding:'14px' }}>
-              <div style={{ fontSize:9, fontWeight:700, color:'#777', letterSpacing:1.3, textTransform:'uppercase', marginBottom:10 }}>Positions</div>
-              {preferredPos.length > 0 && <>
-                <div style={{ fontSize:9, color:'#555', fontWeight:600, letterSpacing:1, textTransform:'uppercase', marginBottom:8 }}>Preferred</div>
-                {preferredPos.map((pid,i) => {
-                  const pg=ALL_POSITIONS.find(p=>p.id===pid);
-                  return (
-                    <div key={i} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:i<preferredPos.length-1?8:0, paddingBottom:i<preferredPos.length-1?8:0, borderBottom:i<preferredPos.length-1?'1px solid #1A1A1A':'none' }}>
-                      <span style={{ color:'#F5C04A', fontSize:13 }}>★</span>
-                      <div>
-                        <div style={{ fontSize:13, fontWeight:600, color:'#FFF', lineHeight:1 }}>{pg?pg.short:pid.toUpperCase()}</div>
-                        <div style={{ fontSize:10, color:'#555', marginTop:2 }}>{pg?pg.label:''}</div>
+              {/* Position Breakdown */}
+              {positionBreakdown.length > 0 && (
+                <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'14px' }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+                    <span style={{ fontSize:13, fontWeight:700, color:'#FFF' }}>Position Breakdown</span>
+                    <span style={{ fontSize:11, color:'#F5C04A', cursor:'pointer' }}>View heat map</span>
+                  </div>
+                  {positionBreakdown.map((pos, i) => (
+                    <div key={i} style={{ marginBottom: i<positionBreakdown.length-1 ? 14 : 0 }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
+                        <span style={{ fontSize:12, color:'#CCC' }}>{pos.short} ({pos.label})</span>
+                        <span style={{ fontSize:12, fontWeight:700, color:'#FFF' }}>{pos.pct}%</span>
+                      </div>
+                      <div style={{ height:6, background:'#1A1A1A', borderRadius:3, overflow:'hidden' }}>
+                        <div style={{ height:'100%', width:`${pos.pct}%`, background: i===0?'#F5C04A':'rgba(245,192,74,0.4)', borderRadius:3, transition:'width 0.5s' }} />
                       </div>
                     </div>
-                  );
-                })}
-              </>}
-              {secondaryPos.length > 0 && <>
-                <div style={{ fontSize:9, color:'#555', fontWeight:600, letterSpacing:1, textTransform:'uppercase', margin:'12px 0 8px' }}>Secondary</div>
-                {secondaryPos.map((pid,i) => {
-                  const pg=ALL_POSITIONS.find(p=>p.id===pid);
-                  return (
-                    <div key={i} style={{ display:'flex', alignItems:'center', gap:8 }}>
-                      <div style={{ fontSize:13, fontWeight:600, color:'#BBB', minWidth:32, lineHeight:1 }}>{pg?pg.short:pid.toUpperCase()}</div>
-                      <div style={{ fontSize:10, color:'#555' }}>{pg?pg.label:''}</div>
-                    </div>
-                  );
-                })}
-              </>}
-              {!preferredPos.length && !secondaryPos.length && (
-                <div style={{ fontSize:11, color:'#444', textAlign:'center', padding:'8px 0' }}>No positions set</div>
+                  ))}
+                </div>
               )}
             </div>
+          )}
 
-            {/* Recent Recognition */}
-            <div style={{ background:'#111111', borderRadius:14, border:'1px solid #1E1E1E', padding:'14px' }}>
-              <div style={{ fontSize:9, fontWeight:700, color:'#777', letterSpacing:1.3, textTransform:'uppercase', marginBottom:10 }}>Recognition</div>
-              {potmList.length === 0 ? (
-                <div style={{ fontSize:11, color:'#444', textAlign:'center', padding:'16px 0' }}>No awards yet</div>
-              ) : potmList.slice(0,3).map((g,i) => (
-                <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:8, marginBottom:i<Math.min(potmList.length,3)-1?10:0 }}>
-                  <span style={{ fontSize:15, flexShrink:0 }}>{['🥇','🥈','🥉'][i]||'🏅'}</span>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:11, fontWeight:600, color:'#EEE', lineHeight:1.2 }}>Player of the Match</div>
-                    <div style={{ fontSize:10, color:'#666' }}>vs {g.opponent||'—'}</div>
-                    <div style={{ fontSize:9, color:'#444', marginTop:1 }}>{fmtDate(g.date)}</div>
+          {/* ════ DEVELOPMENT TAB ════ */}
+          {activeTab==='development' && (
+            <div style={{ padding:'12px 14px' }}>
+              {SKILL_GROUPS.map((group, gi) => (
+                <div key={gi} style={{ marginBottom:10 }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:'#F5C04A', letterSpacing:0.5, textTransform:'uppercase', padding:'6px 0 10px' }}>{group.label}</div>
+                  <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, overflow:'hidden' }}>
+                    {group.keys.map((key, ki) => (
+                      <div key={key} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', borderBottom: ki<group.keys.length-1 ? '1px solid #1A1A1A' : 'none' }}>
+                        <span style={{ fontSize:13, color:'#CCC' }}>{group.labels[ki]}</span>
+                        <StarRating skillKey={key} />
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
 
-          {/* ── Coach Notes | Development Focus — always shown ── */}
-          <div style={{ margin:'10px 16px 0', display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-            <div style={{ background:'#111111', borderRadius:14, border:'1px solid #1E1E1E', padding:'14px' }}>
-              <div style={{ fontSize:9, fontWeight:700, color:'#777', letterSpacing:1.3, textTransform:'uppercase', marginBottom:10 }}>Coach Notes</div>
-              {coachLines.length === 0 ? (
-                <div style={{ fontSize:11, color:'#444', fontStyle:'italic', padding:'8px 0' }}>No notes yet</div>
-              ) : coachLines.map((note,i)=>(
-                <div key={i} style={{ display:'flex', gap:6, marginBottom:6 }}>
-                  <span style={{ color:'#F5C04A', flexShrink:0, fontSize:10, marginTop:2 }}>•</span>
-                  <span style={{ fontSize:11, color:'#CCC', lineHeight:1.4 }}>{note.trim()}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ background:'#111111', borderRadius:14, border:'1px solid #1E1E1E', padding:'14px' }}>
-              <div style={{ fontSize:9, fontWeight:700, color:'#777', letterSpacing:1.3, textTransform:'uppercase', marginBottom:10 }}>Dev Focus</div>
-              {devLines.length === 0 ? (
-                <div style={{ fontSize:11, color:'#444', fontStyle:'italic', padding:'8px 0' }}>None set</div>
-              ) : devLines.map((item,i)=>(
-                <div key={i} style={{ display:'flex', gap:8, marginBottom:8, alignItems:'center' }}>
-                  <div style={{ width:17, height:17, borderRadius:'50%', border:'1.5px solid rgba(245,192,74,0.5)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                    <span style={{ fontSize:9, color:'#F5C04A', lineHeight:1 }}>✓</span>
+              {/* Coach Focus */}
+              <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, overflow:'hidden', marginTop:4 }}>
+                <div style={{ padding:'14px 14px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid #1A1A1A' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <span style={{ fontSize:14, fontWeight:700, color:'#FFF' }}>Coach Focus</span>
                   </div>
-                  <span style={{ fontSize:11, color:'#CCC', lineHeight:1.3 }}>{item.trim()}</span>
+                  <button onClick={()=>{ setDraft(loadPlayer()); setEditing(true); }}
+                    style={{ background:'none', border:'none', cursor:'pointer', color:'#F5C04A', fontSize:12, fontWeight:600, display:'flex', alignItems:'center', gap:4, padding:0 }}>
+                    Edit
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
                 </div>
-              ))}
+                <div style={{ padding:'14px' }}>
+                  {(draft.devFocus||'').split('\n').filter(s=>s.trim()).length === 0
+                    ? <div style={{ fontSize:13, color:'#444', fontStyle:'italic' }}>No focus areas set.</div>
+                    : (draft.devFocus||'').split('\n').filter(s=>s.trim()).map((item,i) => (
+                        <div key={i} style={{ display:'flex', gap:8, alignItems:'flex-start', marginBottom: i<(draft.devFocus||'').split('\n').filter(s=>s.trim()).length-1 ? 8 : 0 }}>
+                          <span style={{ color:'#F5C04A', fontSize:14, lineHeight:1.4, flexShrink:0 }}>•</span>
+                          <span style={{ fontSize:13, color:'#CCC', lineHeight:1.5 }}>{item.trim()}</span>
+                        </div>
+                      ))
+                  }
+                </div>
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* ── Recent Matches — always shown ── */}
-          <div style={{ margin:'10px 16px 0' }}>
-            <div style={{ fontSize:9, fontWeight:700, color:'#777', letterSpacing:1.5, textTransform:'uppercase', marginBottom:10 }}>Recent Matches</div>
-            <div style={{ background:'#111111', borderRadius:14, border:'1px solid #1E1E1E', overflow:'hidden' }}>
-              {recentMatches.length === 0 ? (
-                <div style={{ padding:'20px', textAlign:'center', fontSize:12, color:'#444', fontStyle:'italic' }}>No match data recorded yet</div>
-              ) : recentMatches.map((g,idx) => {
-                const us   = g.scoreUs ?? (g.goals||[]).filter(x=>x.team==='us').length;
-                const them = g.scoreThem ?? (g.goals||[]).filter(x=>x.team==='them').length;
-                const nm   = displayName;
-                const pg   = (g.goals||[]).filter(x=>x.scorer===nm).length;
-                const win  = us>them; const draw = us===them;
-                const col  = win?'#22c55e':draw?'#F5C04A':'#ef4444';
-                return (
-                  <div key={idx} style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 14px', borderBottom:idx<recentMatches.length-1?'1px solid #1A1A1A':'none' }}>
-                    <TeamBadge name={g.opponent||'?'} size={30} radius={6} />
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:13, fontWeight:500, color:'#EEE', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{g.opponent||'Unknown'}</div>
-                      <div style={{ fontSize:10, color:'#555' }}>{fmtDate(g.date)}</div>
-                    </div>
-                    <div style={{ textAlign:'center', minWidth:56 }}>
-                      <span style={{ fontSize:13, fontWeight:600, color:col }}>{us} – {them}</span>
-                      <span style={{ fontSize:10, fontWeight:500, color:col, marginLeft:4 }}>({win?'W':draw?'D':'L'})</span>
-                    </div>
-                    <div style={{ display:'flex', alignItems:'center', gap:3, minWidth:36 }}>
-                      <span style={{ fontSize:12 }}>⚽</span>
-                      <span style={{ fontSize:12, fontWeight:500, color:'#CCC' }}>{pg}</span>
-                    </div>
-                    <div style={{ color:'#444', fontSize:18, lineHeight:1 }}>›</div>
-                  </div>
-                );
-              })}
+          {/* ════ HISTORY TAB ════ */}
+          {activeTab==='history' && (
+            <div style={{ padding:'12px 14px' }}>
+              {historyEntries.length === 0
+                ? <div style={{ textAlign:'center', padding:'40px 0', color:'#444', fontSize:13 }}>No history yet — notes will appear after matches.</div>
+                : historyEntries.map((entry, i) => {
+                    const typeConfig = {
+                      match:    { color:'#22c55e', bg:'rgba(34,197,94,0.12)',   label:'Match Note',    dot:'#22c55e'  },
+                      training: { color:'#06b6d4', bg:'rgba(6,182,212,0.12)',   label:'Training Note', dot:'#06b6d4'  },
+                      coach:    { color:'#F5C04A', bg:'rgba(245,192,74,0.12)',  label:'Coach Note',    dot:'#F5C04A'  },
+                    }[entry.type] || { color:'#777', bg:'#111', label:'Note', dot:'#555' };
+                    return (
+                      <div key={i} style={{ display:'flex', gap:12, marginBottom:14 }}>
+                        {/* Timeline line + dot */}
+                        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', flexShrink:0 }}>
+                          <div style={{ width:12, height:12, borderRadius:'50%', background:typeConfig.dot, border:`2px solid ${typeConfig.dot}40`, flexShrink:0, marginTop:2 }} />
+                          {i < historyEntries.length-1 && <div style={{ width:1, flex:1, background:'#1E1E1E', marginTop:4, minHeight:20 }} />}
+                        </div>
+                        {/* Content */}
+                        <div style={{ flex:1, background:'#111', border:'1px solid #1E1E1E', borderRadius:12, padding:'12px 14px', marginBottom: i<historyEntries.length-1 ? 0 : 0 }}>
+                          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
+                            <span style={{ fontSize:11, color:'#666' }}>{entry.date || 'Undated'}</span>
+                            <span style={{ fontSize:10, fontWeight:700, color:typeConfig.color, background:typeConfig.bg, borderRadius:6, padding:'3px 8px' }}>{typeConfig.label}</span>
+                          </div>
+                          <div style={{ fontSize:13, color:'#CCC', lineHeight:1.5 }}>{entry.text}</div>
+                        </div>
+                      </div>
+                    );
+                  })
+              }
             </div>
-          </div>
+          )}
+
+          {/* ════ AI COACH TAB ════ */}
+          {activeTab==='aicoach' && (
+            <div style={{ padding:'12px 14px' }}>
+              {!aiContent ? (
+                <div style={{ textAlign:'center', padding:'40px 0 20px' }}>
+                  <div style={{ width:64, height:64, borderRadius:20, background:'rgba(245,192,74,0.1)', border:'1px solid rgba(245,192,74,0.2)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="1.8"><path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z"/></svg>
+                  </div>
+                  <div style={{ fontSize:16, fontWeight:700, color:'#FFF', marginBottom:8 }}>AI Coach Analysis</div>
+                  <div style={{ fontSize:13, color:'#555', marginBottom:24, lineHeight:1.6 }}>Generate a personalised coaching analysis based on {displayName}'s stats, skills and notes.</div>
+                  <button onClick={async () => {
+                    setAiLoading(true);
+                    try {
+                      const sq = loadSquad();
+                      const p  = sq.find(x=>x.name===displayName)||draft;
+                      const skills = p.skills||{};
+                      const prompt = `You are an expert youth football coach. Analyse this player and provide structured coaching insights.
+
+Player: ${displayName}
+Position: ${[draft.pos,draft.pos2,draft.pos3].filter(Boolean).map(pid=>{const pg=ALL_POSITIONS.find(x=>x.id===pid);return pg?pg.label:pid;}).join(', ')||'Unknown'}
+Season appearances: ${appearances}
+Goals: ${playerGoals}, Assists: ${assists}
+Skill ratings (1-5): ${Object.entries(skills).map(([k,v])=>`${k}:${v}`).join(', ')||'not rated'}
+Coach notes: ${(draft.coachNotes||'').replace(/\[.*?\]/g,'').trim()||'none'}
+Coach focus: ${draft.devFocus||'none'}
+
+Respond in this exact JSON format:
+{
+  "summary": "2-3 sentence player summary",
+  "strengths": ["strength 1","strength 2","strength 3","strength 4"],
+  "improvements": ["area 1","area 2","area 3"],
+  "trends": [{"label":"Skill","direction":"up","value":"X%"},{"label":"Skill","direction":"up","value":"X%"},{"label":"Skill","direction":"up","value":"X%"},{"label":"Skill","direction":"up","value":"X%"}],
+  "training": [{"title":"Drill name","desc":"Short description"},{"title":"Drill name","desc":"Short description"},{"title":"Drill name","desc":"Short description"}]
+}`;
+                      const resp = await fetch('/api/ai', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt, max_tokens:800 }) });
+                      if (resp.ok) {
+                        const text = await resp.text();
+                        const jsonMatch = text.match(/\{[\s\S]*\}/);
+                        if (jsonMatch) { setAiContent(JSON.parse(jsonMatch[0])); }
+                        else { setAiContent({ summary: text, strengths:[], improvements:[], trends:[], training:[] }); }
+                      } else {
+                        // Fallback: show based on available data
+                        const s = p.skills||{};
+                        const topSkills = Object.entries(s).filter(([,v])=>v>=4).map(([k])=>k.replace(/([A-Z])/g,' $1').trim());
+                        const weakSkills = Object.entries(s).filter(([,v])=>v>0&&v<=2).map(([k])=>k.replace(/([A-Z])/g,' $1').trim());
+                        setAiContent({
+                          summary: `${displayName} is a ${[draft.pos].filter(Boolean).map(pid=>{const pg=ALL_POSITIONS.find(x=>x.id===pid);return pg?pg.label:pid;}).join('/')||'player'} with ${appearances} appearances this season. ${playerGoals>0?`Has contributed ${playerGoals} goal${playerGoals>1?'s':''}.`:''} ${draft.devFocus?`Focus areas: ${draft.devFocus.split('\n')[0]}.`:''}`,
+                          strengths: topSkills.slice(0,4).map(s=>`Strong ${s.toLowerCase()}`),
+                          improvements: (weakSkills.slice(0,3).map(s=>`Improve ${s.toLowerCase()}`).concat(draft.devFocus?draft.devFocus.split('\n').filter(Boolean).slice(0,2):[])).slice(0,3),
+                          trends: [],
+                          training: [],
+                        });
+                      }
+                    } catch (e) {
+                      setAiContent({ summary:`Analysis for ${displayName}: ${appearances} appearances, ${playerGoals} goals, ${assists} assists this season.`, strengths:[], improvements:[], trends:[], training:[] });
+                    }
+                    setAiLoading(false);
+                  }}
+                    disabled={aiLoading}
+                    style={{ background: aiLoading?'#333':'#F5C04A', color: aiLoading?'#777':'#000', border:'none', borderRadius:12, padding:'14px 32px', fontSize:14, fontWeight:700, cursor: aiLoading?'not-allowed':'pointer', display:'inline-flex', alignItems:'center', gap:8 }}>
+                    {aiLoading ? <>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation:'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                      Analysing...
+                    </> : <>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z"/></svg>
+                      Generate Analysis
+                    </>}
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  {/* Regenerate button */}
+                  <div style={{ textAlign:'right', marginBottom:12 }}>
+                    <button onClick={() => setAiContent(null)} style={{ background:'none', border:'1px solid #2A2A2A', borderRadius:8, padding:'6px 12px', color:'#777', fontSize:11, cursor:'pointer' }}>Regenerate</button>
+                  </div>
+
+                  {/* AI Summary */}
+                  <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'14px', marginBottom:10 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+                      <div style={{ width:32, height:32, borderRadius:8, background:'rgba(245,192,74,0.1)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2"><path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z"/></svg>
+                      </div>
+                      <span style={{ fontSize:14, fontWeight:700, color:'#FFF' }}>AI Summary</span>
+                    </div>
+                    <div style={{ fontSize:13, color:'#BBB', lineHeight:1.6 }}>{aiContent.summary}</div>
+                  </div>
+
+                  {/* Strengths */}
+                  {aiContent.strengths && aiContent.strengths.length > 0 && (
+                    <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'14px', marginBottom:10 }}>
+                      <div style={{ fontSize:14, fontWeight:700, color:'#FFF', marginBottom:12 }}>Strengths</div>
+                      {aiContent.strengths.map((s,i) => (
+                        <div key={i} style={{ display:'flex', alignItems:'center', gap:8, marginBottom: i<aiContent.strengths.length-1?8:0 }}>
+                          <div style={{ width:8, height:8, borderRadius:'50%', background:'#22c55e', flexShrink:0 }} />
+                          <span style={{ fontSize:13, color:'#CCC' }}>{s}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Areas to Improve */}
+                  {aiContent.improvements && aiContent.improvements.length > 0 && (
+                    <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'14px', marginBottom:10 }}>
+                      <div style={{ fontSize:14, fontWeight:700, color:'#FFF', marginBottom:12 }}>Areas to Improve</div>
+                      {aiContent.improvements.map((s,i) => (
+                        <div key={i} style={{ display:'flex', alignItems:'center', gap:8, marginBottom: i<aiContent.improvements.length-1?8:0 }}>
+                          <div style={{ width:8, height:8, borderRadius:'50%', background:'#F59E0B', flexShrink:0 }} />
+                          <span style={{ fontSize:13, color:'#CCC' }}>{s}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Recent Trend */}
+                  {aiContent.trends && aiContent.trends.length > 0 && (
+                    <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'14px', marginBottom:10 }}>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+                        <span style={{ fontSize:14, fontWeight:700, color:'#FFF' }}>Recent Trend</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                      </div>
+                      {aiContent.trends.map((t,i) => (
+                        <div key={i} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'6px 0', borderBottom: i<aiContent.trends.length-1?'1px solid #1A1A1A':'none' }}>
+                          <span style={{ fontSize:13, color:'#CCC' }}>{t.label}</span>
+                          <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+                            <span style={{ fontSize:12, fontWeight:700, color:'#22c55e' }}>{t.value}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Suggested Training */}
+                  {aiContent.training && aiContent.training.length > 0 && (
+                    <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'14px' }}>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+                        <span style={{ fontSize:14, fontWeight:700, color:'#FFF' }}>Suggested Training</span>
+                        <span style={{ fontSize:11, color:'#F5C04A' }}>View all</span>
+                      </div>
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
+                        {aiContent.training.map((t,i) => (
+                          <div key={i} style={{ background:'#0D0D0D', border:'1px solid #1E1E1E', borderRadius:10, padding:'12px 10px' }}>
+                            <div style={{ fontSize:12, fontWeight:700, color:'#FFF', marginBottom:4, lineHeight:1.3 }}>{t.title}</div>
+                            <div style={{ fontSize:10, color:'#555', lineHeight:1.4 }}>{t.desc}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       </div>
     );
   }
 
-  /* ── ADD / EDIT FORM ────────────────────────────────────────────────────── */
+    /* ── ADD / EDIT FORM ────────────────────────────────────────────────────── */
   return (
     <div style={{ background:'#0D0D0D', minHeight:'100dvh', display:'flex', flexDirection:'column' }}>
-      <KhulaHeader rightEl={!isNew ? (
-        <button onClick={()=>{ setDraft(loadPlayer()); setEditing(false); }}
-          style={{ background:'none', border:'none', color:'#666', fontSize:13, cursor:'pointer', padding:0 }}>Cancel</button>
-      ) : null} />
+      <KhulaHeader showBack={true} onBack={onBack} title="Edit Player" moreActions={[]} />
 
       <div style={{ flex:1, overflowY:'auto', paddingBottom:'calc(84px + env(safe-area-inset-bottom))' }}>
 
@@ -4469,8 +4943,7 @@ function PlayerProfileScreen({ playerName, isNew, onBack, onSave, games }) {
                 </div>
               </div>
               <div>
-                <div style={labelStyle}>Date Joined (Month)</div>
-                <input type="month" value={draft.joined||''} onChange={e=>upd('joined',e.target.value)} style={inputStyle} />
+                <div style={labelStyle}>Date Joined (Month)</div><input type="month" value={draft.joined||''} onChange={e=>upd('joined',e.target.value)} style={inputStyle} />
               </div>
             </div>
           </div>
@@ -4506,6 +4979,45 @@ function PlayerProfileScreen({ playerName, isNew, onBack, onSave, games }) {
                 style={{ width:50, height:28, borderRadius:14, background:draft.canPlayGK?'#22c55e':'#333', border:'none', cursor:'pointer', position:'relative', transition:'background 0.2s', flexShrink:0, padding:0 }}>
                 <div style={{ width:22, height:22, borderRadius:'50%', background:'#FFF', position:'absolute', top:3, left:draft.canPlayGK?24:3, transition:'left 0.2s' }} />
               </button>
+            </div>
+          </div>
+
+          {/* Player Status — Injured / Resting */}
+          <div style={{ background:'#111111', borderRadius:14, padding:'16px', border:'1px solid #1E1E1E', marginBottom:12 }}>
+            <div style={{ fontSize:10, fontWeight:700, color:'#777', letterSpacing:1.5, textTransform:'uppercase', marginBottom:12 }}>Player Status</div>
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {/* Injured */}
+              <div style={{ background: draft.injured ? 'rgba(239,68,68,0.07)' : '#0D0D0D', borderRadius:10, padding:'12px 14px', border: draft.injured ? '1px solid rgba(239,68,68,0.35)' : '1px solid #1E1E1E', transition:'background 0.2s, border-color 0.2s' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <div>
+                    <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                      <span style={{ fontSize:14 }}>🩹</span>
+                      <div style={{ fontSize:13, fontWeight:600, color: draft.injured ? '#ef4444' : '#EEE' }}>Injured</div>
+                    </div>
+                    <div style={{ fontSize:11, color:'#666', marginTop:2, paddingLeft:21 }}>{draft.injured ? 'Excluded from lineup until cleared' : 'Fit for selection'}</div>
+                  </div>
+                  <button onClick={()=>{ upd('injured',!draft.injured); if(!draft.injured) upd('resting',false); }}
+                    style={{ width:46, height:26, borderRadius:13, background:draft.injured?'#ef4444':'#333', border:'none', cursor:'pointer', position:'relative', transition:'background 0.2s', flexShrink:0, padding:0 }}>
+                    <div style={{ width:20, height:20, borderRadius:'50%', background:'#FFF', position:'absolute', top:3, left:draft.injured?22:3, transition:'left 0.2s' }} />
+                  </button>
+                </div>
+              </div>
+              {/* Resting */}
+              <div style={{ background: draft.resting ? 'rgba(245,192,74,0.07)' : '#0D0D0D', borderRadius:10, padding:'12px 14px', border: draft.resting ? '1px solid rgba(245,192,74,0.35)' : '1px solid #1E1E1E', transition:'background 0.2s, border-color 0.2s' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <div>
+                    <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                      <span style={{ fontSize:14 }}>😴</span>
+                      <div style={{ fontSize:13, fontWeight:600, color: draft.resting ? '#F5C04A' : '#EEE' }}>Resting</div>
+                    </div>
+                    <div style={{ fontSize:11, color:'#666', marginTop:2, paddingLeft:21 }}>{draft.resting ? 'Skipping next match — pre-set unavailable' : 'Available for upcoming matches'}</div>
+                  </div>
+                  <button onClick={()=>{ upd('resting',!draft.resting); if(!draft.resting) upd('injured',false); }}
+                    style={{ width:46, height:26, borderRadius:13, background:draft.resting?'#F5C04A':'#333', border:'none', cursor:'pointer', position:'relative', transition:'background 0.2s', flexShrink:0, padding:0 }}>
+                    <div style={{ width:20, height:20, borderRadius:'50%', background:'#FFF', position:'absolute', top:3, left:draft.resting?22:3, transition:'left 0.2s' }} />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -4794,7 +5306,7 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
   const myTeam = localStorage.getItem('soccerCoach_fixtureTeam') || '';
 
   const [squad,  setSquad]  = useState(()=>{
-    const base=loadSquad();
+    const base=loadSquad().filter(p=>!p.injured&&!p.resting);
     if(contextKey){
       const cx=loadContextData(contextKey);
       const mp=cx.matchPlayers;
@@ -4864,9 +5376,19 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
 
   const [h1Periods, setH1Periods] = useState(()=>{
     const cx=loadContextData(contextKey).lineup;
+    // If no saved lineup yet, seed period 0 from the team's default lineup
+    const _defLU = (() => { try { return JSON.parse(localStorage.getItem('soccerCoach_defaultLineup')||'null'); } catch { return null; } })();
     if(cx?.h1Periods?.length) return sanitizePeriods(cx.h1Periods, squad.map(p=>p.name));
     const d = loadDraft();
-    const raw = (d.h1Periods && d.h1Periods.length) ? d.h1Periods : makePeriods(squad, positions, config.numPeriods||3);
+    const _base = _defLU ? (() => {
+      // Overlay default lineup slots onto auto-filled positions
+      const auto = autoFillSlots(squad, positions);
+      const merged = { ...auto };
+      const validNames = squad.map(p=>p.name);
+      Object.entries(_defLU.slots||{}).forEach(([k,v])=>{ if(positions.find(p=>p.id===k) && validNames.includes(v)) merged[k]=v; });
+      return Array.from({length:config.numPeriods||3}, () => cloneSlots(merged));
+    })() : makePeriods(squad, positions, config.numPeriods||3);
+    const raw = (d.h1Periods && d.h1Periods.length) ? d.h1Periods : _base;
     return sanitizePeriods(raw, squad.map(p=>p.name));
   });
   const [h2Periods, setH2Periods] = useState(()=>{
@@ -5082,10 +5604,20 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
             </div>
           </div>
           {/* Edit Team */}
-          <button onClick={onManageSquad} style={{ background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:8, color:'#FFF', fontSize:10, fontWeight:700, cursor:'pointer', padding:'6px 10px', flexShrink:0, display:'flex', alignItems:'center', gap:5 }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            Edit Team
-          </button>
+          <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+            <button onClick={()=>{
+              const slots={...activePeriods[0]};
+              localStorage.setItem('soccerCoach_defaultLineup', JSON.stringify({formation:config.formation||DEFAULT_FORMATION,slots}));
+              alert('Default lineup saved! Match Day will pre-load this lineup.');
+            }} style={{ background:'rgba(245,192,74,0.1)', border:'1px solid rgba(245,192,74,0.3)', borderRadius:8, color:'#F5C04A', fontSize:10, fontWeight:700, cursor:'pointer', padding:'6px 10px', flexShrink:0, display:'flex', alignItems:'center', gap:4 }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Set Default
+            </button>
+            <button onClick={onManageSquad} style={{ background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:8, color:'#FFF', fontSize:10, fontWeight:700, cursor:'pointer', padding:'6px 10px', flexShrink:0, display:'flex', alignItems:'center', gap:5 }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Edit Team
+            </button>
+          </div>
         </div>
       </div>}
 
@@ -5396,7 +5928,11 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
                         <span style={{ fontSize:8,fontWeight:600,color:name?'#FFF':'#333' }}>{initials2}</span>
                       </div>
                       <div style={{ flex:1,minWidth:0 }}>
-                        <div style={{ fontSize:11,fontWeight:700,color:name?'#FFF':'#444',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{name||posLbl[pos.id]||pos.id}</div>
+                        <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                          <div style={{ fontSize:11,fontWeight:700,color:name?'#FFF':'#444',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{name||posLbl[pos.id]||pos.id}</div>
+                          {name && p?.canPlayGK && pos.id==='gk' && <span style={{fontSize:8,fontWeight:700,color:'#22c55e',background:'rgba(34,197,94,0.15)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:3,padding:'0px 3px',flexShrink:0,lineHeight:1.6}}>✓ GK</span>}
+                          {name && p?.canPlayGK && pos.id!=='gk' && <span style={{fontSize:8,fontWeight:700,color:'#F5C04A',background:'rgba(245,192,74,0.12)',border:'1px solid rgba(245,192,74,0.25)',borderRadius:3,padding:'0px 3px',flexShrink:0,lineHeight:1.6}}>GK</span>}
+                        </div>
                         <div style={{ fontSize:9,color:'#555' }}>{posLbl[pos.id]||pos.id}</div>
                       </div>
                       {(()=>{
@@ -5440,8 +5976,12 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
                             <span style={{ fontSize:8,fontWeight:600,color:isBSel?'#F5C04A':'#FFF' }}>{init}</span>
                           </div>
                           <div style={{ flex:1,minWidth:0 }}>
-                            <div style={{ fontSize:11,fontWeight:700,color:isBSel?'#F5C04A':'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{n}</div>
-                            {posDisplay&&<div style={{ fontSize:9,color:'#555',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{posDisplay}</div>}
+                            <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                              <div style={{ fontSize:11,fontWeight:700,color:isBSel?'#F5C04A':'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{n}</div>
+                              {pb?.canPlayGK&&<span style={{fontSize:8,fontWeight:700,color:'#F5C04A',background:'rgba(245,192,74,0.15)',border:'1px solid rgba(245,192,74,0.3)',borderRadius:3,padding:'0px 3px',flexShrink:0,lineHeight:1.6}}>GK</span>}
+                            </div>
+                            {pb?.devFocus ? <div style={{ fontSize:9,color:'#F5C04A',opacity:0.7,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{pb.devFocus.split('\n')[0]}</div>
+                              : posDisplay&&<div style={{ fontSize:9,color:'#555',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{posDisplay}</div>}
                           </div>
                           {(()=>{
                             const _h1On=h1Periods.map((s,i)=>posIds.some(id=>s[id]===n)?i:-1).filter(i=>i>=0);
@@ -7814,12 +8354,8 @@ function ImportExportScreen({ onBack }) {
   }
 
   return(
-    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)', display:'flex', flexDirection:'column' }}>
-      {/* Header */}
-      <div style={{ position:'relative', display:'flex', alignItems:'center', padding:'14px 16px 10px', background:'#111111', borderBottom:'1px solid #1A1A1A', flexShrink:0 }}>
-        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', color:'#A1A1A1', fontSize:22, padding:0, lineHeight:1, position:'absolute', left:16 }}>←</button>
-        <div style={{ flex:1, textAlign:'center', fontSize:14, fontWeight:700, color:'#FFFFFF', letterSpacing:2, textTransform:'uppercase' }}>Import / Export</div>
-      </div>
+    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, display:'flex', flexDirection:'column' }}>
+      <KhulaHeader showBack={true} onBack={onBack} title="Import / Export" />
       {/* Filename modal */}
       {exportPending&&(
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,padding:24}}>
@@ -8021,7 +8557,6 @@ function TrainingScreen({ onBack }) {
   // ── Common styles ────────────────────────────────────────────────
   const pg = {
     minHeight:'100dvh', background:'#0D0D0D', display:'flex', flexDirection:'column',
-    paddingTop:'max(env(safe-area-inset-top),0px)',
     paddingBottom:'calc(env(safe-area-inset-bottom) + 80px)',
   };
   const hdr = {
@@ -8065,13 +8600,13 @@ function TrainingScreen({ onBack }) {
 
     return (
       <div style={pg}>
-        <div style={hdr}>
-          <button style={backBtn} onClick={onBack}>‹</button>
-          <div style={{flex:1}}>
-            <div style={{fontSize:18, fontWeight:800, color:'#FFFFFF'}}>Training</div>
-            <div style={{fontSize:11, color:'#A1A1A1'}}>Plan sessions · Log results · Manage content</div>
-          </div>
+        <KhulaHeader />
+        {/* ── Page title ── */}
+        <div style={{ padding:'16px 16px 10px', flexShrink:0 }}>
+          <div style={{ fontSize:24, fontWeight:800, color:'#FFF', lineHeight:1.1 }}>Training</div>
+          <div style={{ fontSize:13, color:'#666', marginTop:4 }}>Sessions, drills and player development</div>
         </div>
+
         <div style={body}>
           {/* Stats bar */}
           <div style={{display:'flex', gap:10, marginBottom:16}}>
@@ -8137,10 +8672,7 @@ function TrainingScreen({ onBack }) {
   if (view === 'browse') {
     return (
       <div style={pg}>
-        <div style={hdr}>
-          <button style={backBtn} onClick={goBack}>‹</button>
-          <div style={{fontSize:17, fontWeight:800, color:'#FFFFFF', flex:1}}>Browse Sessions</div>
-        </div>
+        <KhulaHeader showBack={true} onBack={goBack} title="Browse Sessions" />
         <div style={body}>
           {/* Category filter */}
           <div style={{display:'flex', gap:6, overflowX:'auto', marginBottom:14, paddingBottom:4}}>
@@ -8190,13 +8722,7 @@ function TrainingScreen({ onBack }) {
 
     return (
       <div style={pg}>
-        <div style={hdr}>
-          <button style={backBtn} onClick={goBack}>‹</button>
-          <div style={{flex:1, minWidth:0}}>
-            <div style={{fontSize:17, fontWeight:800, color:'#FFFFFF', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{activeTopic.icon} {activeTopic.title}</div>
-            <div style={{fontSize:11, color:'#A1A1A1'}}>{activeTopic.ageGroup}</div>
-          </div>
-        </div>
+        <KhulaHeader showBack={true} onBack={goBack} title="Session" />
         <div style={body}>
           {/* Principle block */}
           <div style={{...card, borderColor:cc.border, marginBottom:14}}>
@@ -8339,13 +8865,7 @@ function TrainingScreen({ onBack }) {
 
     return (
       <div style={pg}>
-        <div style={hdr}>
-          <button style={backBtn} onClick={goBack}>‹</button>
-          <div style={{flex:1}}>
-            <div style={{fontSize:17, fontWeight:800, color:'#FFFFFF'}}>Log Session</div>
-            <div style={{fontSize:11, color:'#A1A1A1'}}>{activeTopic?.title} — Session {(activeSession||activeTopic?.sessions?.[0])?.number}</div>
-          </div>
-        </div>
+        <KhulaHeader showBack={true} onBack={goBack} title="Log Session" />
         <div style={body}>
           <div style={card}>
             <div style={{...lbl}}>DATE</div>
@@ -8400,13 +8920,7 @@ function TrainingScreen({ onBack }) {
 
     return (
       <div style={pg}>
-        <div style={hdr}>
-          <button style={backBtn} onClick={goBack}>‹</button>
-          <div style={{fontSize:17, fontWeight:800, color:'#FFFFFF', flex:1}}>Session Log</div>
-          {logs.length > 0 && (
-            <button onClick={doExportLogs} style={{...btnSm('#1A1A1A','#A1A1A1'), border:'1px solid #2A2A2A'}}>Export</button>
-          )}
-        </div>
+        <KhulaHeader showBack={true} onBack={goBack} title="Session Log" moreActions={logs.length > 0 ? [{ label:'Export Logs', action: doExportLogs }] : []} />
         <div style={body}>
           {logs.length === 0 ? (
             <div style={{textAlign:'center', padding:'60px 20px', color:'#A1A1A1'}}>
@@ -8455,10 +8969,7 @@ function TrainingScreen({ onBack }) {
   if (view === 'importexport') {
     return (
       <div style={pg}>
-        <div style={hdr}>
-          <button style={backBtn} onClick={goBack}>‹</button>
-          <div style={{fontSize:17, fontWeight:800, color:'#FFFFFF', flex:1}}>Import / Export</div>
-        </div>
+        <KhulaHeader showBack={true} onBack={goBack} title="Import / Export" />
         <div style={body}>
           {/* Info card */}
           <div style={{...card, borderColor:'#F5C04A44', marginBottom:16}}>
@@ -8597,7 +9108,7 @@ function MatchPlayersScreen({ contextKey, onBack }) {
   const initStatuses = () => {
     const saved = mp0.statuses || {};
     const out = {};
-    globalSquad.forEach(p => { out[p.name] = saved[p.name] || 'available'; });
+    globalSquad.forEach(p => { out[p.name] = saved[p.name] || (p.resting||p.injured ? 'unavailable' : 'available'); });
     return out;
   };
   const [statuses,    setStatuses]    = React.useState(initStatuses);
@@ -8694,14 +9205,9 @@ function MatchPlayersScreen({ contextKey, onBack }) {
         </div>
       )}
 
-      {/* Header */}
-      <div style={{padding:'max(env(safe-area-inset-top),14px) 16px 14px',background:'#111111',borderBottom:'1px solid #1E1E1E',flexShrink:0}}>
-        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
-          <button onClick={save} style={{background:'none',border:'none',cursor:'pointer',padding:4,color:'#F5C04A',display:'flex',flexShrink:0}}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-          <div style={{fontSize:18,fontWeight:800,color:'#FFF',flex:1}}>Players</div>
-        </div>
+      <KhulaHeader showBack={true} onBack={save} title="Players" />
+      {/* Stats row */}
+      <div style={{padding:'10px 16px 12px',background:'#111111',borderBottom:'1px solid #1E1E1E',flexShrink:0}}>
         <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
           {[{label:'Available',val:counts.available,color:'#22c55e'},{label:'Unavailable',val:counts.unavailable,color:'#ef4444'},{label:'Maybe',val:counts.maybe,color:'#F5C04A'}].map(s=>(
             <div key={s.label} style={{textAlign:'center'}}>
@@ -8883,14 +9389,7 @@ function QuickPlayScreen({ opponent, linkedFixKey, fixIsHome, settings, onBack, 
   return (
     <div style={{display:'flex',flexDirection:'column',height:'100dvh',background:'#0D0D0D'}}>
       {/* Header */}
-      <div style={{display:'flex',alignItems:'center',gap:12,padding:'max(env(safe-area-inset-top),14px) 16px 14px',background:'#111111',borderBottom:'1px solid #1E1E1E',flexShrink:0}}>
-        <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',color:'#F5C04A',fontSize:22,padding:0,lineHeight:1}}>‹</button>
-        <div style={{flex:1}}>
-          <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:2,textTransform:'uppercase'}}>Quick Play</div>
-          {opponent&&<div style={{fontSize:17,fontWeight:800,color:'#FFF',marginTop:1}}>vs {opponent}</div>}
-        </div>
-        {result&&<div style={{width:40,height:40,borderRadius:10,background:resultColor+'22',border:`1px solid ${resultColor}44`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:700,color:resultColor}}>{result}</div>}
-      </div>
+      <KhulaHeader showBack={true} onBack={onBack} title="Quick Play" />
 
       <div style={{flex:1,overflowY:'auto',padding:'16px',paddingBottom:'calc(env(safe-area-inset-bottom) + 90px)',display:'flex',flexDirection:'column',gap:12}}>
 
@@ -9034,11 +9533,13 @@ function MatchDayScreen({ settings, onStartMatch, onLineup, onScout, onSettings,
   }
   return (
     <div style={{display:'flex',flexDirection:'column',minHeight:'100vh',background:'#0D0D0D'}}>
-      <div style={{background:'#0D0D0D',borderBottom:'1px solid #1A1A1A',paddingTop:'max(env(safe-area-inset-top),14px)',paddingBottom:14,paddingLeft:16,paddingRight:16,display:'flex',alignItems:'center',flexShrink:0}}>
-        <img src={KHULA_LOGO} alt="Khula" style={{height:40,objectFit:'contain'}} />
-        <div style={{flex:1,textAlign:'center'}}><span style={{fontSize:17,fontWeight:500,color:'#CCC'}}>Match Day</span></div>
-        <div style={{width:48}} />
+      <KhulaHeader />
+      {/* ── Page title ── */}
+      <div style={{ padding:'16px 16px 10px', flexShrink:0 }}>
+        <div style={{ fontSize:24, fontWeight:800, color:'#FFF', lineHeight:1.1 }}>Match Day</div>
+        <div style={{ fontSize:13, color:'#666', marginTop:4 }}>Set up and manage your matches</div>
       </div>
+
       <div style={{padding:'12px 16px 10px',background:'#0D0D0D',borderBottom:'1px solid #1A1A1A'}}>
         <div style={{display:'flex',gap:6,alignItems:'center'}}>
           {customMode?(<><input autoFocus value={mdOpponent} onChange={e=>setMdOpponent(e.target.value)} placeholder="Type opponent name…" style={{...selStyle,outline:'none'}}/><button onClick={()=>setCustomMode(false)} style={{background:'#2A2A2A',border:'none',borderRadius:8,color:'#A1A1A1',padding:'7px 10px',cursor:'pointer',fontSize:11,flexShrink:0}}>List</button></>):(
@@ -9335,8 +9836,9 @@ ${evtSummary}
 ${localVoiceNotes.trim() ? `\nVoice note transcription from coach:\n${localVoiceNotes.trim()}` : ''}
 ${coachNotes ? `\nCoach notes:\n${coachNotes}` : ''}
 ${pNotes ? `\nPlayer observations:\n${pNotes}` : ''}
+${(()=>{ try { const sq=JSON.parse(localStorage.getItem('soccerCoach_squad')||'[]'); const devLines=sq.filter(p=>p.devFocus&&p.devFocus.trim()).map(p=>`${p.name}: ${p.devFocus.split('\n')[0]}`).join('\n'); return devLines?`\nPlayer development focus:\n${devLines}`:''; } catch{return '';} })()}
 
-Write 3-4 focused paragraphs covering: result and key moments, what worked well (with player names where known), 1-2 clear development areas, and brief next steps. Be specific and grounded.`;
+Write 3-4 focused paragraphs covering: result and key moments, what worked well (with player names where known), 1-2 clear development areas referencing individual development focus where relevant, and brief next steps. Be specific and grounded.`;
   }
 
   // ── Generate match notes (AI + local outputs) ─────────────────────────────────
@@ -9361,6 +9863,20 @@ Write 3-4 focused paragraphs covering: result and key moments, what worked well 
       const stored = JSON.parse(localStorage.getItem('soccerCoach_allPostMatch') || '[]');
       stored.unshift({ id:key, gameId:game.id, opponent, date:Date.now(), oppR, ourR, notes, priorities, mostImproved, playerNotes, aiReview:ai, outputs:result });
       localStorage.setItem('soccerCoach_allPostMatch', JSON.stringify(stored.slice(0,50)));
+      // Write player observations back to squad coachNotes
+      const _pnEntries = Object.entries(playerNotes).filter(([,v])=>v&&v.trim());
+      if(_pnEntries.length) {
+        const _sq = JSON.parse(localStorage.getItem('soccerCoach_squad')||'[]');
+        const _matchDate = new Date().toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
+        const _updated = _sq.map(p=>{
+          const _note = playerNotes[p.name];
+          if(!_note||!_note.trim()) return p;
+          const _entry = `[${_matchDate} vs ${opponent||'Opp'}] ${_note.trim()}`;
+          const _existing = p.coachNotes||'';
+          return {...p, coachNotes: _existing ? _existing+'\n'+_entry : _entry};
+        });
+        localStorage.setItem('soccerCoach_squad', JSON.stringify(_updated));
+      }
     } catch {}
     setOutputs(result);
     setGenerating(false);
@@ -9734,62 +10250,9 @@ function HomeScreen({ games, settings, onMatchDay, onGoSeason, onGoTeam, onGoMor
   const arcLen = CIRC * winRate / 100;
   const arcGap = CIRC - arcLen;
 
-  // Slide-in drawer state
-  const [drawerOpen, setDrawerOpen] = React.useState(false);
-
-  const NAV_ITEMS = [
-    { id:'home',   label:'Home',   icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
-    { id:'match',  label:'Match',  icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="2" y1="12" x2="22" y2="12"/></svg> },
-    { id:'season', label:'Season', icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> },
-    { id:'team',   label:'Team',   icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><circle cx="18" cy="9" r="3"/><path d="M21 21v-2a3 3 0 0 0-2-2.83"/></svg> },
-    { id:'more',   label:'More',   icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg> },
-    { id:'account',label:'Account',icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg> },
-  ];
-
-  function handleNavItem(id) {
-    setDrawerOpen(false);
-    if (id === 'account') { onGoAccount(); return; }
-    if (id === 'more')    { onGoMore();    return; }
-    if (setTab)           setTab(id);
-  }
-
   return (
-    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)' }}>
-
-      {/* ── Slide-in drawer overlay ── */}
-      {drawerOpen && (
-        <div style={{ position:'fixed', inset:0, zIndex:1000 }} onClick={()=>setDrawerOpen(false)}>
-          <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.65)' }}/>
-          <div onClick={e=>e.stopPropagation()} style={{ position:'absolute', left:0, top:0, bottom:0, width:260, background:'#111111', borderRight:'1px solid #2A2A2A', display:'flex', flexDirection:'column', paddingTop:'max(env(safe-area-inset-top),24px)' }}>
-            <div style={{ padding:'0 20px 20px', borderBottom:'1px solid #1A1A1A' }}>
-              <img src={KHULA_LOGO} alt="Khula" style={{ height:38, objectFit:'contain' }}/>
-            </div>
-            {NAV_ITEMS.map(item => (
-              <button key={item.id} onClick={()=>handleNavItem(item.id)} style={{ display:'flex', alignItems:'center', gap:14, padding:'16px 22px', background:'none', border:'none', cursor:'pointer', color:'#FFFFFF', borderBottom:'1px solid #1A1A1A20', textAlign:'left' }}>
-                <span style={{ color:'#F5C04A' }}>{item.icon}</span>
-                <span style={{ fontSize:15, fontWeight:500, color:'#FFFFFF' }}>{item.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Top bar ── */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'4px 18px', background:'#000000', borderBottom:'1px solid #1A1A1A' }}>
-        <button onClick={()=>setDrawerOpen(true)} style={{ background:'none', border:'none', cursor:'pointer', padding:6 }}>
-          <svg width="22" height="16" viewBox="0 0 22 16" fill="none">
-            <line x1="0" y1="1"  x2="22" y2="1"  stroke="#F5C04A" strokeWidth="2" strokeLinecap="round"/>
-            <line x1="0" y1="8"  x2="22" y2="8"  stroke="#F5C04A" strokeWidth="2" strokeLinecap="round"/>
-            <line x1="0" y1="15" x2="22" y2="15" stroke="#F5C04A" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
-        </button>
-        <img src={KHULA_LOGO} alt="Khula" style={{ height:88, objectFit:'contain' }}/>
-        <button onClick={onGoAccount} style={{ background:'none', border:'none', cursor:'pointer', padding:6, color:'#A1A1A1' }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/>
-          </svg>
-        </button>
-      </div>
+    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90 }}>
+      <KhulaHeader />
 
       {/* ── Hero gradient + greeting ── */}
       <div style={{ display:'flex', alignItems:'stretch', justifyContent:'space-between', background:'radial-gradient(ellipse at 65% -10%, #3D2800 0%, #1A1000 40%, #0D0D0D 72%)', borderBottom:'1px solid #1A1A1A', overflow:'hidden' }}>
@@ -9917,9 +10380,9 @@ function HomeScreen({ games, settings, onMatchDay, onGoSeason, onGoTeam, onGoMor
 
 function AccountScreen({ onBack, onSettings, onImportExport }) {
   return (
-    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)' }}>
-      <div style={{ padding:'20px 20px 8px', paddingTop:'max(env(safe-area-inset-top),20px)' }}>
-        <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', color:'#A1A1A1', fontSize:14, padding:0, marginBottom:16 }}>← Back</button>
+    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, display:'flex', flexDirection:'column' }}>
+      <KhulaHeader showBack={true} onBack={onBack} title="Account" />
+      <div style={{ padding:'20px 20px 8px' }}>
         <div style={{ fontSize:28, fontWeight:900, color:'#FFFFFF', marginBottom:4 }}>Account</div>
         <div style={{ fontSize:13, color:'#A1A1A1' }}>Manage your profile and data</div>
       </div>
@@ -9957,10 +10420,14 @@ function MoreScreen({ onAccount }) {
     },
   ];
   return (
-    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, paddingTop:'max(env(safe-area-inset-top),0px)' }}>
-      <div style={{ padding:'20px 20px 16px' }}>
-        <h1 style={{ margin:0, fontSize:24, fontWeight:700, color:'#FFFFFF' }}>More</h1>
+    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, display:'flex', flexDirection:'column' }}>
+      <KhulaHeader />
+      {/* ── Page title ── */}
+      <div style={{ padding:'16px 16px 10px', flexShrink:0 }}>
+        <div style={{ fontSize:24, fontWeight:800, color:'#FFF', lineHeight:1.1 }}>More</div>
+        <div style={{ fontSize:13, color:'#666', marginTop:4 }}>Settings, account and more options</div>
       </div>
+
       <div style={{ padding:'0 16px', display:'flex', flexDirection:'column', gap:10 }}>
         {items.map(item => (
           <div key={item.label} onClick={item.action} style={{
@@ -10099,19 +10566,11 @@ function PlayerStatsScreen({ playerName, onBack, games, squad }) {
   const TABS = ['Overview','Matches','History'];
 
   return (
-    <div style={{ minHeight:'100vh', background:'#0D0D0D', display:'flex', flexDirection:'column', paddingTop:'env(safe-area-inset-top)' }}>
+    <div style={{ minHeight:'100vh', background:'#0D0D0D', display:'flex', flexDirection:'column' }}>
 
       {/* ── Hero Header ── */}
       <div style={{ background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', flexShrink:0 }}>
-        {/* Nav bar */}
-        <div style={{ display:'flex', alignItems:'center', paddingTop:'max(env(safe-area-inset-top),14px)', paddingBottom:0, paddingLeft:16, paddingRight:16, position:'relative' }}>
-          <button onClick={onBack} style={{ background:'none', border:'none', color:'#F5C04A', fontSize:22, cursor:'pointer', padding:0, lineHeight:1, flexShrink:0, zIndex:1 }}>←</button>
-          <img src={KHULA_LOGO} alt="Khula" style={{ height:40, objectFit:'contain', marginLeft:8, zIndex:1 }} />
-          <div style={{ position:'absolute', left:0, right:0, textAlign:'center', pointerEvents:'none' }}>
-            <span style={{ fontSize:17, fontWeight:500, color:'#CCC' }}>Player Stats</span>
-          </div>
-          <div style={{ flex:1 }} />
-        </div>
+        <KhulaHeader showBack={true} onBack={onBack} title={playerName} />
 
         {/* Player info */}
         <div style={{ display:'flex', alignItems:'center', gap:16, padding:'16px 20px 20px' }}>
@@ -10405,11 +10864,65 @@ function PlayerStatsScreen({ playerName, onBack, games, squad }) {
 }
 
 
+
+function SetupScreen({ onComplete }) {
+  const [teamName, setTeamName] = React.useState('');
+  const [coachName, setCoachName] = React.useState('');
+
+  function handleDone() {
+    const t = teamName.trim();
+    if (!t) { alert('Please enter a team name.'); return; }
+    const s = loadSettings();
+    const updated = { ...s, teamName: t, coachName: coachName.trim() };
+    saveSettings(updated);
+    localStorage.setItem('soccerCoach_fixtureTeam', t);
+    onComplete(updated);
+  }
+
+  return (
+    <div style={{ minHeight:'100dvh', background:'#0D0D0D', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'24px 20px', boxSizing:'border-box' }}>
+      <img src={KHULA_LOGO} alt="Khula" style={{ height:64, objectFit:'contain', marginBottom:28 }} />
+      <div style={{ fontSize:22, fontWeight:800, color:'#FFF', marginBottom:6, textAlign:'center', letterSpacing:0.3 }}>Welcome to Khula</div>
+      <div style={{ fontSize:13, color:'#777', marginBottom:32, textAlign:'center', lineHeight:1.5 }}>Let's set up your team before you get started.</div>
+
+      <div style={{ width:'100%', maxWidth:380, display:'flex', flexDirection:'column', gap:14 }}>
+        <div>
+          <div style={{ fontSize:10, fontWeight:700, color:'#555', letterSpacing:1.2, textTransform:'uppercase', marginBottom:6 }}>Team Name</div>
+          <input
+            autoFocus
+            value={teamName}
+            onChange={e=>setTeamName(e.target.value)}
+            onKeyDown={e=>{ if(e.key==='Enter') handleDone(); }}
+            placeholder="e.g. Rubies U11"
+            style={{ width:'100%', background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:12, padding:'14px 16px', color:'#FFF', fontSize:15, outline:'none', boxSizing:'border-box', fontFamily:'inherit' }}
+          />
+        </div>
+        <div>
+          <div style={{ fontSize:10, fontWeight:700, color:'#555', letterSpacing:1.2, textTransform:'uppercase', marginBottom:6 }}>Coach Name <span style={{ color:'#444', fontWeight:400, fontSize:10, letterSpacing:0 }}>(optional)</span></div>
+          <input
+            value={coachName}
+            onChange={e=>setCoachName(e.target.value)}
+            onKeyDown={e=>{ if(e.key==='Enter') handleDone(); }}
+            placeholder="Your name"
+            style={{ width:'100%', background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:12, padding:'14px 16px', color:'#FFF', fontSize:15, outline:'none', boxSizing:'border-box', fontFamily:'inherit' }}
+          />
+        </div>
+        <button
+          onClick={handleDone}
+          style={{ width:'100%', padding:'16px', background: teamName.trim() ? '#F5C04A' : '#2A2A2A', color: teamName.trim() ? '#000' : '#555', border:'none', borderRadius:12, fontSize:15, fontWeight:700, cursor: teamName.trim() ? 'pointer' : 'default', marginTop:6, transition:'background 0.2s, color 0.2s' }}>
+          Get Started
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [activeTab, setActiveTab]   = useState("home");
   const [screen, setScreen]         = useState("home");
   const [games, setGames]           = useState(()=>loadGames());
   const [settings, setSettings]     = useState(()=>loadSettings());
+  const [setupDone, setSetupDone]   = useState(()=>{ const s=loadSettings(); return !!(s.teamName&&s.teamName.trim()); });
   const [squad, setSquad]           = useState([]);
   const [config, setConfig]         = useState({halfMins:24,numPeriods:3,formation:DEFAULT_FORMATION});
   const [opponent, setOpponent]     = useState("");
@@ -10462,8 +10975,8 @@ export default function App() {
     if(screen==="importExport") return <ImportExportScreen onBack={()=>setScreen("account")} />;
     if(screen==="season")       return <SeasonHubScreen games={games} onBack={()=>goTab("home")} onOpenGame={id=>{setOpenGameId(id);setScreen("gameDetail");}} onDeleteGame={deleteGame} onScout={t=>{setScoutTeam(t);setSquadBackTo("season");setScreen("opponentStats");}} onMatchDay={()=>goTab("match")} />;
     if(screen==="gameDetail"){  const game=games.find(g=>g.id===openGameId); return <GameDetailScreen game={game} onBack={()=>{_pendingSeasonSub='log';setScreen("season");}} onUpdateGame={updateGame} />; }
-    if(screen==="teamScreen")   return <TeamScreen onBack={()=>goTab("home")} onViewStats={()=>setScreen("stats")} onGoMatch={()=>{setSquadMode("newGame");setSquadBackTo("home");goTab("match");}} onGoFixtures={()=>{_pendingSeasonSub="fixtures";setActiveTab("season");setScreen("season");}} games={games} settings={settings} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("teamSquad");setScreen("squad");}} onEditTeam={()=>{setSettingsBackTo("teamScreen");setScreen("settings");}} onViewSquad={(name)=>{if(name==='__add__'){setPlayerProfileName(null);setPlayerProfileIsNew(true);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}else if(name){setPlayerProfileName(name);setPlayerProfileIsNew(false);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}else setScreen("teamSquad");}} />;
-    if(screen==="teamSquad")    return <TeamSquadScreen onBack={()=>setScreen("teamScreen")} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("teamSquad");setScreen("squad");}} onViewPlayer={name=>{setPlayerProfileName(name);setPlayerProfileIsNew(false);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}} onAddPlayer={()=>{setPlayerProfileName(null);setPlayerProfileIsNew(true);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}} />;
+    if(screen==="teamScreen")   return <TeamScreen onBack={()=>goTab("home")} onViewStats={()=>setScreen("stats")} onGoMatch={()=>{setSquadMode("newGame");setSquadBackTo("home");goTab("match");}} onGoFixtures={()=>{_pendingSeasonSub="fixtures";setActiveTab("season");setScreen("season");}} games={games} settings={settings} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("teamSquad");setScreen("squad");}} onEditTeam={()=>{setSettingsBackTo("teamScreen");setScreen("settings");}} onViewSquad={(name)=>{if(name==='__add__'){setPlayerProfileName(null);setPlayerProfileIsNew(true);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}else if(name){setPlayerProfileName(name);setPlayerProfileIsNew(false);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}else setScreen("teamSquad");}} onViewInsights={null} onViewAvailability={null} onViewPositions={null} />;
+    if(screen==="teamSquad")    return <TeamSquadScreen onBack={()=>setScreen("teamScreen")} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("teamSquad");setScreen("squad");}} onViewPlayer={name=>{setPlayerProfileName(name);setPlayerProfileIsNew(false);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}} onAddPlayer={()=>{setPlayerProfileName(null);setPlayerProfileIsNew(true);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}} onEditTeam={()=>{setSettingsBackTo("teamSquad");setScreen("settings");}} />;
     if(screen==="stats")        return <StatsScreen games={games} onBack={()=>setScreen("teamScreen")} />;
     if(screen==="opponentStats") return <OpponentStatsScreen opponent={scoutTeam} onBack={()=>setScreen(squadBackTo==="matchDay"?"matchDay":squadBackTo==="picker"?"picker":squadBackTo==="season"?"season":"squad")} />;
     if(screen==="squad")        return <SquadScreen mode={squadMode} onNext={(s,c,opp,lfk,fih)=>{setSquad(s);setConfig(c);setOpponent(opp);setLinkedFixKey(lfk);setFixIsHome(fih);setScreen("picker");}} onBack={()=>setScreen(squadBackTo||"teamScreen")} onViewOpponent={t=>{setScoutTeam(t);setScreen("opponentStats");}} onViewPlayer={name=>{setPlayerProfileName(name);setPlayerProfileIsNew(false);setPlayerProfileBackTo("squad");setScreen("playerProfile");}} onAddPlayer={()=>{setPlayerProfileName(null);setPlayerProfileIsNew(true);setPlayerProfileBackTo("squad");setScreen("playerProfile");}} />;
@@ -10511,11 +11024,20 @@ export default function App() {
     return null;
   }
 
+  if (!setupDone) return <SetupScreen onComplete={s=>{ setSettings(s); setSetupDone(true); }} />;
+
+  function globalNavigate(dest) {
+    if (dest === 'account') { setScreen('account'); }
+    else { goTab(dest); }
+  }
+
   return (
-    <div style={{ minHeight:"100vh", background:"#0D0D0D", position:"relative" }}>
-      {renderScreen()}
-      {!hideNav && <BottomNav activeTab={activeTab} onTab={goTab} />}
-    </div>
+    <KhulaNavContext.Provider value={globalNavigate}>
+      <div style={{ minHeight:"100vh", background:"#0D0D0D", position:"relative" }}>
+        {renderScreen()}
+        {!hideNav && <BottomNav activeTab={activeTab} onTab={goTab} />}
+      </div>
+    </KhulaNavContext.Provider>
   );
 }
 
@@ -10622,11 +11144,10 @@ const S = {
   goalEntry:    { display:"flex", alignItems:"center", justifyContent:"space-between", background:"#0D0D0D", borderRadius:6, padding:"5px 10px", fontSize:11, fontWeight:600 },
   btnNotes:     { flex:1, background:"#1A1A1A", border:"1px solid #2A2A2A", color:"#A1A1A1", borderRadius:10, padding:"11px 0", fontWeight:700, fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:4 },
   noteBadge:    { display:"inline-block", background:"#06b6d4", color:"#0D0D0D", borderRadius:10, fontSize:10, fontWeight:800, padding:"1px 6px", marginLeft:4 },
-  btnReport:    { flex:1, background:"linear-gradient(135deg,#E9AA23,#7c3aed)", color:"#fff", border:"none", borderRadius:10, padding:"11px 0", fontWeight:800, fontSize:13, cursor:"pointer" },
-  halfBar:      { display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, width:"100%", maxWidth:500, marginTop:14, background:"#1A1A1A", borderRadius:12, padding:"8px 12px" },
-  halfArrow:    { background:"#0D0D0D", border:"1px solid #2A2A2A", color:"#FFFFFF", borderRadius:8, width:40, height:36, fontSize:18, fontWeight:800, cursor:"pointer" },
-  halfBarCenter:{ display:"flex", gap:6 },
-  halfPill:     { fontSize:12, fontWeight:700, color:"#A1A1A1", background:"#0D0D0D", border:"1px solid #2A2A2A", borderRadius:8, padding:"7px 14px", cursor:"pointer" },
-  halfPillOn:   { color:"#FFFFFF", background:"#E9AA23", borderColor:"#3b82f6" },
-  swipeHint:    { fontSize:9, color:"#2A2A2A", textAlign:"center", margin:"2px 0 0" },
+  btnReport:    { flex:1, background:"linear-gradient(135deg,#E9AA23,#7c3aed)", color:"#fff", border:"none", borderRadius:10, padding:"11px 0", fontWeight:700, fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:4 },
+  modalBack:    { position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, padding:16 },
+  modalBox:     { background:"#1A1A1A", border:"1px solid #2A2A2A", borderRadius:16, padding:"20px 16px", width:"100%", maxWidth:420, display:"flex", flexDirection:"column", gap:12 },
+  modalHeader:  { display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:4 },
+  modalTitle:   { fontSize:16, fontWeight:700, color:"#FFFFFF" },
+  modalLbl:     { fontSize:13, color:"#A1A1A1", fontWeight:500, marginBottom:4 },
 };
