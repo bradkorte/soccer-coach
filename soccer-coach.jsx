@@ -67,7 +67,7 @@ function posLabelToId(label) { return POS_LABEL_TO_ID[(label||'').trim().toLower
 
 // ── Default squad data ────────────────────────────────────────────────────────
 const HARDCODED_SQUADS = {
-  'Rubies': [
+  'UQFC Rubies': [
     {firstName:'Taylor',  lastName:'Korte',    name:'Taylor Korte',    pos:'ar', pos2:'al', pos3:'mr', injured:false},
     {firstName:'Kiera',   lastName:'Korte',    name:'Kiera Korte',     pos:'dc', pos2:'dl', pos3:'dr', injured:false},
     {firstName:'Mia',     lastName:'Prebble',  name:'Mia Prebble',     pos:'st', pos2:'ml', pos3:'mr', injured:false},
@@ -81,7 +81,7 @@ const HARDCODED_SQUADS = {
     {firstName:'Poppy',   lastName:'Leyden',   name:'Poppy Leyden',    pos:'gk', pos2:'dr', pos3:'',   injured:false},
     {firstName:'Sienna',  lastName:'Mclean',   name:'Sienna Mclean',   pos:'gk', pos2:'',   pos3:'',   injured:true},
   ],
-  'Diamonds': [
+  'UQFC Diamonds': [
     {firstName:'Abigail',  lastName:'Coggan',  name:'Abigail Coggan',   pos:'', pos2:'', pos3:'', injured:false},
     {firstName:'Penelope', lastName:'Doherty', name:'Penelope Doherty', pos:'', pos2:'', pos3:'', injured:false},
     {firstName:'Victoria', lastName:'Holborn', name:'Victoria Holborn', pos:'', pos2:'', pos3:'', injured:false},
@@ -96,7 +96,7 @@ const HARDCODED_SQUADS = {
     {firstName:'Emily',    lastName:'Wacker',  name:'Emily Wacker',     pos:'', pos2:'', pos3:'', injured:false},
     {firstName:'Jagger',   lastName:'Woodall', name:'Jagger Woodall',   pos:'', pos2:'', pos3:'', injured:false},
   ],
-  'Emeralds': [
+  'UQFC Emeralds': [
     {firstName:'Amrutha',  lastName:'Addepalli', name:'Amrutha Addepalli', pos:'', pos2:'', pos3:'', injured:false},
     {firstName:'Izzah',    lastName:'Ali',       name:'Izzah Ali',         pos:'', pos2:'', pos3:'', injured:false},
     {firstName:'Kelly',    lastName:'Chrystal',  name:'Kelly Chrystal',    pos:'', pos2:'', pos3:'', injured:false},
@@ -129,8 +129,8 @@ function seedHardcodedData() {
   // Seed main squad based on the stored team selection (empty squad for custom teams)
   const team = localStorage.getItem('soccerCoach_fixtureTeam') || '';
   seedSquadForTeam(team);
-  // Seed Diamonds + Emeralds as opponent rosters if not yet stored
-  ['Diamonds','Emeralds'].forEach(t => {
+  // Seed UQFC Diamonds + UQFC Emeralds as opponent rosters if not yet stored
+  ['UQFC Diamonds','UQFC Emeralds'].forEach(t => {
     if (!loadTeamRoster(t)) saveTeamRoster(t, HARDCODED_SQUADS[t]);
   });
 }
