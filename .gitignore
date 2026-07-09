@@ -1,0 +1,14 @@
+# Backup files
+backups/
+*.backup-*.html
+*.backup-*.jsx
+soccer-coach.backup-*.jsx
+index.backup-*.html
+
+# Build cache
+node_modules/
+react-cache/
+
+# OS
+.DS_Store
+Thumbs.db
