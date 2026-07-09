@@ -1,4 +1,4 @@
-const CACHE = 'soccer-coach-v5';
+const CACHE = 'soccer-coach-v6';
 const PRECACHE = ['./','./index.html','./manifest.json','./apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

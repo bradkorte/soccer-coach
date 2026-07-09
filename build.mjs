@@ -98,7 +98,7 @@ console.log('manifest.json written');
 
 // ── 5. sw.js — React is inlined so no CDN URLs needed ────────────────────
 const swLines = [
-  "const CACHE = 'soccer-coach-v5';",
+  "const CACHE = 'soccer-coach-v6';",
   "const PRECACHE = ['./','./index.html','./manifest.json','./apple-touch-icon.png'];",
   "",
   "self.addEventListener('install', e => {",
