@@ -6510,9 +6510,9 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
                                 borderRadius:12,padding:'9px 10px 8px',
                                 WebkitTapHighlightColor:'transparent',
                               }}>
-                                <div style={{display:'flex',alignItems:'center',gap:9,marginBottom:8}}>
+                                <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,marginBottom:6}}>
                                   <div style={{
-                                    width:42,height:42,borderRadius:'50%',flexShrink:0,
+                                    width:36,height:36,borderRadius:'50%',flexShrink:0,
                                     background:isGK?'#1e1b4b':'#1A1A1A',
                                     border:`2px solid ${bc}`,
                                     display:'flex',alignItems:'center',justifyContent:'center',
@@ -6525,14 +6525,14 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
                                       : name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()
                                     }
                                   </div>
-                                  <div style={{flex:1,minWidth:0}}>
-                                    <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between'}}>
-                                      <span style={{fontSize:14,fontWeight:600,color:'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                                        {(sp?.nickname||name.split(' ')[0]).slice(0,9)}
-                                      </span>
-                                      <span style={{fontSize:12,color:'#666',flexShrink:0,marginLeft:4}}>{mins}′</span>
+                                  <div style={{width:'100%',textAlign:'center'}}>
+                                    <div style={{fontSize:11,fontWeight:700,color:'#FFF',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                                      {(sp?.nickname||name.split(' ')[0]).slice(0,10)}
                                     </div>
-                                    <span style={{fontSize:11,fontWeight:700,color:posCol}}>{posShortLbl}</span>
+                                    <div style={{display:'flex',justifyContent:'center',gap:4,alignItems:'center'}}>
+                                      <span style={{fontSize:10,fontWeight:700,color:posCol}}>{posShortLbl}</span>
+                                      <span style={{fontSize:10,color:'#555'}}>{mins}′</span>
+                                    </div>
                                   </div>
                                 </div>
                                 <div style={{display:'flex',gap:2}}>
