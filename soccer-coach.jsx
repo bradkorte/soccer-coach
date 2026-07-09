@@ -115,17 +115,23 @@ const HARDCODED_SQUADS = {
 function teamRosterKey(team) { return 'soccerCoach_teamRoster_' + team; }
 function loadTeamRoster(team) { try { const v=JSON.parse(localStorage.getItem(teamRosterKey(team))); return Array.isArray(v)?v:null; } catch{return null;} }
 function saveTeamRoster(team,roster) { try{localStorage.setItem(teamRosterKey(team),JSON.stringify(roster));}catch{} }
-// Seed hardcoded data into localStorage on first run
-function seedHardcodedData() {
-  // Seed Rubies as main squad if empty
+// Seed squad for a given team name if the squad is currently empty
+function seedSquadForTeam(team) {
   const existing = localStorage.getItem('soccerCoach_squad');
   const parsed = (() => { try { return JSON.parse(existing); } catch { return null; } })();
   if (!Array.isArray(parsed) || parsed.length === 0) {
-    localStorage.setItem('soccerCoach_squad', JSON.stringify(HARDCODED_SQUADS['Rubies']));
+    const squad = HARDCODED_SQUADS[team] || [];
+    if (squad.length > 0) localStorage.setItem('soccerCoach_squad', JSON.stringify(squad));
   }
+}
+// Seed hardcoded data into localStorage on first run
+function seedHardcodedData() {
+  // Seed main squad based on the stored team selection (empty squad for custom teams)
+  const team = localStorage.getItem('soccerCoach_fixtureTeam') || '';
+  seedSquadForTeam(team);
   // Seed Diamonds + Emeralds as opponent rosters if not yet stored
-  ['Diamonds','Emeralds'].forEach(team => {
-    if (!loadTeamRoster(team)) saveTeamRoster(team, HARDCODED_SQUADS[team]);
+  ['Diamonds','Emeralds'].forEach(t => {
+    if (!loadTeamRoster(t)) saveTeamRoster(t, HARDCODED_SQUADS[t]);
   });
 }
 seedHardcodedData();
@@ -12286,6 +12292,7 @@ function SetupScreen({ onComplete }) {
     const updated = { ...s, teamName: effectiveTeam, coachName: coachName.trim() };
     saveSettings(updated);
     localStorage.setItem('soccerCoach_fixtureTeam', effectiveTeam);
+    seedSquadForTeam(effectiveTeam);  // seed squad now that team is known
     onComplete(updated);
   }
 
