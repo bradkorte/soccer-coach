@@ -1317,7 +1317,7 @@ function normalizePlayerName(raw, squad) {
 // ── Player stats ──────────────────────────────────────────────────────────────
 function computePlayerStats(games, squad=[]) {
   const map = {};
-  const ensure = name => { if(!map[name]) map[name]={goals:0,gameIds:new Set(),mins:0,gkPeriods:0,potm:0}; };
+  const ensure = name => { if(!map[name]) map[name]={goals:0,assists:0,gameIds:new Set(),mins:0,gkPeriods:0,gkGameIds:new Set(),potm:0}; };
   const fxScores = loadFxScores();
   games.forEach(game => {
     const pm = getPeriodMins(game.config);
@@ -1330,7 +1330,7 @@ function computePlayerStats(games, squad=[]) {
         });
         // Track GK appearances
         const gkName = period.slots["gk"];
-        if(gkName){ ensure(gkName); map[gkName].gkPeriods++; }
+        if(gkName){ ensure(gkName); map[gkName].gkPeriods++; map[gkName].gkGameIds.add(game.id); }
       }));
     }
     // Cap individual goal entries at the actual verified score so stats stay consistent
@@ -1341,6 +1341,11 @@ function computePlayerStats(games, squad=[]) {
       const scorer = normalizePlayerName(g.scorer, squad);
       ensure(scorer); map[scorer].goals++;
       if(!game.halves) map[scorer].gameIds.add(game.id);
+      if(g.assist) {
+        const assister = normalizePlayerName(g.assist, squad);
+        ensure(assister); map[assister].assists++;
+        if(!game.halves) map[assister].gameIds.add(game.id);
+      }
     });
     // Track MVP — handle both array and comma-separated string forms
     const rawPotm = game.potm;
@@ -1349,7 +1354,7 @@ function computePlayerStats(games, squad=[]) {
       : (rawPotm ? rawPotm.split(',').map(s=>s.trim()).filter(Boolean) : []);
     potmArr.forEach(name=>{ const n=normalizePlayerName(name,squad); ensure(n); map[n].potm++; });
   });
-  return Object.entries(map).map(([name,s])=>({name,goals:s.goals,apps:s.gameIds.size,mins:Math.round(s.mins),gkPeriods:s.gkPeriods,potm:s.potm})).sort((a,b)=>b.apps-a.apps||b.goals-a.goals);
+  return Object.entries(map).map(([name,s])=>({name,goals:s.goals,assists:s.assists||0,apps:s.gameIds.size,mins:Math.round(s.mins),gkPeriods:s.gkPeriods,gkGames:s.gkGameIds.size,potm:s.potm})).sort((a,b)=>b.apps-a.apps||b.goals-a.goals);
 }
 
 // ── Single source of truth for all results involving my team ─────────────────
@@ -3084,38 +3089,275 @@ function SettingsScreen({ settings, onSave, onBack, onViewImportExport }) {
 // ════════════════════════════════════════════════════════════════════════════════
 //  SCREEN: PLAYER STATS
 // ════════════════════════════════════════════════════════════════════════════════
-function StatsScreen({ games, onBack }) {
+function StatsScreen({ games, onBack, onViewPlayer }) {
   const squad = React.useMemo(()=>loadSquad(),[]);
   const playerStats = React.useMemo(()=>computePlayerStats(games, squad),[games, squad]);
-  const rows = playerStats.sort((a,b)=>b.apps-a.apps||b.goals-a.goals);
-  const COL = {width:38,textAlign:"center",fontSize:13,fontWeight:700,flexShrink:0};
+
+  const [gkModal,     setGkModal]     = React.useState(null);
+  const [goalsModal,  setGoalsModal]  = React.useState(null);
+  const [aiGkText,    setAiGkText]    = React.useState('');
+  const [aiGkLoading, setAiGkLoading] = React.useState(false);
+
+  const rows = [...playerStats].sort((a,b)=>
+    b.goals-a.goals || b.assists-a.assists || b.potm-a.potm || b.apps-a.apps || a.name.localeCompare(b.name)
+  );
+
+  const totalGoals = rows.reduce((s,r)=>s+r.goals,0);
+  const topScorer  = rows.find(r=>r.goals>0);
+  const topPotm    = [...rows].sort((a,b)=>b.potm-a.potm).find(r=>r.potm>0);
+
+  function gkGamesFor(playerName) {
+    return (games||[]).filter(g =>
+      g.halves && g.halves.some(half =>
+        half.some(period => period.slots && period.slots['gk'] === playerName)
+      )
+    );
+  }
+
+  function goalGamesFor(playerName) {
+    return (games||[])
+      .map(g => {
+        const scored = (g.goals||[]).filter(gl => gl.team==='us' && (gl.scorer===playerName || gl.scorer===playerName.split(' ')[0]));
+        if (!scored.length) return null;
+        return { game: g, goals: scored };
+      })
+      .filter(Boolean);
+  }
+
+  const gkEligible = React.useMemo(() => {
+    return squad
+      .filter(p => !p.injured && !p.archived && (p.pos === 'gk' || p.canPlayGK))
+      .map(p => {
+        const stat = playerStats.find(r => r.name === p.name) || {};
+        return { name: p.name, firstName: p.firstName || p.name.split(' ')[0], gkGames: stat.gkGames || 0 };
+      })
+      .sort((a,b) => a.gkGames - b.gkGames || a.name.localeCompare(b.name));
+  }, [squad, playerStats]);
+
+  const suggestedGk = gkEligible[0] || null;
+
+  async function fetchAiGkSuggestion() {
+    if (gkEligible.length === 0) return;
+    setAiGkLoading(true); setAiGkText('');
+    const lines = gkEligible.map(p=>`- ${p.firstName}: ${p.gkGames} game${p.gkGames!==1?'s':''} as GK`).join('\n');
+    const prompt = `You are a youth soccer coach assistant helping decide goalkeeper rotation.\n\nEligible players and GK games played this season:\n${lines}\n\nTotal season games: ${games.length}\n\nIn 1-2 sentences, recommend who should be in goal next and briefly explain why (fairness of rotation). Be specific and use first names only. Be direct — no preamble.`;
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', { method:'POST', headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01'}, body:JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:120, messages:[{role:'user',content:prompt}] }) });
+      const data = await resp.json();
+      setAiGkText(data?.content?.[0]?.text || '');
+    } catch { setAiGkText('Unable to generate suggestion right now.'); }
+    setAiGkLoading(false);
+  }
+
+  // Grid columns: name(flex 2) | GP | Goals | Ast | POTM | GK — all stretch evenly
+  const GRID = 'minmax(0,2fr) repeat(5, minmax(0,1fr))';
+  const cellBase = { textAlign:'center', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700 };
+  const hdrCell  = { ...cellBase, fontSize:9, color:'#555', letterSpacing:1, textTransform:'uppercase', fontWeight:700, padding:'6px 0' };
+
+  const fmtGameDate = g => { try { return new Date(g.date).toLocaleDateString('en-AU',{day:'numeric',month:'short'}); } catch { return ''; } };
+  const resultColor = g => {
+    if ((g.scoreUs??-1) > (g.scoreThem??-1)) return '#22c55e';
+    if ((g.scoreUs??-1) < (g.scoreThem??-1)) return '#ef4444';
+    return '#F5C04A';
+  };
+
+  // Shared slide-up modal shell
+  const Modal = ({ onClose, icon, title, subtitle, children }) => (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', zIndex:9999, display:'flex', alignItems:'flex-end' }}
+      onClick={e => { if(e.target===e.currentTarget) onClose(); }}>
+      <div style={{ background:'#1A1A1A', borderRadius:'18px 18px 0 0', width:'100%', maxHeight:'70dvh', display:'flex', flexDirection:'column' }}>
+        <div style={{ width:36, height:4, background:'#333', borderRadius:2, margin:'12px auto 0' }} />
+        <div style={{ display:'flex', alignItems:'center', padding:'14px 16px 12px', borderBottom:'1px solid #222' }}>
+          <span style={{ fontSize:18, marginRight:8 }}>{icon}</span>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:15, fontWeight:700, color:'#FFF' }}>{title}</div>
+            <div style={{ fontSize:11, color:'#555', marginTop:1 }}>{subtitle}</div>
+          </div>
+          <button onClick={onClose} style={{ background:'none', border:'none', color:'#555', fontSize:22, cursor:'pointer', padding:'0 0 0 12px', lineHeight:1 }}>×</button>
+        </div>
+        <div style={{ flex:1, overflowY:'auto', padding:'8px 0 24px' }}>{children}</div>
+      </div>
+    </div>
+  );
+
   return (
-    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, display:'flex', flexDirection:'column' }}>
+    <div style={{ minHeight:'100dvh', background:'#0D0D0D', display:'flex', flexDirection:'column' }}>
       <KhulaHeader showBack={true} onBack={onBack} title="Player Stats" />
-      <div style={{ fontSize:12, color:'#666', padding:'8px 16px 8px 16px', background:'#0D0D0D' }}>{games.length} game{games.length!==1?"s":""} recorded</div>
+
+      {/* Summary strip */}
+      <div style={{ display:'flex', background:'#111', borderBottom:'1px solid #1E1E1E', flexShrink:0 }}>
+        {[
+          { val:rows.length,  label:'Players' },
+          { val:games.length, label:'Games'   },
+          { val:totalGoals,   label:'Goals'   },
+          { val:topScorer?topScorer.name.split(' ')[0]:'—', label:'Top Scorer' },
+        ].map((s,i,arr)=>(
+          <div key={i} style={{ flex:1, textAlign:'center', padding:'10px 4px', borderRight:i<arr.length-1?'1px solid #1E1E1E':'none' }}>
+            <div style={{ fontSize:i===3?12:18, fontWeight:800, color:i===3?'#F5C04A':'#FFF', lineHeight:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.val}</div>
+            <div style={{ fontSize:9, color:'#555', marginTop:4, fontWeight:700, letterSpacing:0.5, textTransform:'uppercase' }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
       <div style={{ flex:1, overflowY:'auto' }}>
-        {rows.length===0
-          ? <p style={{ padding:"20px 16px", color:"#A1A1A1", fontSize:13 }}>Save some games to see player stats.</p>
-          : <>
-              <div style={{display:"flex",alignItems:"center",padding:"8px 16px",background:"#0D0D0D",borderBottom:"1px solid #1A1A1A"}}>
-                <span style={{flex:1,fontSize:11,fontWeight:700,color:"#A1A1A1",textTransform:"uppercase",letterSpacing:1}}>Player</span>
-                <span style={{...COL,fontSize:11,color:"#A1A1A1"}}>Apps</span>
-                <span style={{...COL,fontSize:14}}>⚽</span>
-                <span style={{...COL,fontSize:14}}>🧤</span>
-                <span style={{...COL,fontSize:14}}>⭐</span>
-              </div>
-              {rows.map((r,i)=>(
-                <div key={r.name} style={{display:"flex",alignItems:"center",padding:"10px 16px",borderBottom:"1px solid #1A1A1A",background:i%2===0?"#111111":"#0D0D0D"}}>
-                  <span style={{flex:1,fontSize:13,color:"#FFFFFF",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.name}</span>
-                  <span style={{...COL,color:"#A1A1A1"}}>{r.apps||"–"}</span>
-                  <span style={{...COL,color:r.goals>0?"#F5C04A":"#2A2A2A",fontWeight:r.goals>0?800:400}}>{r.goals||"–"}</span>
-                  <span style={{...COL,color:r.gkPeriods>0?"#38bdf8":"#2A2A2A",fontWeight:r.gkPeriods>0?700:400}}>{r.gkPeriods||"–"}</span>
-                  <span style={{...COL,color:r.potm>0?"#fcd34d":"#2A2A2A",fontWeight:r.potm>0?700:400}}>{r.potm||"–"}</span>
-                </div>
+
+        {/* ── GK Rotation card ── */}
+        {gkEligible.length > 0 && (
+          <div style={{ margin:'12px 14px', background:'#111', border:'1px solid #1E1E1E', borderRadius:14, overflow:'hidden' }}>
+            <div style={{ padding:'12px 14px 10px', borderBottom:'1px solid #1A1A1A', display:'flex', alignItems:'center', gap:8 }}>
+              <span style={{ fontSize:16 }}>🧤</span>
+              <span style={{ fontSize:13, fontWeight:700, color:'#FFF', flex:1 }}>GK Rotation</span>
+              {suggestedGk && <span style={{ fontSize:11, color:'#22c55e', fontWeight:700 }}>Next up: {suggestedGk.firstName}</span>}
+            </div>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:6, padding:'10px 14px' }}>
+              {gkEligible.map(p=>(
+                <button key={p.name}
+                  onClick={()=>setGkModal({ name:p.name, firstName:p.firstName, gkGames:gkGamesFor(p.name) })}
+                  style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 10px', background:p.name===suggestedGk?.name?'#0f2a18':'#1A1A1A', border:`1px solid ${p.name===suggestedGk?.name?'#22c55e':'#2A2A2A'}`, borderRadius:8, cursor:'pointer' }}>
+                  <span style={{ fontSize:12, fontWeight:700, color:p.name===suggestedGk?.name?'#22c55e':'#CCC' }}>{p.firstName}</span>
+                  <span style={{ fontSize:11, color:'#555', background:'#0D0D0D', borderRadius:4, padding:'1px 5px', fontWeight:700 }}>{p.gkGames}</span>
+                </button>
               ))}
-            </>
+            </div>
+            <div style={{ padding:'0 14px 12px' }}>
+              {aiGkText
+                ? <div style={{ fontSize:12, color:'#A1A1A1', lineHeight:1.6, background:'#0D0D0D', borderRadius:8, padding:'10px 12px' }}>
+                    {aiGkText}
+                    <button onClick={()=>setAiGkText('')} style={{ display:'block', marginTop:6, background:'none', border:'none', color:'#444', fontSize:10, cursor:'pointer', padding:0 }}>Clear</button>
+                  </div>
+                : <button onClick={fetchAiGkSuggestion} disabled={aiGkLoading}
+                    style={{ width:'100%', padding:'9px', background:aiGkLoading?'#1A1A1A':'#0f2a18', border:'1px solid #22c55e44', borderRadius:8, color:aiGkLoading?'#555':'#22c55e', fontSize:12, fontWeight:700, cursor:aiGkLoading?'default':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                    {aiGkLoading?<><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{animation:'spin 1s linear infinite'}}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Thinking…</>:<>✨ Get AI suggestion</>}
+                  </button>
+              }
+            </div>
+          </div>
+        )}
+
+        {/* ── Column headers ── */}
+        <div style={{ display:'grid', gridTemplateColumns:GRID, padding:'6px 14px', background:'#0D0D0D', borderBottom:'1px solid #1A1A1A', borderTop:'1px solid #1A1A1A' }}>
+          <div style={{ ...hdrCell, textAlign:'left', justifyContent:'flex-start' }}>Player</div>
+          <div style={hdrCell}>GP</div>
+          <div style={hdrCell}>Goals</div>
+          <div style={hdrCell}>Ast</div>
+          <div style={hdrCell}>POTM</div>
+          <div style={hdrCell}>🧤</div>
+        </div>
+
+        {/* ── Player rows ── */}
+        {rows.length === 0
+          ? <div style={{ padding:'40px 16px', color:'#555', fontSize:13, textAlign:'center' }}>No stats yet — record some games first.</div>
+          : rows.map((r,i)=>{
+              const isTopScorer = topScorer && r.name===topScorer.name && r.goals>0;
+              const isTopPotm   = topPotm && r.name===topPotm.name && r.potm>0 && r.name!==(topScorer||{}).name;
+              const highlight   = isTopScorer?'#F5C04A':isTopPotm?'#a78bfa':null;
+              const hasGk       = r.gkGames > 0;
+              const hasGoals    = r.goals > 0;
+              return (
+                <div key={r.name} style={{
+                  display:'grid', gridTemplateColumns:GRID, alignItems:'center',
+                  padding:'10px 14px', borderBottom:'1px solid #1A1A1A',
+                  background:i%2===0?'#111':'#0D0D0D',
+                  borderLeft:highlight?`3px solid ${highlight}`:'3px solid transparent',
+                }}>
+                  {/* Name */}
+                  <div style={{ display:'flex', alignItems:'center', gap:7, minWidth:0, cursor:onViewPlayer?'pointer':'default' }}
+                    onClick={()=>onViewPlayer&&onViewPlayer(r.name)}>
+                    <span style={{ fontSize:11, color:'#333', fontWeight:700, minWidth:16, textAlign:'right', flexShrink:0 }}>{i+1}</span>
+                    <div style={{ minWidth:0 }}>
+                      <div style={{ fontSize:13, color:highlight||'#FFF', fontWeight:highlight?700:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        {r.name.split(' ')[0]}
+                        {isTopScorer && <span style={{ fontSize:9, marginLeft:4, color:'#F5C04A' }}>⚽</span>}
+                        {isTopPotm   && <span style={{ fontSize:9, marginLeft:4, color:'#a78bfa' }}>⭐</span>}
+                      </div>
+                      <div style={{ fontSize:10, color:'#444' }}>{r.name.split(' ').slice(1).join(' ')}</div>
+                    </div>
+                  </div>
+
+                  {/* GP */}
+                  <div style={{ ...cellBase, color:r.apps>0?'#888':'#2A2A2A', fontSize:13 }}>{r.apps||'–'}</div>
+
+                  {/* Goals — tappable */}
+                  <div style={{ ...cellBase }}>
+                    {hasGoals
+                      ? <button onClick={()=>setGoalsModal({ name:r.name, firstName:r.name.split(' ')[0], entries:goalGamesFor(r.name) })}
+                          style={{ background:'#2A1F00', border:'1px solid #F5C04A55', borderRadius:6, padding:'3px 8px', color:'#F5C04A', fontSize:12, fontWeight:800, cursor:'pointer' }}>
+                          {r.goals}
+                        </button>
+                      : <span style={{ fontSize:13, color:'#2A2A2A' }}>–</span>
+                    }
+                  </div>
+
+                  {/* Ast */}
+                  <div style={{ ...cellBase, color:r.assists>0?'#22c55e':'#2A2A2A', fontWeight:r.assists>0?700:400, fontSize:13 }}>{r.assists||'–'}</div>
+
+                  {/* POTM */}
+                  <div style={{ ...cellBase, color:r.potm>0?'#a78bfa':'#2A2A2A', fontWeight:r.potm>0?700:400, fontSize:13 }}>{r.potm||'–'}</div>
+
+                  {/* GK — tappable */}
+                  <div style={{ ...cellBase }}>
+                    {hasGk
+                      ? <button onClick={()=>setGkModal({ name:r.name, firstName:r.name.split(' ')[0], gkGames:gkGamesFor(r.name) })}
+                          style={{ background:'#1A2A3A', border:'1px solid #38bdf855', borderRadius:6, padding:'3px 8px', color:'#38bdf8', fontSize:12, fontWeight:800, cursor:'pointer' }}>
+                          {r.gkGames}
+                        </button>
+                      : <span style={{ fontSize:12, color:'#2A2A2A' }}>–</span>
+                    }
+                  </div>
+                </div>
+              );
+            })
         }
       </div>
+
+      {/* ── Goals Modal ── */}
+      {goalsModal && (
+        <Modal icon="⚽" title={`${goalsModal.firstName} — Goals`} subtitle={`${goalsModal.entries.length} game${goalsModal.entries.length!==1?'s':''} scored in`} onClose={()=>setGoalsModal(null)}>
+          {goalsModal.entries.map(({game:g, goals:scored},i)=>(
+            <div key={g.id||i} style={{ display:'flex', alignItems:'flex-start', gap:12, padding:'11px 16px', borderBottom:'1px solid #1E1E1E' }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:13, fontWeight:600, color:'#FFF' }}>vs {g.opponent||'Opposition'}</div>
+                <div style={{ fontSize:11, color:'#555', marginTop:2 }}>{fmtGameDate(g)}</div>
+                {scored.length > 1 && (
+                  <div style={{ fontSize:11, color:'#F5C04A', marginTop:3 }}>⚽ ×{scored.length}</div>
+                )}
+              </div>
+              <div style={{ textAlign:'right', flexShrink:0 }}>
+                <div style={{ fontSize:13, fontWeight:700, color:'#FFF' }}>{(g.scoreUs??'?')}–{(g.scoreThem??'?')}</div>
+                <div style={{ fontSize:10, fontWeight:700, marginTop:2, color:resultColor(g) }}>
+                  {(g.scoreUs??-1)>(g.scoreThem??-1)?'Win':(g.scoreUs??-1)<(g.scoreThem??-1)?'Loss':'Draw'}
+                </div>
+              </div>
+            </div>
+          ))}
+        </Modal>
+      )}
+
+      {/* ── GK History Modal ── */}
+      {gkModal && (
+        <Modal icon="🧤" title={`${gkModal.firstName} — Goalkeeper history`} subtitle={`${gkModal.gkGames.length} game${gkModal.gkGames.length!==1?'s':''} in goal`} onClose={()=>setGkModal(null)}>
+          {gkModal.gkGames.length === 0
+            ? <div style={{ padding:'32px 16px', textAlign:'center', color:'#555', fontSize:13 }}>No recorded GK stints yet.</div>
+            : gkModal.gkGames.map((g,i)=>{
+                const h1 = ((g.halves||[])[0]||[]).some(p=>p.slots?.['gk']===gkModal.name);
+                const h2 = ((g.halves||[])[1]||[]).some(p=>p.slots?.['gk']===gkModal.name);
+                const badge = h1&&h2?'Full game':h1?'1st half':h2?'2nd half':'GK';
+                return (
+                  <div key={g.id||i} style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 16px', borderBottom:'1px solid #1E1E1E' }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:13, fontWeight:600, color:'#FFF' }}>vs {g.opponent||'Opposition'}</div>
+                      <div style={{ fontSize:11, color:'#555', marginTop:2 }}>{fmtGameDate(g)}</div>
+                    </div>
+                    <div style={{ textAlign:'right' }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:'#FFF' }}>{(g.scoreUs??'?')}–{(g.scoreThem??'?')}</div>
+                      <div style={{ fontSize:10, color:'#38bdf8', fontWeight:600, marginTop:2 }}>{badge}</div>
+                    </div>
+                  </div>
+                );
+              })
+          }
+        </Modal>
+      )}
     </div>
   );
 }
@@ -3363,70 +3605,10 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout, onM
   const totalTeams = ladder.length;
 
   const QUICK = [
-    { id:'fixtures', label:'Fixtures', icon:(
-      <svg width="28" height="28" viewBox="0 0 32 32" fill="none" stroke="#F5C04A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        {/* Calendar body */}
-        <rect x="2" y="4" width="22" height="22" rx="3"/>
-        <line x1="9" y1="2" x2="9" y2="6"/>
-        <line x1="17" y1="2" x2="17" y2="6"/>
-        <line x1="2" y1="10" x2="24" y2="10"/>
-        {/* Calendar grid dots */}
-        <rect x="5" y="13" width="4" height="3" rx="1"/>
-        <rect x="11" y="13" width="4" height="3" rx="1"/>
-        <rect x="5" y="18" width="4" height="3" rx="1"/>
-        <rect x="11" y="18" width="4" height="3" rx="1"/>
-        {/* Soccer ball badge bottom-right */}
-        <circle cx="24" cy="24" r="7" fill="#0D0D0D" stroke="#F5C04A"/>
-        <circle cx="24" cy="24" r="3"/>
-        <line x1="24" y1="17" x2="24" y2="19"/>
-        <line x1="19" y1="21" x2="21" y2="22"/>
-        <line x1="29" y1="21" x2="27" y2="22"/>
-        <line x1="21" y1="29" x2="22" y2="27"/>
-        <line x1="27" y1="29" x2="26" y2="27"/>
-      </svg>
-    )},
-    { id:'ladder',   label:'Ladder',   icon:(
-      <svg width="28" height="28" viewBox="0 0 32 32" fill="none" stroke="#F5C04A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        {/* Outer card */}
-        <rect x="2" y="2" width="28" height="28" rx="3"/>
-        {/* Row dividers */}
-        <line x1="2" y1="11" x2="30" y2="11"/>
-        <line x1="2" y1="20" x2="30" y2="20"/>
-        {/* Number column divider */}
-        <line x1="10" y1="2" x2="10" y2="30"/>
-        {/* Numbers */}
-        <text x="6" y="9" textAnchor="middle" fontSize="4.5" fontWeight="700" fill="#F5C04A" stroke="none" fontFamily="system-ui,sans-serif">1</text>
-        <text x="6" y="18" textAnchor="middle" fontSize="4.5" fontWeight="700" fill="#F5C04A" stroke="none" fontFamily="system-ui,sans-serif">2</text>
-        <text x="6" y="27" textAnchor="middle" fontSize="4.5" fontWeight="700" fill="#F5C04A" stroke="none" fontFamily="system-ui,sans-serif">3</text>
-        {/* Bars */}
-        <rect x="13" y="5.5" width="13" height="3" rx="1.5"/>
-        <rect x="13" y="14.5" width="10" height="3" rx="1.5"/>
-        <rect x="13" y="23.5" width="7" height="3" rx="1.5"/>
-      </svg>
-    )},
-    { id:'scout',    label:'Scout',    icon:(
-      <svg width="28" height="28" viewBox="0 0 36 32" fill="none" stroke="#F5C04A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        {/* Magnifying glass */}
-        <circle cx="13" cy="13" r="10"/>
-        <line x1="20" y1="20" x2="27" y2="27"/>
-        {/* Pitch inside glass */}
-        <circle cx="13" cy="13" r="3"/>
-        <line x1="3" y1="13" x2="23" y2="13"/>
-        <line x1="13" y1="3" x2="13" y2="23"/>
-        {/* Sparkle top-right */}
-        <line x1="28" y1="3" x2="28" y2="7"/>
-        <line x1="26" y1="5" x2="30" y2="5"/>
-        <line x1="26.5" y1="3.5" x2="29.5" y2="6.5"/>
-        <line x1="29.5" y1="3.5" x2="26.5" y2="6.5"/>
-        {/* List lines right */}
-        <line x1="30" y1="14" x2="35" y2="14"/>
-        <line x1="30" y1="18" x2="35" y2="18"/>
-        <line x1="30" y1="22" x2="35" y2="22"/>
-        <circle cx="29" cy="14" r="1" fill="#F5C04A" stroke="none"/>
-        <circle cx="29" cy="18" r="1" fill="#F5C04A" stroke="none"/>
-        <circle cx="29" cy="22" r="1" fill="#F5C04A" stroke="none"/>
-      </svg>
-    )},
+    { id:'fixtures', label:'Fixtures', emoji:'📅' },
+    { id:'ladder',   label:'Ladder',   emoji:'🏆' },
+    { id:'scout',    label:'Scout',    emoji:'🔍' },
+    { id:'log',      label:'Game Log', emoji:'📋' },
   ];
 
   const ordinal = n => { if(!n) return '—'; const s=['th','st','nd','rd']; const v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); };
@@ -3475,63 +3657,34 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout, onM
 
         {/* ── Season Snapshot ── */}
         <div style={{ background:'#111111', border:'1px solid #1E1E1E', borderRadius:16, padding:'16px' }}>
-          <div style={{ fontSize:10, fontWeight:700, color:'#F5C04A', letterSpacing:1.5, textTransform:'uppercase', marginBottom:12 }}>Season Snapshot</div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
-            {/* Played — jersey #10 */}
-            <div style={{ textAlign:'center', background:'#0D0D0D', borderRadius:12, padding:'12px 4px', display:'flex', flexDirection:'column', alignItems:'center' }}>
-              <svg width="42" height="42" viewBox="0 0 48 48" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{marginBottom:6}}>
-                <path d="M16 4 L8 10 L4 22 L12 24 L12 44 L36 44 L36 24 L44 22 L40 10 L32 4 C30 8 26 10 24 10 C22 10 18 8 16 4Z" stroke="#FFFFFF" strokeWidth="2.2" fill="none"/>
-                <text x="24" y="32" textAnchor="middle" fontSize="11" fontWeight="700" fill="#FFFFFF" stroke="none" fontFamily="system-ui,sans-serif">10</text>
-              </svg>
-              <div style={{ fontSize:22, fontWeight:800, color:'#FFF', lineHeight:1 }}>{played}</div>
-              <div style={{ fontSize:9, color:'#666', fontWeight:600, textTransform:'uppercase', letterSpacing:0.5, marginTop:4 }}>Played</div>
-            </div>
-            {/* Won — trophy with star */}
-            <div style={{ textAlign:'center', background:'#0D0D0D', borderRadius:12, padding:'12px 4px', display:'flex', flexDirection:'column', alignItems:'center' }}>
-              <svg width="42" height="42" viewBox="0 0 48 48" fill="none" stroke="#22c55e" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{marginBottom:6}}>
-                <path d="M10 6 L38 6 L38 22 C38 31 31 37 24 37 C17 37 10 31 10 22 Z"/>
-                <path d="M10 10 L4 10 C4 10 4 22 10 22"/>
-                <path d="M38 10 L44 10 C44 10 44 22 38 22"/>
-                <line x1="24" y1="37" x2="24" y2="42"/>
-                <line x1="16" y1="42" x2="32" y2="42"/>
-                <polygon points="24,14 25.8,19.5 31.5,19.5 26.9,22.8 28.5,28.5 24,25 19.5,28.5 21.1,22.8 16.5,19.5 22.2,19.5" fill="#22c55e" stroke="none"/>
-              </svg>
-              <div style={{ fontSize:22, fontWeight:800, color:'#F5C04A', lineHeight:1 }}>{wins}</div>
-              <div style={{ fontSize:9, color:'#666', fontWeight:600, textTransform:'uppercase', letterSpacing:0.5, marginTop:4 }}>Won</div>
-            </div>
-            {/* Lost — shield with X */}
-            <div style={{ textAlign:'center', background:'#0D0D0D', borderRadius:12, padding:'12px 4px', display:'flex', flexDirection:'column', alignItems:'center' }}>
-              <svg width="42" height="42" viewBox="0 0 48 48" fill="none" stroke="#ef4444" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{marginBottom:6}}>
-                <path d="M24 4 L40 10 L40 24 C40 33 33 40 24 44 C15 40 8 33 8 24 L8 10 Z"/>
-                <line x1="17" y1="17" x2="31" y2="31"/>
-                <line x1="31" y1="17" x2="17" y2="31"/>
-              </svg>
-              <div style={{ fontSize:22, fontWeight:800, color:'#ef4444', lineHeight:1 }}>{losses}</div>
-              <div style={{ fontSize:9, color:'#666', fontWeight:600, textTransform:'uppercase', letterSpacing:0.5, marginTop:4 }}>Lost</div>
-            </div>
-            {/* GD — goal net with ball + up/down arrows */}
-            <div style={{ textAlign:'center', background:'#0D0D0D', borderRadius:12, padding:'12px 4px', display:'flex', flexDirection:'column', alignItems:'center' }}>
-              <svg width="42" height="42" viewBox="0 0 56 52" fill="none" stroke="#22c55e" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{marginBottom:6}}>
-                <rect x="1" y="2" width="36" height="28" rx="1.5"/>
-                <line x1="13" y1="2" x2="13" y2="30"/>
-                <line x1="25" y1="2" x2="25" y2="30"/>
-                <line x1="1" y1="11" x2="37" y2="11"/>
-                <line x1="1" y1="20" x2="37" y2="20"/>
-                <circle cx="20" cy="40" r="9"/>
-                <line x1="20" y1="31" x2="20" y2="33"/>
-                <line x1="13" y1="35" x2="15" y2="36"/>
-                <line x1="27" y1="35" x2="25" y2="36"/>
-                <line x1="15" y1="47" x2="16" y2="45"/>
-                <line x1="25" y1="47" x2="24" y2="45"/>
-                <circle cx="20" cy="40" r="3" fill="#22c55e" stroke="none"/>
-                <line x1="48" y1="28" x2="48" y2="10"/>
-                <polyline points="44,14 48,8 52,14"/>
-                <line x1="48" y1="28" x2="48" y2="46"/>
-                <polyline points="44,42 48,48 52,42"/>
-              </svg>
-              <div style={{ fontSize:22, fontWeight:800, color:gd >= 0 ? '#22c55e' : '#ef4444', lineHeight:1 }}>{gd >= 0 ? '+' : ''}{gd}</div>
-              <div style={{ fontSize:9, color:'#666', fontWeight:600, textTransform:'uppercase', letterSpacing:0.5, marginTop:4 }}>Goal Diff</div>
-            </div>
+          <div style={{ fontSize:10, fontWeight:700, color:'#F5C04A', letterSpacing:1.5, textTransform:'uppercase', marginBottom:12 }}>Season Record</div>
+          {/* W / D / L / Played */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:10 }}>
+            {[
+              { val:wins,   label:'Won',    color:'#22c55e' },
+              { val:draws,  label:'Drawn',  color:'#F5C04A' },
+              { val:losses, label:'Lost',   color:'#ef4444' },
+              { val:played, label:'Played', color:'#FFF'    },
+            ].map(s=>(
+              <div key={s.label} style={{ textAlign:'center', background:'#0D0D0D', borderRadius:12, padding:'12px 6px' }}>
+                <div style={{ fontSize:26, fontWeight:900, color:s.color, lineHeight:1 }}>{s.val}</div>
+                <div style={{ fontSize:9, color:'#555', fontWeight:700, textTransform:'uppercase', letterSpacing:0.5, marginTop:5 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+          {/* Goals / GD / Points slim bar */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', background:'#0D0D0D', borderRadius:10, overflow:'hidden', border:'1px solid #1A1A1A' }}>
+            {[
+              { val:gf,                             label:'For',    color:'#FFF'   },
+              { val:ga,                             label:'Agn',    color:'#FFF'   },
+              { val:(gd>=0?'+':'')+gd,              label:'GD',     color:gd>=0?'#22c55e':'#ef4444' },
+              { val:wins*3+draws,                   label:'Pts',    color:'#F5C04A' },
+            ].map((s,i,arr)=>(
+              <div key={s.label} style={{ textAlign:'center', padding:'9px 4px', borderRight:i<arr.length-1?'1px solid #1A1A1A':'none' }}>
+                <div style={{ fontSize:15, fontWeight:800, color:s.color, lineHeight:1 }}>{s.val}</div>
+                <div style={{ fontSize:8, color:'#444', fontWeight:700, textTransform:'uppercase', letterSpacing:0.5, marginTop:3 }}>{s.label}</div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -3582,7 +3735,7 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout, onM
             {QUICK.map(item => (
               <button key={item.id} onClick={()=>setSubScreen(item.id)}
                 style={{ background:'#111111', border:'1px solid #1E1E1E', borderRadius:14, padding:'16px 14px', display:'flex', alignItems:'center', gap:10, cursor:'pointer', textAlign:'left' }}>
-                {item.icon}
+                <span style={{ fontSize:22, lineHeight:1, flexShrink:0 }}>{item.emoji}</span>
                 <span style={{ flex:1, fontSize:14, fontWeight:600, color:'#FFF' }}>{item.label}</span>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
               </button>
@@ -3888,7 +4041,7 @@ function TeamScreen({ onViewStats, onGoMatch, games, settings, onEditTeam, onVie
                 </div>
               )}
             </div>
-            <button onClick={onEditTeam||onManageSquad} style={{ background:'none', border:'1px solid #2A2A2A', borderRadius:8, padding:'5px 10px', color:'#777', fontSize:10, fontWeight:600, cursor:'pointer', flexShrink:0, display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap' }}>
+            <button onClick={onEditTeam} style={{ background:'none', border:'1px solid #2A2A2A', borderRadius:8, padding:'5px 10px', color:'#777', fontSize:10, fontWeight:600, cursor:'pointer', flexShrink:0, display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap' }}>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               Edit Team
             </button>
@@ -4698,7 +4851,7 @@ function PlayerProfileScreen({ playerName, isNew, onBack, onSave, games }) {
           { label:'Edit Profile', action: ()=>setEditing(true), icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> },
         ]} />
         <SectionTabs
-          tabs={['Overview','Stats','Development','History','AI Coach']}
+          tabs={['Overview','History','AI Coach']}
           activeTab={activeTab}
           onTabChange={setActiveTab}
         />
@@ -4887,152 +5040,35 @@ function PlayerProfileScreen({ playerName, isNew, onBack, onSave, games }) {
                 </div>
               )}
 
-              {/* Coach Notes card */}
-              <div style={{ margin:'10px 14px 14px', background:'#111', border:'1px solid #1E1E1E', borderRadius:14, overflow:'hidden' }}>
-                <div style={{ padding:'14px 14px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid #1A1A1A' }}>
-                  <span style={{ fontSize:14, fontWeight:700, color:'#FFF' }}>Coach Notes</span>
-                  <button onClick={()=>{ setDraft(loadPlayer()); setEditing(true); }}
-                    style={{ background:'none', border:'none', cursor:'pointer', color:'#F5C04A', fontSize:12, fontWeight:600, display:'flex', alignItems:'center', gap:4, padding:0 }}>
-                    Edit
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                  </button>
-                </div>
-                <div style={{ padding:'14px' }}>
-                  {draft.coachNotes && draft.coachNotes.trim()
-                    ? <div style={{ fontSize:13, color:'#CCC', lineHeight:1.7 }}>{draft.coachNotes.replace(/\[.*?\]\s*/g,'').trim()||draft.coachNotes.trim()}</div>
-                    : <div style={{ fontSize:13, color:'#444', fontStyle:'italic' }}>No notes added yet.</div>
-                  }
-                </div>
-              </div>
-
-            </div>
-          )}
-
-          {/* ════ STATS TAB ════ */}
-          {activeTab==='Stats' && (
-            <div style={{ padding:'12px 14px' }}>
-
-              {/* Season selector */}
-              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
-                <div style={{ background:'#111', border:'1px solid #2A2A2A', borderRadius:10, padding:'8px 14px', display:'flex', alignItems:'center', gap:8, cursor:'pointer' }}>
-                  <span style={{ fontSize:13, fontWeight:600, color:'#FFF' }}>{new Date().getFullYear()} Season</span>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#777" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-                </div>
-              </div>
-
-              {/* 3×3 stat grid */}
-              <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, overflow:'hidden', marginBottom:10 }}>
-                {[
-                  [
-                    { icon:'📅', val: appearances,       label:'Matches'   },
-                    { icon:'▶️',  val: appearances,       label:'Starts'    },
-                    { icon:'⏱',  val: appearances>0 ? appearances*60 : 0, label:'Minutes' },
-                  ],[
-                    { icon:'⚽', val: playerGoals,        label:'Goals'     },
-                    { icon:'🎯', val: assists,            label:'Assists'   },
-                    { icon:'🏃', val: '—',               label:'Shots'     },
-                  ],[
-                    { icon:'🔑', val: '—',               label:'Key Passes'},
-                    { icon:'🛡', val: '—',               label:'Tackles'   },
-                    { icon:'🏅', val: potmList.length,   label:'POTM Awards'},
-                  ]
-                ].map((row, ri) => (
-                  <div key={ri} style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', borderBottom: ri<2 ? '1px solid #1A1A1A' : 'none' }}>
-                    {row.map((s, ci) => (
-                      <div key={ci} style={{ padding:'14px 8px', textAlign:'center', borderRight: ci<2 ? '1px solid #1A1A1A' : 'none' }}>
-                        <div style={{ fontSize:11, marginBottom:4 }}>{s.icon}</div>
-                        <div style={{ fontSize:20, fontWeight:800, color:'#FFF', lineHeight:1 }}>{s.val}</div>
-                        <div style={{ fontSize:10, color:'#555', marginTop:4, fontWeight:600 }}>{s.label}</div>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-
-              {/* 2 wide stats */}
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
-                <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'14px', textAlign:'center' }}>
-                  <div style={{ fontSize:11, marginBottom:6 }}>⭐</div>
-                  <div style={{ fontSize:22, fontWeight:800, color:'#FFF', lineHeight:1 }}>—</div>
-                  <div style={{ fontSize:10, color:'#555', marginTop:4, fontWeight:600, lineHeight:1.4 }}>Avg Match<br/>Rating</div>
-                </div>
-                <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'14px', textAlign:'center' }}>
-                  <div style={{ fontSize:11, marginBottom:6 }}>👥</div>
-                  <div style={{ fontSize:22, fontWeight:800, color:'#FFF', lineHeight:1 }}>{availability}%</div>
-                  <div style={{ fontSize:10, color:'#555', marginTop:4, fontWeight:600, lineHeight:1.4 }}>Training<br/>Attendance</div>
-                </div>
-              </div>
-
-              {/* Performance Over Time */}
-              <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'14px', marginBottom:10 }}>
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
-                  <span style={{ fontSize:13, fontWeight:700, color:'#FFF' }}>Performance Over Time</span>
-                  <span style={{ fontSize:11, color:'#F5C04A', cursor:'pointer' }}>View all</span>
-                </div>
-                <div style={{ display:'flex', gap:6, marginBottom:12 }}>
-                  {[['goals','Goals'],['assists','Assists'],['minutes','Minutes'],['rating','Rating']].map(([id,lbl]) => (
-                    <button key={id} onClick={()=>setActiveChartTab(id)}
-                      style={{ background: activeChartTab===id ? '#F5C04A' : '#1A1A1A', border:`1px solid ${activeChartTab===id?'#F5C04A':'#2A2A2A'}`, borderRadius:8, padding:'5px 10px', fontSize:11, fontWeight:600, color: activeChartTab===id ? '#000' : '#666', cursor:'pointer' }}>
-                      {lbl}
-                    </button>
+              {/* ── Season stats strip ── */}
+              <div style={{ margin:'10px 14px 0', background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'14px' }}>
+                <div style={{ fontSize:10, fontWeight:700, color:'#777', letterSpacing:1, textTransform:'uppercase', marginBottom:12 }}>This Season</div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)' }}>
+                  {[
+                    { val: appearances,     label:'Played'    },
+                    { val: playerGoals,     label:'Goals'     },
+                    { val: assists,         label:'Assists'   },
+                    { val: potmList.length, label:'POTM'      },
+                    { val: availability+'%',label:'Available' },
+                  ].map((s,i) => (
+                    <div key={i} style={{ textAlign:'center', padding:'6px 2px', borderRight: i<4?'1px solid #1A1A1A':'none' }}>
+                      <div style={{ fontSize:20, fontWeight:800, color:'#FFF', lineHeight:1 }}>{s.val}</div>
+                      <div style={{ fontSize:9, color:'#555', marginTop:5, fontWeight:600, letterSpacing:0.3 }}>{s.label}</div>
+                    </div>
                   ))}
                 </div>
-                <MiniChart data={activeChartTab==='goals' ? goalsPerMatch : activeChartTab==='assists' ? assistsPerMatch : []} />
-                {/* X axis labels */}
-                {goalsPerMatch.length > 0 && (
-                  <div style={{ display:'flex', justifyContent:'space-between', marginTop:4 }}>
-                    {goalsPerMatch.map((_,i) => <span key={i} style={{ fontSize:8, color:'#444' }}>{i+1}</span>)}
+                {goalsPerMatch.length > 1 && (
+                  <div style={{ marginTop:12, borderTop:'1px solid #1A1A1A', paddingTop:12 }}>
+                    <div style={{ fontSize:9, color:'#555', fontWeight:700, letterSpacing:0.5, textTransform:'uppercase', marginBottom:6 }}>Goals per game</div>
+                    <MiniChart data={goalsPerMatch} color='#F5C04A' />
                   </div>
                 )}
               </div>
 
-              {/* Position Breakdown */}
-              {positionBreakdown.length > 0 && (
-                <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'14px' }}>
-                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-                    <span style={{ fontSize:13, fontWeight:700, color:'#FFF' }}>Position Breakdown</span>
-                    <span style={{ fontSize:11, color:'#F5C04A', cursor:'pointer' }}>View heat map</span>
-                  </div>
-                  {positionBreakdown.map((pos, i) => (
-                    <div key={i} style={{ marginBottom: i<positionBreakdown.length-1 ? 14 : 0 }}>
-                      <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
-                        <span style={{ fontSize:12, color:'#CCC' }}>{pos.short} ({pos.label})</span>
-                        <span style={{ fontSize:12, fontWeight:700, color:'#FFF' }}>{pos.pct}%</span>
-                      </div>
-                      <div style={{ height:6, background:'#1A1A1A', borderRadius:3, overflow:'hidden' }}>
-                        <div style={{ height:'100%', width:`${pos.pct}%`, background: i===0?'#F5C04A':'rgba(245,192,74,0.4)', borderRadius:3, transition:'width 0.5s' }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ════ DEVELOPMENT TAB ════ */}
-          {activeTab==='Development' && (
-            <div style={{ padding:'12px 14px' }}>
-              {SKILL_GROUPS.map((group, gi) => (
-                <div key={gi} style={{ marginBottom:10 }}>
-                  <div style={{ fontSize:12, fontWeight:700, color:'#F5C04A', letterSpacing:0.5, textTransform:'uppercase', padding:'6px 0 10px' }}>{group.label}</div>
-                  <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, overflow:'hidden' }}>
-                    {group.keys.map((key, ki) => (
-                      <div key={key} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', borderBottom: ki<group.keys.length-1 ? '1px solid #1A1A1A' : 'none' }}>
-                        <span style={{ fontSize:13, color:'#CCC' }}>{group.labels[ki]}</span>
-                        <StarRating skillKey={key} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-
-              {/* Coach Focus */}
-              <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, overflow:'hidden', marginTop:4 }}>
+              {/* ── Coach Focus ── */}
+              <div style={{ margin:'10px 14px 14px', background:'#111', border:'1px solid #1E1E1E', borderRadius:14, overflow:'hidden' }}>
                 <div style={{ padding:'14px 14px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid #1A1A1A' }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    <span style={{ fontSize:14, fontWeight:700, color:'#FFF' }}>Coach Focus</span>
-                  </div>
+                  <span style={{ fontSize:14, fontWeight:700, color:'#FFF' }}>Coach Focus</span>
                   <button onClick={()=>{ setDraft(loadPlayer()); setEditing(true); }}
                     style={{ background:'none', border:'none', cursor:'pointer', color:'#F5C04A', fontSize:12, fontWeight:600, display:'flex', alignItems:'center', gap:4, padding:0 }}>
                     Edit
@@ -5040,46 +5076,44 @@ function PlayerProfileScreen({ playerName, isNew, onBack, onSave, games }) {
                   </button>
                 </div>
                 <div style={{ padding:'14px' }}>
-                  {(draft.devFocus||'').split('\n').filter(s=>s.trim()).length === 0
-                    ? <div style={{ fontSize:13, color:'#444', fontStyle:'italic' }}>No focus areas set.</div>
-                    : (draft.devFocus||'').split('\n').filter(s=>s.trim()).map((item,i) => (
-                        <div key={i} style={{ display:'flex', gap:8, alignItems:'flex-start', marginBottom: i<(draft.devFocus||'').split('\n').filter(s=>s.trim()).length-1 ? 8 : 0 }}>
+                  {(draft.devFocus||'').trim()
+                    ? (draft.devFocus||'').split('\n').filter(s=>s.trim()).map((item,i,arr) => (
+                        <div key={i} style={{ display:'flex', gap:8, alignItems:'flex-start', marginBottom: i<arr.length-1?8:0 }}>
                           <span style={{ color:'#F5C04A', fontSize:14, lineHeight:1.4, flexShrink:0 }}>•</span>
                           <span style={{ fontSize:13, color:'#CCC', lineHeight:1.5 }}>{item.trim()}</span>
                         </div>
                       ))
+                    : <div style={{ fontSize:13, color:'#444', fontStyle:'italic' }}>No focus set — tap Edit to add coaching priorities for this player.</div>
                   }
                 </div>
               </div>
+
             </div>
           )}
 
           {/* ════ HISTORY TAB ════ */}
           {activeTab==='History' && (
             <div style={{ padding:'12px 14px' }}>
+              {historyEntries.length > 0 && (
+                <div style={{ fontSize:11, color:'#555', fontWeight:700, letterSpacing:1, textTransform:'uppercase', marginBottom:12 }}>
+                  {historyEntries.length} {historyEntries.length === 1 ? 'note' : 'notes'}
+                </div>
+              )}
               {historyEntries.length === 0
                 ? <div style={{ textAlign:'center', padding:'40px 0', color:'#444', fontSize:13 }}>No history yet — notes will appear after matches.</div>
                 : historyEntries.map((entry, i) => {
                     const typeConfig = {
-                      match:    { color:'#22c55e', bg:'rgba(34,197,94,0.12)',   label:'Match Note',    dot:'#22c55e'  },
-                      training: { color:'#06b6d4', bg:'rgba(6,182,212,0.12)',   label:'Training Note', dot:'#06b6d4'  },
-                      coach:    { color:'#F5C04A', bg:'rgba(245,192,74,0.12)',  label:'Coach Note',    dot:'#F5C04A'  },
-                    }[entry.type] || { color:'#777', bg:'#111', label:'Note', dot:'#555' };
+                      match:    { color:'#22c55e', bg:'rgba(34,197,94,0.12)', label:'Match'    },
+                      training: { color:'#06b6d4', bg:'rgba(6,182,212,0.12)', label:'Training' },
+                      coach:    { color:'#F5C04A', bg:'rgba(245,192,74,0.12)', label:'Coach'   },
+                    }[entry.type] || { color:'#777', bg:'rgba(100,100,100,0.1)', label:'Note' };
                     return (
-                      <div key={i} style={{ display:'flex', gap:12, marginBottom:14 }}>
-                        {/* Timeline line + dot */}
-                        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', flexShrink:0 }}>
-                          <div style={{ width:12, height:12, borderRadius:'50%', background:typeConfig.dot, border:`2px solid ${typeConfig.dot}40`, flexShrink:0, marginTop:2 }} />
-                          {i < historyEntries.length-1 && <div style={{ width:1, flex:1, background:'#1E1E1E', marginTop:4, minHeight:20 }} />}
+                      <div key={i} style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:12, padding:'12px 14px', marginBottom:8 }}>
+                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
+                          <span style={{ fontSize:11, color:'#666' }}>{entry.date || 'Undated'}</span>
+                          <span style={{ fontSize:10, fontWeight:700, color:typeConfig.color, background:typeConfig.bg, borderRadius:6, padding:'2px 7px' }}>{typeConfig.label}</span>
                         </div>
-                        {/* Content */}
-                        <div style={{ flex:1, background:'#111', border:'1px solid #1E1E1E', borderRadius:12, padding:'12px 14px', marginBottom: i<historyEntries.length-1 ? 0 : 0 }}>
-                          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
-                            <span style={{ fontSize:11, color:'#666' }}>{entry.date || 'Undated'}</span>
-                            <span style={{ fontSize:10, fontWeight:700, color:typeConfig.color, background:typeConfig.bg, borderRadius:6, padding:'3px 8px' }}>{typeConfig.label}</span>
-                          </div>
-                          <div style={{ fontSize:13, color:'#CCC', lineHeight:1.5 }}>{entry.text}</div>
-                        </div>
+                        <div style={{ fontSize:13, color:'#CCC', lineHeight:1.5 }}>{entry.text}</div>
                       </div>
                     );
                   })
@@ -5109,7 +5143,7 @@ Player: ${displayName}
 Position: ${[draft.pos,draft.pos2,draft.pos3].filter(Boolean).map(pid=>{const pg=ALL_POSITIONS.find(x=>x.id===pid);return pg?pg.label:pid;}).join(', ')||'Unknown'}
 Season appearances: ${appearances}
 Goals: ${playerGoals}, Assists: ${assists}
-Skill ratings (1-5): ${Object.entries(skills).map(([k,v])=>`${k}:${v}`).join(', ')||'not rated'}
+Season stats: ${appearances} appearances, ${playerGoals} goals, ${assists} assists, ${potmList.length} POTM awards
 Coach notes: ${(draft.coachNotes||'').replace(/\[.*?\]/g,'').trim()||'none'}
 Coach focus: ${draft.devFocus||'none'}
 
@@ -5121,24 +5155,18 @@ Respond in this exact JSON format:
   "trends": [{"label":"Skill","direction":"up","value":"X%"},{"label":"Skill","direction":"up","value":"X%"},{"label":"Skill","direction":"up","value":"X%"},{"label":"Skill","direction":"up","value":"X%"}],
   "training": [{"title":"Drill name","desc":"Short description"},{"title":"Drill name","desc":"Short description"},{"title":"Drill name","desc":"Short description"}]
 }`;
-                      const resp = await fetch('/api/ai', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt, max_tokens:800 }) });
-                      if (resp.ok) {
-                        const text = await resp.text();
-                        const jsonMatch = text.match(/\{[\s\S]*\}/);
-                        if (jsonMatch) { setAiContent(JSON.parse(jsonMatch[0])); }
-                        else { setAiContent({ summary: text, strengths:[], improvements:[], trends:[], training:[] }); }
+                      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+                        method: 'POST',
+                        headers: { 'Content-Type':'application/json', 'anthropic-version':'2023-06-01' },
+                        body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:800, messages:[{role:'user',content:prompt}] })
+                      });
+                      const data = await resp.json();
+                      const rawText = data?.content?.[0]?.text || '';
+                      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+                      if (jsonMatch) {
+                        setAiContent(JSON.parse(jsonMatch[0]));
                       } else {
-                        // Fallback: show based on available data
-                        const s = p.skills||{};
-                        const topSkills = Object.entries(s).filter(([,v])=>v>=4).map(([k])=>k.replace(/([A-Z])/g,' $1').trim());
-                        const weakSkills = Object.entries(s).filter(([,v])=>v>0&&v<=2).map(([k])=>k.replace(/([A-Z])/g,' $1').trim());
-                        setAiContent({
-                          summary: `${displayName} is a ${[draft.pos].filter(Boolean).map(pid=>{const pg=ALL_POSITIONS.find(x=>x.id===pid);return pg?pg.label:pid;}).join('/')||'player'} with ${appearances} appearances this season. ${playerGoals>0?`Has contributed ${playerGoals} goal${playerGoals>1?'s':''}.`:''} ${draft.devFocus?`Focus areas: ${draft.devFocus.split('\n')[0]}.`:''}`,
-                          strengths: topSkills.slice(0,4).map(s=>`Strong ${s.toLowerCase()}`),
-                          improvements: (weakSkills.slice(0,3).map(s=>`Improve ${s.toLowerCase()}`).concat(draft.devFocus?draft.devFocus.split('\n').filter(Boolean).slice(0,2):[])).slice(0,3),
-                          trends: [],
-                          training: [],
-                        });
+                        setAiContent({ summary: rawText || `${displayName}: ${appearances} appearances, ${playerGoals} goals, ${assists} assists.`, strengths:[], improvements:[], trends:[], training:[] });
                       }
                     } catch (e) {
                       setAiContent({ summary:`Analysis for ${displayName}: ${appearances} appearances, ${playerGoals} goals, ${assists} assists this season.`, strengths:[], improvements:[], trends:[], training:[] });
@@ -6177,6 +6205,36 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
               </div>
             </div>
           )}
+
+          {/* GK rotation hint */}
+          {(() => {
+            try {
+              const sq = loadSquad().filter(p=>!p.injured&&!p.archived&&(p.pos==='gk'||p.canPlayGK));
+              const gs = loadGames();
+              const counts = sq.map(p => {
+                const n = gs.filter(g=>g.halves&&g.halves.some(h=>h.some(per=>per.slots&&per.slots['gk']===p.name))).length;
+                return { name: p.firstName||p.name.split(' ')[0], count: n };
+              }).sort((a,b)=>a.count-b.count);
+              if (counts.length === 0) return null;
+              const next = counts[0];
+              return (
+                <div style={{ background:'#0f2a18', border:'1px solid #22c55e33', borderRadius:10, padding:'9px 12px', marginBottom:14, display:'flex', alignItems:'center', gap:8 }}>
+                  <span style={{ fontSize:14 }}>🧤</span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:12, fontWeight:700, color:'#22c55e' }}>Rotation hint</div>
+                    <div style={{ fontSize:11, color:'#888', marginTop:1 }}>
+                      <strong style={{ color:'#CCC' }}>{next.name}</strong> is next up — {next.count} game{next.count!==1?'s':''} as GK (fewest)
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:2 }}>
+                    {counts.slice(0,3).map(p=>(
+                      <span key={p.name} style={{ fontSize:10, color:'#555' }}>{p.name}: {p.count}</span>
+                    ))}
+                  </div>
+                </div>
+              );
+            } catch { return null; }
+          })()}
 
           <div style={{ fontSize:11, fontWeight:600, color:'#888', letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:10 }}>
             {splitGK ? 'Tap to select — 1st then 2nd half' : 'Select goalkeeper'}
@@ -13053,7 +13111,7 @@ export default function App() {
     if(screen==="teamScreen")   return <TeamScreen onBack={()=>goTab("home")} onViewStats={()=>setScreen("stats")} onGoMatch={()=>{setSquadMode("newGame");setSquadBackTo("home");goTab("match");}} onGoFixtures={()=>{_pendingSeasonSub="fixtures";setActiveTab("season");setScreen("season");}} games={games} settings={settings} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("teamSquad");setScreen("squad");}} onEditTeam={()=>{setSettingsBackTo("teamScreen");setScreen("settings");}} onViewSquad={(name)=>{if(name==='__add__'){setPlayerProfileName(null);setPlayerProfileIsNew(true);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}else if(name){setPlayerProfileName(name);setPlayerProfileIsNew(false);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}else setScreen("teamSquad");}} />;
     if(screen==="teamSquad")    return <TeamSquadScreen onBack={()=>setScreen("teamScreen")} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("teamSquad");setScreen("squad");}} onViewPlayer={name=>{setPlayerProfileName(name);setPlayerProfileIsNew(false);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}} onAddPlayer={()=>{setPlayerProfileName(null);setPlayerProfileIsNew(true);setPlayerProfileBackTo("teamSquad");setScreen("playerProfile");}} onEditTeam={()=>{setSettingsBackTo("teamSquad");setScreen("settings");}} />;
     if(screen==="playerProfile") return <PlayerProfileScreen playerName={playerProfileName} isNew={playerProfileIsNew} games={games} onBack={()=>setScreen(playerProfileBackTo)} onSave={()=>setScreen(playerProfileBackTo)} />;
-    if(screen==="stats")        return <StatsScreen games={games} onBack={()=>setScreen("teamScreen")} />;
+    if(screen==="stats")        return <StatsScreen games={games} onBack={()=>setScreen("teamScreen")} onViewPlayer={name=>{setPlayerProfileName(name);setPlayerProfileIsNew(false);setPlayerProfileBackTo("stats");setScreen("playerProfile");}} />;
     if(screen==="opponentStats") return <OpponentStatsScreen opponent={scoutTeam} onBack={()=>setScreen(squadBackTo==="matchDay"?"matchDay":squadBackTo==="picker"?"picker":squadBackTo==="season"?"season":"squad")} onChangeOpponent={()=>{ _pendingSeasonSub='scout'; setScreen('season'); }} />;
     if(screen==="squad")        return <SquadScreen mode={squadMode} onNext={(s,c,opp,lfk,fih)=>{setSquad(s);setConfig(c);setOpponent(opp);setLinkedFixKey(lfk);setFixIsHome(fih);setScreen("picker");}} onBack={()=>setScreen(squadBackTo||"teamScreen")} onViewOpponent={t=>{setScoutTeam(t);setScreen("opponentStats");}} onViewPlayer={name=>{setPlayerProfileName(name);setPlayerProfileIsNew(false);setPlayerProfileBackTo("squad");setScreen("playerProfile");}} onAddPlayer={()=>{setPlayerProfileName(null);setPlayerProfileIsNew(true);setPlayerProfileBackTo("squad");setScreen("playerProfile");}} />;
     if(screen==="playerStats") return <PlayerStatsScreen playerName={playerStatsName} onBack={()=>setScreen("picker")} games={games} squad={squad} />;
