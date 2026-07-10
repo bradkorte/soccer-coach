@@ -21,6 +21,44 @@
   },
   "soccerCoach_allPostMatch": [
     {
+      "id": "soccerCoach_postMatch_g_imp_1746144000000",
+      "gameId": "g_imp_1746144000000",
+      "opponent": "Brisbane Knights",
+      "date": 1746144000000,
+      "oppR": {
+        "overallStrength": 2,
+        "attacking": 2,
+        "defending": 2,
+        "pressing": 2
+      },
+      "ourR": {
+        "overallPerformance": 5,
+        "attacking": 4,
+        "defending": 4,
+        "teamShape": 4
+      },
+      "notes": {
+        "oppProblems": "",
+        "oppAdvice": "",
+        "whatPleased": "Convincing 6–0 win. Strong team performance across all positions. Excellent high-pressing from opposition restarts — girls won the ball back quickly from opposition goal kicks and kickoffs. First half defensively solid.",
+        "whatImprove": "Second half defensive structure dropped — players occasionally out of position, allowing attackers to get in behind. Naomi kept roaming from defence. Throw-in technique inconsistent. Corner kicks — support players need to be closer to the thrower."
+      },
+      "priorities": [
+        "Defending",
+        "Positioning",
+        "Set Pieces"
+      ],
+      "mostImproved": "",
+      "playerNotes": {
+        "Sydney Garson": "Outstanding game — started in midfield before moving to striker. Excellent determination, worked through multiple tackles and converted efforts into goals. Her energy and impact were clear throughout.",
+        "Naomi Connolly": "Played in defence for the full match but kept roaming across the field, leaving gaps in the defensive line. Worth trialling in midfield where her natural movement and ability to get around the pitch can be a real asset.",
+        "Sienna Mclean": "Excellent all-round performance — played both goalkeeper and left wing. In goal, handled sustained pressure confidently with multiple strong saves. Her distribution from the back was also strong.",
+        "Charlotte Harris": "Appeared uncomfortable in midfield — worth trialling back in defence where she has shown more natural ability and composure."
+      },
+      "aiReview": "",
+      "outputs": {}
+    },
+    {
       "id": "soccerCoach_postMatch_g_imp_1747958400000",
       "gameId": "g_imp_1747958400000",
       "opponent": "Toowong White",
@@ -50,16 +88,16 @@
       ],
       "mostImproved": "",
       "playerNotes": {
-        "Taylor": "Excellent game, most dangerous player going forward. Won ball deep, drove into attack, beat defenders with pace. Key focus: distribution after beating players — \"beat one, then distribute.\"",
-        "Sydney": "Solid, scored a goal, reliable effort and involvement across the field.",
-        "Pippa": "Good strong game on left wing (not usual position). Scored a goal, worked hard on and off the ball.",
-        "Ruby": "First time on wing — handled transition well. Natural instinct to drop back into defence. Next step: distribution after winning space.",
-        "Charlotte": "Played in right defence but roamed left. May be more naturally suited to midfield — use her movement and desire to get involved there.",
-        "Kiera": "Outstanding — critical to team success. Tracked back well, got between attacker and goal, disrupted attacks. Made crucial clearances near goal line. Composed, reliable, intelligent.",
-        "Nixie": "Very strong defensively. Aggressive getting to loose balls, stepped forward to meet ball early and clear it out. Willingness to attack ball defensively was key.",
-        "Poppy": "Strong defensive clearances, good commitment in defensive situations, helped move ball away from danger.",
-        "Simone": "Played goalkeeper in second half. Worked hard.",
-        "Sienna": "Impressive in goal. Showed real commitment and bravery. Willingness to dive for the ball made a big impact."
+        "Taylor Korte": "Excellent game, most dangerous player going forward. Won ball deep, drove into attack, beat defenders with pace. Key focus: distribution after beating players — \"beat one, then distribute.\"",
+        "Sydney Garson": "Solid, scored a goal, reliable effort and involvement across the field.",
+        "Pippa Ferrier": "Good strong game on left wing (not usual position). Scored a goal, worked hard on and off the ball.",
+        "Ruby Deutsch": "First time on wing — handled transition well. Natural instinct to drop back into defence. Next step: distribution after winning space.",
+        "Charlotte Harris": "Played in right defence but roamed left. May be more naturally suited to midfield — use her movement and desire to get involved there.",
+        "Kiera Korte": "Outstanding — critical to team success. Tracked back well, got between attacker and goal, disrupted attacks. Made crucial clearances near goal line. Composed, reliable, intelligent.",
+        "Nixie Fittler": "Very strong defensively. Aggressive getting to loose balls, stepped forward to meet ball early and clear it out. Willingness to attack ball defensively was key.",
+        "Poppy Leyden": "Strong defensive clearances, good commitment in defensive situations, helped move ball away from danger.",
+        "Simone Connolly": "Played goalkeeper in second half. Worked hard.",
+        "Sienna Mclean": "Impressive in goal. Showed real commitment and bravery. Willingness to dive for the ball made a big impact."
       },
       "aiReview": "",
       "outputs": {}
@@ -94,16 +132,16 @@
       ],
       "mostImproved": "",
       "playerNotes": {
-        "Taylor": "Strong game on right wing. Consistently made ground down the flank, scored a well-earned goal. Unlucky not to add to her tally after two other close chances.",
-        "Pippa": "Left wing, worked hard and made good forward runs. Occasionally shepherded towards sideline, struggled to bring ball into central areas.",
-        "Ruby": "Started strongly, showed she can hold her own further up the field. Left wing spell — has put her hand up for more attacking opportunities.",
-        "Sydney": "Not quite at usual level but contributed. Won ball effectively but didn't always follow up with second effort.",
-        "Mia": "Spent time in several positions, adapted well. Another dependable performance. Players of the Match.",
-        "Charlotte": "Solid game, contributed well whenever called upon.",
-        "Naomi": "Reliable effort, recognised for strong team performance. Players of the Match.",
-        "Poppy": "Outstanding match in defence. Aggressive in winning the ball, stepped into contests confidently, repeatedly cleared danger. One of her strongest games of the season. Players of the Match.",
-        "Kiera": "Rock solid at the back. Consistently tracked back to protect goal, supported goalkeeper, provided important defensive cover.",
-        "Sienna": "Great composure in goal. Excellent save after attacker closed her down quickly. Continued improving distribution and decision-making."
+        "Taylor Korte": "Strong game on right wing. Consistently made ground down the flank, scored a well-earned goal. Unlucky not to add to her tally after two other close chances.",
+        "Pippa Ferrier": "Left wing, worked hard and made good forward runs. Occasionally shepherded towards sideline, struggled to bring ball into central areas.",
+        "Ruby Deutsch": "Started strongly, showed she can hold her own further up the field. Left wing spell — has put her hand up for more attacking opportunities.",
+        "Sydney Garson": "Not quite at usual level but contributed. Won ball effectively but didn't always follow up with second effort.",
+        "Mia Prebble": "Spent time in several positions, adapted well. Another dependable performance. Players of the Match.",
+        "Charlotte Harris": "Solid game, contributed well whenever called upon.",
+        "Naomi Connolly": "Reliable effort, recognised for strong team performance. Players of the Match.",
+        "Poppy Leyden": "Outstanding match in defence. Aggressive in winning the ball, stepped into contests confidently, repeatedly cleared danger. One of her strongest games of the season. Players of the Match.",
+        "Kiera Korte": "Rock solid at the back. Consistently tracked back to protect goal, supported goalkeeper, provided important defensive cover.",
+        "Sienna Mclean": "Great composure in goal. Excellent save after attacker closed her down quickly. Continued improving distribution and decision-making."
       },
       "aiReview": "",
       "outputs": {}
@@ -138,17 +176,17 @@
       ],
       "mostImproved": "",
       "playerNotes": {
-        "Pippa": "One of her strongest games of the season. Scored both goals playing striker. Looked dangerous whenever she got forward — well-earned double.",
-        "Mia": "Outstanding throughout. Consistently won possession, carried ball forward when others struggled. Scored one goal and was heavily involved across the field. Coach's Player of the Match.",
-        "Taylor": "Difficult first half — too deep, not getting involved in attack. Responded strongly after halftime, pushed higher, became more involved and scored an important goal. Second-half performance showed what she can do when she plays aggressively.",
-        "Kiera": "Solid in defence as always, providing reliability and composure at the back.",
-        "Poppy": "Strong defensive game, worked hard throughout.",
-        "Nixie": "Strong defensive game, worked hard throughout. Awarded Player of the Match (based on rotation group).",
-        "Sienna": "Very well in goal — several important saves and gave confidence to team. Learning: one goal came from a corner rolling through the box — work on defending set pieces.",
-        "Sydney": "Grew into the game and became more effective as the match progressed.",
-        "Charlotte": "Looked uncomfortable playing on the wing, frequently drifted back into midfield.",
-        "Naomi": "Showed plenty of energy but struggled to maintain positional discipline — often roaming away from assigned side of the field.",
-        "Simone": "Difficult afternoon in defence, challenged by Sapphires attacking pressure. Continued to work hard and never stopped trying. Awarded Player of the Match (based on rotation group)."
+        "Pippa Ferrier": "One of her strongest games of the season. Scored both goals playing striker. Looked dangerous whenever she got forward — well-earned double.",
+        "Mia Prebble": "Outstanding throughout. Consistently won possession, carried ball forward when others struggled. Scored one goal and was heavily involved across the field. Coach's Player of the Match.",
+        "Taylor Korte": "Difficult first half — too deep, not getting involved in attack. Responded strongly after halftime, pushed higher, became more involved and scored an important goal. Second-half performance showed what she can do when she plays aggressively.",
+        "Kiera Korte": "Solid in defence as always, providing reliability and composure at the back.",
+        "Poppy Leyden": "Strong defensive game, worked hard throughout.",
+        "Nixie Fittler": "Strong defensive game, worked hard throughout. Awarded Player of the Match (based on rotation group).",
+        "Sienna Mclean": "Very well in goal — several important saves and gave confidence to team. Learning: one goal came from a corner rolling through the box — work on defending set pieces.",
+        "Sydney Garson": "Grew into the game and became more effective as the match progressed.",
+        "Charlotte Harris": "Looked uncomfortable playing on the wing, frequently drifted back into midfield.",
+        "Naomi Connolly": "Showed plenty of energy but struggled to maintain positional discipline — often roaming away from assigned side of the field.",
+        "Simone Connolly": "Difficult afternoon in defence, challenged by Sapphires attacking pressure. Continued to work hard and never stopped trying. Awarded Player of the Match (based on rotation group)."
       },
       "aiReview": "",
       "outputs": {}
@@ -183,12 +221,12 @@
       ],
       "mostImproved": "",
       "playerNotes": {
-        "Sydney": "Outstanding attacking performance. Scored two goals, remained a constant threat. Used pace well and made intelligent attacking runs.",
-        "Pippa": "Worked hard up front, contributed an important goal. Continued to pressure defenders and create opportunities.",
-        "Taylor": "Scored a goal and provided strong attacking support. Continued to improve movement and positioning in advanced areas.",
-        "Ruby": "Outstanding contribution at both ends of the field. Defended strongly and was rewarded with a goal. Excellent determination and commitment from start to finish. Players of the Match.",
-        "Kiera": "One of her strongest defensive performances of the season. Read the game well, tracked runners consistently, made several important defensive interventions. Particularly effective covering Springfield's pace out wide. Players of the Match.",
-        "Simone": "Played on the left wing despite it not being her preferred position. Worked tirelessly. Excellent work rate and team-first attitude. Had a significant impact on the result. Players of the Match."
+        "Sydney Garson": "Outstanding attacking performance. Scored two goals, remained a constant threat. Used pace well and made intelligent attacking runs.",
+        "Pippa Ferrier": "Worked hard up front, contributed an important goal. Continued to pressure defenders and create opportunities.",
+        "Taylor Korte": "Scored a goal and provided strong attacking support. Continued to improve movement and positioning in advanced areas.",
+        "Ruby Deutsch": "Outstanding contribution at both ends of the field. Defended strongly and was rewarded with a goal. Excellent determination and commitment from start to finish. Players of the Match.",
+        "Kiera Korte": "One of her strongest defensive performances of the season. Read the game well, tracked runners consistently, made several important defensive interventions. Particularly effective covering Springfield's pace out wide. Players of the Match.",
+        "Simone Connolly": "Played on the left wing despite it not being her preferred position. Worked tirelessly. Excellent work rate and team-first attitude. Had a significant impact on the result. Players of the Match."
       },
       "aiReview": "",
       "outputs": {}
@@ -223,24 +261,112 @@
       ],
       "mostImproved": "",
       "playerNotes": {
-        "Taylor": "Strong performance, especially first half. Excellent runs down the wing, opened the scoring. Delivered several dangerous balls across face of goal. Focus: poachers need to attack the back post to convert those crosses.",
-        "Elsa": "(Guest) Excellent contribution. Scored our second goal, played well on wing and in midfield, made strong runs and consistently delivered dangerous crosses.",
-        "Pippa": "Capped off the game with a well-earned goal. Continues to find dangerous attacking positions. Next step: make decisions a touch earlier — extra touches allowed defenders to recover.",
-        "Charlotte": "Standout performer from regular squad. Excellent work rate, constantly involved around the ball, kept making herself available. Energetic and influential. Players of the Match.",
-        "Kiera": "Outstanding in defence. Positioning and ability to get between attacker and goal continues to be exceptional. Timing of the two late goals (shortly after she rotated off) highlighted how important she is to defensive organisation.",
-        "Ruby": "Terrific team-first performance. Volunteered to play goalkeeper in first half — made several good saves and distributed quickly down the wings (exactly as coached). Composed in defence for second half.",
-        "Naomi": "Handled second-half goalkeeper duties well. Produced one outstanding diving save. Two late goals knocked her confidence a little — but they came during a difficult team spell, not a reflection of her overall performance.",
-        "Sydney": "Dependable performance through midfield. Linked play well, made strong runs, kept team moving forward.",
-        "Simone": "Quieter game than we have come to expect. Less influence than normal but continued to work hard for the team.",
-        "Nixie": "An off day by her usual high standards. Less engaged than normal. Every player has those days — she will bounce back.",
-        "Jaeger": "(Guest) Very impressive. Powerful runner, used strength well, protected the ball effectively and showed good technical ability throughout.",
-        "Emily": "(Guest) Settled into the defensive unit well and quietly did everything asked of her. Solid and reliable contribution."
+        "Taylor Korte": "Strong performance, especially first half. Excellent runs down the wing, opened the scoring. Delivered several dangerous balls across face of goal. Focus: poachers need to attack the back post to convert those crosses.",
+        "Elsa Neda": "(Guest) Excellent contribution. Scored our second goal, played well on wing and in midfield, made strong runs and consistently delivered dangerous crosses.",
+        "Pippa Ferrier": "Capped off the game with a well-earned goal. Continues to find dangerous attacking positions. Next step: make decisions a touch earlier — extra touches allowed defenders to recover.",
+        "Charlotte Harris": "Standout performer from regular squad. Excellent work rate, constantly involved around the ball, kept making herself available. Energetic and influential. Players of the Match.",
+        "Kiera Korte": "Outstanding in defence. Positioning and ability to get between attacker and goal continues to be exceptional. Timing of the two late goals (shortly after she rotated off) highlighted how important she is to defensive organisation.",
+        "Ruby Deutsch": "Terrific team-first performance. Volunteered to play goalkeeper in first half — made several good saves and distributed quickly down the wings (exactly as coached). Composed in defence for second half.",
+        "Naomi Connolly": "Handled second-half goalkeeper duties well. Produced one outstanding diving save. Two late goals knocked her confidence a little — but they came during a difficult team spell, not a reflection of her overall performance.",
+        "Sydney Garson": "Dependable performance through midfield. Linked play well, made strong runs, kept team moving forward.",
+        "Simone Connolly": "Quieter game than we have come to expect. Less influence than normal but continued to work hard for the team.",
+        "Nixie Fittler": "An off day by her usual high standards. Less engaged than normal. Every player has those days — she will bounce back.",
+        "Jagger Woodall": "(Guest) Very impressive. Powerful runner, used strength well, protected the ball effectively and showed good technical ability throughout.",
+        "Emily Wacker": "(Guest) Settled into the defensive unit well and quietly did everything asked of her. Solid and reliable contribution."
       },
       "aiReview": "",
       "outputs": {}
     }
   ],
   "_gameRecords": [
+    {
+      "id": "g_imp_1745539200000",
+      "opponent": "Sapphires",
+      "date": 1745539200000,
+      "scoreUs": 5,
+      "scoreThem": 1,
+      "result": "W",
+      "goals": [],
+      "potm": [
+        "Sienna Mclean"
+      ],
+      "formation": "1-3-2-3",
+      "khula_round": "Round 1",
+      "voiceNotes": "",
+      "report": "",
+      "matchEvents": [],
+      "quickNotes": [],
+      "halves": [],
+      "config": {
+        "formation": "1-3-2-3"
+      }
+    },
+    {
+      "id": "g_imp_1746144000000",
+      "opponent": "Brisbane Knights",
+      "date": 1746144000000,
+      "scoreUs": 6,
+      "scoreThem": 0,
+      "result": "W",
+      "goals": [],
+      "potm": [
+        "Sydney Garson"
+      ],
+      "formation": "1-3-2-3",
+      "khula_round": "Round 2",
+      "voiceNotes": "A strong team performance resulted in a convincing 6–0 win over the Brisbane Knights, with all players contributing well across the pitch.\n\nSydney had an outstanding game, starting in midfield before moving to striker. She showed excellent determination, working through multiple tackles and converting her efforts into goals.\n\nNaomi played in defence for the full match but kept roaming across the field, leaving gaps. Given her natural movement and ability to get around the field, it may be worth trialling her in midfield.\n\nSienna delivered an excellent all-round performance, playing both goalkeeper and left wing. In goal she handled sustained pressure confidently, making multiple strong saves. Her distribution was also strong.\n\nCharlotte appeared uncomfortable in midfield — worth trialling her back in defence.\n\nThe team showed particularly strong intent when pressing from opposition restarts. On opposition goal kicks and kickoffs, the girls applied immediate pressure, often winning the ball back quickly.\n\nDefensively the first half was solid, but the second half saw a drop in structure — players occasionally out of position, allowing opposition attackers to get in behind. Area to focus on.\n\nThings to work on: defensive positional discipline; Naomi ball control and getting kicks away; throw-in technique and support; corner kicks.",
+      "report": "A strong team performance resulted in a convincing 6–0 win over the Brisbane Knights, with all players contributing well across the pitch.\n\nSydney had an outstanding game, starting in midfield before moving to striker. She showed excellent determination, working through multiple tackles and converting her efforts into goals.\n\nNaomi played in defence for the full match but kept roaming across the field, leaving gaps. Given her natural movement and ability to get around the field, it may be worth trialling her in midfield.\n\nSienna delivered an excellent all-round performance, playing both goalkeeper and left wing. In goal she handled sustained pressure confidently, making multiple strong saves. Her distribution was also strong.\n\nCharlotte appeared uncomfortable in midfield — worth trialling her back in defence.\n\nThe team showed particularly strong intent when pressing from opposition restarts. On opposition goal kicks and kickoffs, the girls applied immediate pressure, often winning the ball back quickly.\n\nDefensively the first half was solid, but the second half saw a drop in structure — players occasionally out of position, allowing opposition attackers to get in behind. Area to focus on.\n\nThings to work on: defensive positional discipline; Naomi ball control and getting kicks away; throw-in technique and support; corner kicks.",
+      "matchEvents": [],
+      "quickNotes": [],
+      "halves": [],
+      "config": {
+        "formation": "1-3-2-3"
+      }
+    },
+    {
+      "id": "g_imp_1746748800000",
+      "opponent": "Ipswich Koalas",
+      "date": 1746748800000,
+      "scoreUs": 2,
+      "scoreThem": 0,
+      "result": "W",
+      "goals": [],
+      "potm": [
+        "Taylor Korte"
+      ],
+      "formation": "1-3-2-3",
+      "khula_round": "Round 3",
+      "voiceNotes": "",
+      "report": "",
+      "matchEvents": [],
+      "quickNotes": [],
+      "halves": [],
+      "config": {
+        "formation": "1-3-2-3"
+      }
+    },
+    {
+      "id": "g_imp_1747353600000",
+      "opponent": "Bardon Bananas",
+      "date": 1747353600000,
+      "scoreUs": 4,
+      "scoreThem": 0,
+      "result": "W",
+      "goals": [],
+      "potm": [
+        "Charlotte Harris"
+      ],
+      "formation": "1-3-2-3",
+      "khula_round": "Round 4",
+      "voiceNotes": "Nixie was absent for this game.",
+      "report": "",
+      "matchEvents": [],
+      "quickNotes": [],
+      "halves": [],
+      "config": {
+        "formation": "1-3-2-3"
+      }
+    },
     {
       "id": "g_imp_1747958400000",
       "opponent": "Toowong White",
@@ -251,21 +377,23 @@
       "goals": [
         {
           "team": "us",
-          "scorer": "Taylor",
+          "scorer": "Taylor Korte",
           "secs": 0
         },
         {
           "team": "us",
-          "scorer": "Sydney",
+          "scorer": "Sydney Garson",
           "secs": 0
         },
         {
           "team": "us",
-          "scorer": "Pippa",
+          "scorer": "Pippa Ferrier",
           "secs": 0
         }
       ],
-      "potm": "Pippa",
+      "potm": [
+        "Pippa Ferrier"
+      ],
       "formation": "1-3-2-3",
       "khula_round": "Round 4",
       "voiceNotes": "This was a really competitive and close game against Toowong White, with the girls showing strong determination, resilience, and composure throughout. Defensively, this was probably our strongest performance of the season so far — notably the first game we have conceded a goal, which highlights just how strong the team's defensive efforts have been all season.\n\nOne of the major positives was how much time we spent in the opposition half. We controlled large periods of possession and territory, often forcing Toowong White to bunch numbers back defensively. The next major step is learning how to convert that territorial advantage into more clear scoring opportunities.\n\nThe referee spoke to coaching staff at halftime regarding pushing and physical contact during challenges — we need to reinforce competing hard but within the rules. Throw-in technique was also inconsistent and needs to tighten up.\n\nFocus: \"beat one, then distribute\" — players are winning 1v1s well, now need to release the ball earlier.",
@@ -287,11 +415,15 @@
       "goals": [
         {
           "team": "us",
-          "scorer": "Taylor",
+          "scorer": "Taylor Korte",
           "secs": 0
         }
       ],
-      "potm": "Mia, Poppy, Naomi",
+      "potm": [
+        "Mia Prebble",
+        "Poppy Leyden",
+        "Naomi Connolly"
+      ],
       "formation": "1-3-2-3",
       "khula_round": "Round 5",
       "voiceNotes": "The Rubies came away with another win, but it was one of our toughest and most hard-fought matches of the season. Despite spending much of the game in the opposition half, we struggled to turn our territorial dominance into goals and had to work hard right until the final whistle.\n\nThe conditions didn't help — strong wind and a low sun made the first half difficult. There were quite a few occasions where we mis-hit passes, missed the ball when attempting to clear or shoot, or couldn't quite connect cleanly. While it wasn't our most polished performance, the girls showed great determination and resilience to grind out the result.\n\nOne ongoing challenge: when we dominate territory, opposition teams often retreat almost all of their players into their own penalty area. This creates a crowded box with very little space to play through. Training focus: converting territory into goals, creating space around the box, finishing scrappy chances.",
@@ -313,30 +445,53 @@
       "goals": [
         {
           "team": "us",
-          "scorer": "Pippa",
+          "scorer": "Pippa Ferrier",
           "secs": 0
         },
         {
           "team": "us",
-          "scorer": "Pippa",
+          "scorer": "Pippa Ferrier",
           "secs": 0
         },
         {
           "team": "us",
-          "scorer": "Mia",
+          "scorer": "Mia Prebble",
           "secs": 0
         },
         {
           "team": "us",
-          "scorer": "Taylor",
+          "scorer": "Taylor Korte",
           "secs": 0
         }
       ],
-      "potm": "Simone, Nixie",
+      "potm": [
+        "Simone Connolly",
+        "Nixie Fittler"
+      ],
       "formation": "1-3-2-3",
       "khula_round": "Round 6",
       "voiceNotes": "This was a surprisingly tough game against a much-improved Sapphires side. The Rubies spent most of the match either level or holding a one-goal lead, only for the Sapphires to respond and draw level again. While the result felt frustrating at times, there were still plenty of positives to take away.\n\nThe first half was probably not one of the team's strongest performances. Several positional changes were trialled and a number of players looked uncomfortable in unfamiliar roles. The second half was much better — more determination, more attacking opportunities and generally more like themselves.\n\nOne of the biggest themes from the game was the tendency for players to kick the ball forward and then stop rather than following their pass and supporting the next phase of play. Improving this \"pass and move\" mentality will be a major focus at training.\n\nThe official post-match awards went to Simone, Nixie and one other player (not recorded) — selected based on the rotation group rostered for recognition this week.",
       "report": "This was a surprisingly tough game against a much-improved Sapphires side. The Rubies spent most of the match either level or holding a one-goal lead, only for the Sapphires to respond and draw level again. While the result felt frustrating at times, there were still plenty of positives to take away.\n\nThe first half was probably not one of the team's strongest performances. Several positional changes were trialled and a number of players looked uncomfortable in unfamiliar roles. The second half was much better — more determination, more attacking opportunities and generally more like themselves.\n\nOne of the biggest themes from the game was the tendency for players to kick the ball forward and then stop rather than following their pass and supporting the next phase of play. Improving this \"pass and move\" mentality will be a major focus at training.\n\nThe official post-match awards went to Simone, Nixie and one other player (not recorded) — selected based on the rotation group rostered for recognition this week.",
+      "matchEvents": [],
+      "quickNotes": [],
+      "halves": [],
+      "config": {
+        "formation": "1-3-2-3"
+      }
+    },
+    {
+      "id": "g_imp_1749772800000",
+      "opponent": "UQFC Emeralds",
+      "date": 1749772800000,
+      "scoreUs": 4,
+      "scoreThem": 1,
+      "result": "W",
+      "goals": [],
+      "potm": "",
+      "formation": "1-3-2-3",
+      "khula_round": "Round 7",
+      "voiceNotes": "",
+      "report": "",
       "matchEvents": [],
       "quickNotes": [],
       "halves": [],
@@ -354,27 +509,27 @@
       "goals": [
         {
           "team": "us",
-          "scorer": "Sydney",
+          "scorer": "Sydney Garson",
           "secs": 0
         },
         {
           "team": "us",
-          "scorer": "Sydney",
+          "scorer": "Sydney Garson",
           "secs": 0
         },
         {
           "team": "us",
-          "scorer": "Pippa",
+          "scorer": "Pippa Ferrier",
           "secs": 0
         },
         {
           "team": "us",
-          "scorer": "Taylor",
+          "scorer": "Taylor Korte",
           "secs": 0
         },
         {
           "team": "us",
-          "scorer": "Ruby",
+          "scorer": "Ruby Deutsch",
           "secs": 0
         },
         {
@@ -383,7 +538,11 @@
           "secs": 0
         }
       ],
-      "potm": "Simone, Kiera, Ruby",
+      "potm": [
+        "Simone Connolly",
+        "Kiera Korte",
+        "Ruby Deutsch"
+      ],
       "formation": "1-3-2-3",
       "khula_round": "Round 8",
       "voiceNotes": "The Rubies produced one of their most impressive performances of the season, defeating previously undefeated Springfield United 6–3 in a high-quality and highly competitive match.\n\nWhile the scoreline reflects an excellent attacking display, the most pleasing aspect of the performance was the team's composure. Springfield applied pressure throughout the match with their pace, physicality and direct style of play, but the Rubies remained organised, trusted their structure and continued to play positive football.\n\nSpringfield's primary threat came from goalkeeper kicks played into space behind our defensive line for their quick forwards (#7 and #13). Despite this, the defensive group recovered repeatedly and worked together effectively for large portions of the match.\n\nThe six goals scored against one of the competition's strongest teams is one of the best attacking returns of the season. The defensive effort, teamwork and attitude shown throughout were equally important reasons for the victory.",
@@ -405,21 +564,23 @@
       "goals": [
         {
           "team": "us",
-          "scorer": "Taylor",
+          "scorer": "Taylor Korte",
           "secs": 0
         },
         {
           "team": "us",
-          "scorer": "Elsa",
+          "scorer": "Elsa Neda",
           "secs": 0
         },
         {
           "team": "us",
-          "scorer": "Pippa",
+          "scorer": "Pippa Ferrier",
           "secs": 0
         }
       ],
-      "potm": "Charlotte",
+      "potm": [
+        "Charlotte Harris"
+      ],
       "formation": "1-3-2-3",
       "khula_round": "Not in Khula schedule",
       "voiceNotes": "The Rubies produced another well-earned 3–2 victory over the Bardon Bandits. For much of the game we were in control, building a deserved 3–0 lead through disciplined defending, strong runs from wide areas and some excellent link-up play. Taylor opened the scoring before Elsa added our second after another positive attacking move. Pippa rounded out the scoring with our third.\n\nThe final few minutes became much more frantic. After losing a little of our defensive structure, the Bandits scored twice in quick succession. A reminder that every game lasts until the final whistle — but the girls showed enough resilience to hold on for a deserved win.\n\nNote: Guest players Elsa, Jaeger and Emily slotted seamlessly into the team. Ruby deserves a special mention for stepping into goal during the first half despite it not being her preferred position.\n\nAlthough we scored three goals, the scoreline could easily have been bigger — Taylor, Elsa and others delivered 6–7 dangerous balls across the face of goal that nobody was quite in position to convert. Improving movement into the six-yard box will turn those chances into goals.",
