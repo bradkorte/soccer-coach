@@ -166,7 +166,7 @@ function loadConfig()   { try{ const s=loadSettings(); const base={halfMins:s.ha
 function saveConfig(c)  { try{localStorage.setItem(CONFIG_KEY,JSON.stringify(c));}catch{} }
 function loadGames()    { try{return JSON.parse(localStorage.getItem(GAMES_KEY))||[];}catch{return[];} }
 function saveGames(g)   { try{localStorage.setItem(GAMES_KEY,JSON.stringify(g));}catch{} }
-function loadSettings() { try{return {...{teamName:"",coachName:"",managerName:"",ageGroup:"",season:"",venue:"",formation:DEFAULT_FORMATION,halfMins:24,numPeriods:3},...(JSON.parse(localStorage.getItem(SETTINGS_KEY))||{})};}catch{return{teamName:"",coachName:"",managerName:""};} }
+function loadSettings() { try{return {...{teamName:"",coachName:"",managerName:"",ageGroup:"",season:"",venue:"",formation:DEFAULT_FORMATION,halfMins:24,numPeriods:3,keepScreenOn:true},...(JSON.parse(localStorage.getItem(SETTINGS_KEY))||{})};}catch{return{teamName:"",coachName:"",managerName:"",keepScreenOn:true};} }
 function saveSettings(s){ try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(s));}catch{} }
 
 const FX_SCORES_KEY   = "soccerCoach_fixtureScores";
@@ -9995,7 +9995,7 @@ function QuickPlayScreen({ opponent, linkedFixKey, fixIsHome, settings, onBack, 
 
 
 
-function LiveMatchV2Screen({ half1, half2, config, squad, opponent, linkedFixKey, fixIsHome, onSaveGame, onPostMatch, onExit, onEditLineup }) {
+function LiveMatchV2Screen({ half1, half2, config, squad, opponent, linkedFixKey, fixIsHome, onSaveGame, onPostMatch, onExit, onEditLineup, keepScreenOn=true }) {
   const periodMins = getPeriodMins(config);
   const halves     = [half1 || [], half2 || []];
   const positions  = getPositions(config?.formation);
@@ -10032,12 +10032,94 @@ function LiveMatchV2Screen({ half1, half2, config, squad, opponent, linkedFixKey
   const [reviewScoreThem, setReviewScoreThem] = React.useState(0);
   const [reportLoading,   setReportLoading]   = React.useState(false);
 
-  const recogRef = React.useRef(null);
+  const recogRef        = React.useRef(null);
+  const [subAlarm,    setSubAlarm]    = React.useState(false);
+  const [flashOn,     setFlashOn]     = React.useState(false);
+  const prevLivePRef  = React.useRef(0);
+  const alarmAudioRef = React.useRef(null);
+  const startTsRef  = React.useRef(null); // wall-clock ms when clock last started
+  const baseElapsed = React.useRef(0);    // elapsed seconds accumulated before last start
+  const wakeLockRef = React.useRef(null);
 
-  // ── Clock ──────────────────────────────────────────────────────────────────
+  // ── Alarm audio ────────────────────────────────────────────────────────────
+  function startAlarmSound() {
+    if (alarmAudioRef.current) return;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      // Triple-beep every 2 seconds
+      function beepSet() {
+        [0, 0.18, 0.36].forEach(offset => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = 'sine'; osc.frequency.value = 880;
+          gain.gain.setValueAtTime(0.6, ctx.currentTime + offset);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.14);
+          osc.start(ctx.currentTime + offset);
+          osc.stop(ctx.currentTime + offset + 0.14);
+        });
+      }
+      beepSet();
+      const iv = setInterval(beepSet, 2000);
+      alarmAudioRef.current = { ctx, iv };
+    } catch(e) {}
+  }
+  function stopAlarmSound() {
+    if (!alarmAudioRef.current) return;
+    clearInterval(alarmAudioRef.current.iv);
+    try { alarmAudioRef.current.ctx.close(); } catch(e) {}
+    alarmAudioRef.current = null;
+  }
+
+  // ── Sub alarm — fires when livePeriod advances ───────────────────────────
+  React.useEffect(() => {
+    if (livePeriod > prevLivePRef.current && running) {
+      setSubAlarm(true);
+      prevLivePRef.current = livePeriod;
+    }
+  }, [livePeriod]);
+
+  // ── Manage alarm sound + flash ───────────────────────────────────────────
+  React.useEffect(() => {
+    if (!subAlarm) { stopAlarmSound(); setFlashOn(false); return; }
+    startAlarmSound();
+    const iv = setInterval(() => setFlashOn(f => !f), 400);
+    return () => { stopAlarmSound(); clearInterval(iv); setFlashOn(false); };
+  }, [subAlarm]);
+
+  // ── Wake Lock — keep screen on while clock is running (if enabled) ────────
+  React.useEffect(() => {
+    if (!running || !keepScreenOn) {
+      if (wakeLockRef.current) { wakeLockRef.current.release().catch(()=>{}); wakeLockRef.current = null; }
+      return;
+    }
+    if ('wakeLock' in navigator) {
+      navigator.wakeLock.request('screen').then(wl => { wakeLockRef.current = wl; }).catch(()=>{});
+    }
+    return () => {
+      if (wakeLockRef.current) { wakeLockRef.current.release().catch(()=>{}); wakeLockRef.current = null; }
+    };
+  }, [running, keepScreenOn]);
+
+  // Re-acquire wake lock after screen was unlocked (visibilitychange fires when returning)
+  React.useEffect(() => {
+    const onVisible = () => {
+      if (running && keepScreenOn && 'wakeLock' in navigator && (!wakeLockRef.current || wakeLockRef.current.released)) {
+        navigator.wakeLock.request('screen').then(wl => { wakeLockRef.current = wl; }).catch(()=>{});
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [running, keepScreenOn]);
+
+  // ── Clock — timestamp-based so screen-lock gaps don't freeze the timer ────
   React.useEffect(() => {
     if (!running) return;
-    const id = setInterval(() => setElapsed(e => e + 1), 1000);
+    startTsRef.current = Date.now();
+    const id = setInterval(() => {
+      const wallElapsed = Math.floor((Date.now() - startTsRef.current) / 1000);
+      setElapsed(baseElapsed.current + wallElapsed);
+    }, 500); // 500 ms poll so the display stays smooth
     return () => clearInterval(id);
   }, [running]);
 
@@ -10147,11 +10229,13 @@ function LiveMatchV2Screen({ half1, half2, config, squad, opponent, linkedFixKey
 
   // ── Match controls ─────────────────────────────────────────────────────────
   function doHalfTime() {
+    baseElapsed.current = 0; startTsRef.current = null;
+    prevLivePRef.current = 0; setSubAlarm(false);
     setRunning(false); setPhase('playing');
     setLiveHalf(1); setLivePeriod(0); setViewHalf(1); setViewPeriod(0);
     setElapsed(0); setUserBrowsing(false);
   }
-  function doFullTime() { setRunning(false); setPhase('fulltime'); }
+  function doFullTime() { setSubAlarm(false); setRunning(false); setPhase('fulltime'); }
 
   // ── Game object ────────────────────────────────────────────────────────────
   function buildGameObj() {
@@ -10282,7 +10366,7 @@ function LiveMatchV2Screen({ half1, half2, config, squad, opponent, linkedFixKey
           const color = notStarted?'#22c55e':running?'#FFF':'#F5C04A';
           const label = notStarted?'Play':running?'Pause':'Resume';
           return (
-            <button onClick={()=>setRunning(r=>!r)}
+            <button onClick={()=>setRunning(r=>{ if(r){ baseElapsed.current=elapsed; } else { startTsRef.current=Date.now(); } return !r; })}
               style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:8,
                 padding:'10px 0',margin:'6px 6px 6px 8px',background:'#1A1A1A',
                 border:`1px solid ${color}44`,borderRadius:10,cursor:'pointer'}}>
@@ -10417,19 +10501,14 @@ function LiveMatchV2Screen({ half1, half2, config, squad, opponent, linkedFixKey
             {/* RIGHT: Subs sidebar */}
             <div style={{flex:1,display:'flex',flexDirection:'column',padding:'8px 8px 4px 8px',gap:10,overflowY:'auto',borderLeft:'1px solid #1A1A1A'}}>
 
-              {/* Heading + countdown inline */}
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:6,flexShrink:0}}>
-                <div style={{fontSize:9,fontWeight:800,color:'#F5C04A',letterSpacing:1,textTransform:'uppercase',lineHeight:1.3}}>
-                  Next Planned Sub
-                </div>
-                <div style={{fontSize:9,fontWeight:800,color:'#FFF',fontVariantNumeric:'tabular-nums',letterSpacing:0.5,whiteSpace:'nowrap'}}>
-                  {fmtClock(periodMins*60 - (elapsed % (periodMins*60)))}
-                </div>
+              {/* Heading */}
+              <div style={{fontSize:9,fontWeight:800,color:'#F5C04A',letterSpacing:1,textTransform:'uppercase',lineHeight:1.3,flexShrink:0}}>
+                Next Planned Sub
               </div>
 
               {/* Next period subs — paired by position */}
               {(()=>{
-                const nxt=(halves[liveHalf]||[])[livePeriod+1+subViewOffset];
+                const nxt=(halves[liveHalf]||[])[livePeriod+1];
                 if(!nxt) return (
                   <div style={{fontSize:11,color:'#444',textAlign:'center',padding:'12px 0'}}>No subs planned</div>
                 );
@@ -10479,18 +10558,31 @@ function LiveMatchV2Screen({ half1, half2, config, squad, opponent, linkedFixKey
                       </div>
                     ))}
                   </div>
-                  {/* Next Period — cycles sidebar to show next planned subs */}
+                  {/* Next Sub In — alarm button */}
                   {(()=>{
-                    const maxOffset=(halves[liveHalf]||[]).length - livePeriod - 2;
+                    const periodCountdown = periodMins*60 - (elapsed % (periodMins*60));
+                    const alarm = subAlarm;
+                    const btnBg = alarm ? (flashOn ? '#ef4444' : '#7f1d1d') : '#166534';
+                    const btnBorder = alarm ? '#ef4444' : '#22c55e';
                     return (
-                      <button onClick={()=>setSubViewOffset(o=>maxOffset>0?(o+1)%Math.max(1,maxOffset+1):0)}
-                        style={{width:'100%',marginTop:4,padding:'8px',borderRadius:8,
-                          background:'linear-gradient(135deg,#F5C04A,#d97706)',border:'none',
-                          cursor:'pointer',fontSize:11,fontWeight:800,color:'#000',letterSpacing:0.3}}>
-                        ↓ Next Period
+                      <button
+                        onClick={() => alarm && setSubAlarm(false)}
+                        style={{
+                          width:'100%', marginTop:4, padding:'9px 8px', borderRadius:8,
+                          border:`1.5px solid ${btnBorder}`, background:btnBg,
+                          cursor: alarm ? 'pointer' : 'default',
+                          display:'flex', flexDirection:'column', alignItems:'center', gap:1,
+                        }}>
+                        <span style={{fontSize:8,fontWeight:800,color:alarm?'#FFF':'#86efac',letterSpacing:1,textTransform:'uppercase'}}>
+                          {alarm ? '⚠ Sub Now!' : 'Next Sub In'}
+                        </span>
+                        <span style={{fontSize:15,fontWeight:900,color:'#FFF',fontVariantNumeric:'tabular-nums',letterSpacing:1}}>
+                          {alarm ? 'Tap to dismiss' : fmtClock(periodCountdown)}
+                        </span>
                       </button>
                     );
                   })()}
+
                 </>
                 );
               })()}
@@ -11791,18 +11883,20 @@ function HomeScreen({ games, settings, onMatchDay, onGoSeason, onGoTeam, onGoMor
 }
 
 
-function AccountScreen({ onBack, onSettings, onImportExport }) {
+function AccountScreen({ onBack, onSettings, onImportExport, onAppSettings }) {
   return (
     <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, display:'flex', flexDirection:'column' }}>
-      <KhulaHeader showBack={true} onBack={onBack} title="Account" />
+      <KhulaHeader showBack={true} onBack={onBack} title="Settings" />
       <div style={{ padding:'20px 20px 8px' }}>
-        <div style={{ fontSize:28, fontWeight:900, color:'#FFFFFF', marginBottom:4 }}>Account</div>
-        <div style={{ fontSize:13, color:'#A1A1A1' }}>Manage your profile and data</div>
+        <div style={{ fontSize:28, fontWeight:900, color:'#FFFFFF', marginBottom:4 }}>Settings</div>
+        <div style={{ fontSize:13, color:'#A1A1A1' }}>Manage your profile, app and data</div>
       </div>
       <div style={{ padding:'12px 16px', display:'flex', flexDirection:'column', gap:10 }}>
         {[
-          { label:'Profile & Settings', sub:'Coach info, team name, match config', action: onSettings,
+          { label:'Profile and Team Settings', sub:'Coach info, team name, match config', action: onSettings,
             icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg> },
+          { label:'App Settings', sub:'Screen lock, display and app behaviour', action: onAppSettings,
+            icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg> },
           { label:'Data Management', sub:'Import fixtures, export & backup data', action: onImportExport,
             icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> },
         ].map((item,i) => (
@@ -11822,14 +11916,69 @@ function AccountScreen({ onBack, onSettings, onImportExport }) {
   );
 }
 
+// ════════════════════════════════════════════════════════════════════════════════
+//  SCREEN: APP SETTINGS
+// ════════════════════════════════════════════════════════════════════════════════
+function AppSettingsScreen({ onBack, settings, onSave }) {
+  const [keepScreenOn, setKeepScreenOn] = React.useState(settings.keepScreenOn !== false);
+
+  function save(val) {
+    setKeepScreenOn(val);
+    onSave({ ...settings, keepScreenOn: val });
+  }
+
+  return (
+    <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, display:'flex', flexDirection:'column' }}>
+      <KhulaHeader showBack={true} onBack={onBack} title="App Settings" />
+      <div style={{ padding:'20px 20px 8px' }}>
+        <div style={{ fontSize:28, fontWeight:900, color:'#FFFFFF', marginBottom:4 }}>App Settings</div>
+        <div style={{ fontSize:13, color:'#A1A1A1' }}>Display and app behaviour</div>
+      </div>
+      <div style={{ padding:'12px 16px', display:'flex', flexDirection:'column', gap:12 }}>
+
+        {/* ── Screen Lock section ── */}
+        <div style={{ fontSize:11, fontWeight:700, color:'#666', textTransform:'uppercase', letterSpacing:1, paddingLeft:4, marginBottom:2 }}>Match Clock</div>
+        <div style={{ background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:14, overflow:'hidden' }}>
+          <div style={{ padding:'16px', display:'flex', alignItems:'center', gap:14 }}>
+            <div style={{ width:44, height:44, borderRadius:12, background:'#F5C04A15', border:'1px solid #F5C04A30', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1"/><line x1="8" y1="6" x2="16" y2="6"/>
+              </svg>
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:15, fontWeight:700, color:'#FFFFFF', marginBottom:2 }}>Keep Screen On</div>
+              <div style={{ fontSize:12, color:'#A1A1A1' }}>Prevent the screen from locking during a live match</div>
+            </div>
+            {/* Toggle */}
+            <div onClick={() => save(!keepScreenOn)}
+              style={{ width:51, height:31, borderRadius:16, background: keepScreenOn ? '#22c55e' : '#333',
+                border: keepScreenOn ? '1px solid #16a34a' : '1px solid #444',
+                position:'relative', cursor:'pointer', flexShrink:0, transition:'background 0.2s' }}>
+              <div style={{ position:'absolute', top:3, left: keepScreenOn ? 23 : 3,
+                width:23, height:23, borderRadius:'50%', background:'#FFF',
+                boxShadow:'0 1px 4px rgba(0,0,0,0.4)', transition:'left 0.2s' }} />
+            </div>
+          </div>
+          {!keepScreenOn && (
+            <div style={{ padding:'0 16px 14px 74px', fontSize:12, color:'#F5C04A', lineHeight:1.4 }}>
+              The match clock will pause if your screen locks — tap Resume when you return.
+            </div>
+          )}
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 
 function MoreScreen({ onAccount }) {
   const items = [
     {
-      label:'Account',
-      sub:'Profile, settings and data management',
+      label:'Settings',
+      sub:'Profile, app settings and data management',
       action: onAccount,
-      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>,
+      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
     },
   ];
   return (
@@ -12409,7 +12558,8 @@ export default function App() {
   function renderScreen() {
     if(screen==="home")         return <HomeScreen games={games} settings={settings} onMatchDay={()=>goTab("match")} onGoSeason={()=>goTab("season")} onGoTeam={()=>goTab("team")} onGoMore={()=>setScreen("more")} onGoAccount={()=>setScreen("account")} setTab={goTab} />;
     if(screen==="more")         return <MoreScreen onAccount={()=>setScreen("account")} />;
-    if(screen==="account")      return <AccountScreen onBack={()=>setScreen("more")} onSettings={()=>{setSettingsBackTo("account");setScreen("settings");}} onImportExport={()=>setScreen("importExport")} />;
+    if(screen==="account")      return <AccountScreen onBack={()=>setScreen("more")} onSettings={()=>{setSettingsBackTo("account");setScreen("settings");}} onImportExport={()=>setScreen("importExport")} onAppSettings={()=>setScreen("appSettings")} />;
+    if(screen==="appSettings")  return <AppSettingsScreen onBack={()=>setScreen("account")} settings={settings} onSave={handleSaveSettings} />;
     if(screen==="settings")     return <SettingsScreen settings={settings} onSave={handleSaveSettings} onBack={()=>setScreen(settingsBackTo)} onViewImportExport={()=>setScreen("importExport")} />;
     if(screen==="importExport") return <ImportExportScreen onBack={()=>setScreen("account")} />;
     if(screen==="season")       return <SeasonHubScreen games={games} onBack={()=>goTab("home")} onOpenGame={id=>{setOpenGameId(id);setScreen("gameDetail");}} onDeleteGame={deleteGame} onScout={t=>{setScoutTeam(t);setSquadBackTo("season");setScreen("opponentStats");}} onMatchDay={()=>goTab("match")} />;
@@ -12487,7 +12637,7 @@ export default function App() {
       }}
       initialTab={pickerInitialTab} contextKey={matchContextKey} onManageSquad={()=>{setSquadMode("manage");setSquadBackTo("picker");setScreen("squad");}} onViewOpponent={t=>{setScoutTeam(t);setScreen("opponentStats");}} onViewStats={(name)=>{setPlayerStatsName(name);setScreen("playerStats");}} onViewPlayerStats={(name)=>{setPlayerStatsName(name);setScreen("playerStats");}} />;
     // screen==="match" previously rendered MatchScreen — now archived; Start Match routes to liveMatchV2
-    if(screen==="liveMatchV2")  return <LiveMatchV2Screen half1={half1} half2={half2} config={config} squad={squad} opponent={opponent} linkedFixKey={linkedFixKey} fixIsHome={fixIsHome} onSaveGame={saveGame} onPostMatch={g=>{setPostMatchGame(g);setScreen("postMatchReview");}} onExit={()=>{setActiveTab("home");setScreen("home");}}
+    if(screen==="liveMatchV2")  return <LiveMatchV2Screen half1={half1} half2={half2} config={config} squad={squad} opponent={opponent} linkedFixKey={linkedFixKey} fixIsHome={fixIsHome} keepScreenOn={settings.keepScreenOn !== false} onSaveGame={saveGame} onPostMatch={g=>{setPostMatchGame(g);setScreen("postMatchReview");}} onExit={()=>{setActiveTab("home");setScreen("home");}}
       onEditLineup={()=>{setPickerInitialTab('squad');setPickerBackTo('liveMatchV2');setScreen('picker');}} />;
     if(screen==="training")       return <TrainingScreen onBack={()=>goTab("home")} />;
     if(screen==="postMatchReview") return <PostMatchReviewScreen game={postMatchGame||{scoreUs:0,scoreThem:0}} squad={squad} opponent={opponent} config={config} onDone={()=>{ setActiveTab("home"); setScreen("home"); }} />;
