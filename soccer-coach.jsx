@@ -143,12 +143,21 @@ function getPeriodMins(cfg)      { return (cfg?.halfMins || 24) / (cfg?.numPerio
 function autoFillSlots(squad, positions) {
   const posIds = getPosIds(positions);
   const s = {}; posIds.forEach(id => s[id] = '');
-  squad.forEach(p => {
-    [p.pos, p.pos2, p.pos3].filter(Boolean).forEach(pos => {
-      if (posIds.includes(pos) && !s[pos]) s[pos] = p.name;
+  const used = new Set();
+  // Three passes: primary pos first, then pos2, then pos3.
+  // Each player is assigned to at most one slot, and gets their best
+  // available position preference before anyone gets their second choice.
+  for (const passKey of ['pos', 'pos2', 'pos3']) {
+    squad.forEach(p => {
+      if (used.has(p.name)) return;
+      const pos = p[passKey];
+      if (pos && posIds.includes(pos) && !s[pos]) {
+        s[pos] = p.name;
+        used.add(p.name);
+      }
     });
-  });
-  const used = new Set(Object.values(s).filter(Boolean));
+  }
+  // Fill any remaining empty slots with unplaced players in squad order
   const remaining = squad.map(p => p.name).filter(n => !used.has(n));
   posIds.forEach(id => { if (!s[id] && remaining.length) s[id] = remaining.shift(); });
   return s;
@@ -4431,7 +4440,7 @@ function PlayerProfileScreen({ playerName, isNew, onBack, onSave, games }) {
       }
       return p;
     }
-    return { firstName:'', lastName:'', name:'', nickname:'', number:'', pos:'', pos2:'', pos3:'', dob:'', foot:'right', height:'', canPlayGK:false, injured:false, archived:false, joined:'', coachNotes:'', devFocus:'', skills:{}, photo:'' };
+    return { firstName:'', lastName:'', name:'', nickname:'', number:'', pos:'', pos2:'', pos3:'', dob:'', foot:'right', height:'', canPlayGK:false, restrictedPos:[], injured:false, archived:false, joined:'', coachNotes:'', devFocus:'', skills:{}, photo:'' };
   };
 
   const [draft,   setDraft]   = React.useState(loadPlayer);
@@ -4821,6 +4830,20 @@ function PlayerProfileScreen({ playerName, isNew, onBack, onSave, games }) {
                   </div>
                 </div>
               </div>
+
+              {/* Never play in — view */}
+              {(draft.restrictedPos||[]).length > 0 && (
+                <div style={{ margin:'0 14px 10px', background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'12px 14px' }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:'#777', letterSpacing:1.5, textTransform:'uppercase', marginBottom:8 }}>Never play in</div>
+                  <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                    {(draft.restrictedPos||[]).map(grp => (
+                      <span key={grp} style={{ padding:'4px 10px', borderRadius:20, fontSize:12, fontWeight:600, background:'rgba(239,68,68,0.15)', color:'#f87171', outline:'1px solid rgba(239,68,68,0.3)' }}>
+                        {{'gk':'GK','def':'Defence','mid':'Midfield','att':'Attack'}[grp]||grp}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Coach Notes card */}
               <div style={{ margin:'10px 14px 14px', background:'#111', border:'1px solid #1E1E1E', borderRadius:14, overflow:'hidden' }}>
@@ -5283,6 +5306,28 @@ Respond in this exact JSON format:
             </div>
           </div>
 
+          {/* Never play in */}
+          <div style={{ background:'#111111', borderRadius:14, padding:'16px', border:'1px solid #1E1E1E', marginBottom:12 }}>
+            <div style={{ fontSize:10, fontWeight:700, color:'#777', letterSpacing:1.5, textTransform:'uppercase', marginBottom:4 }}>Never play in</div>
+            <div style={{ fontSize:11, color:'#555', marginBottom:12 }}>Optimiser will never assign this player to these groups</div>
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+              {[['gk','GK'],['def','Defence'],['mid','Midfield'],['att','Attack']].map(([grp, label]) => {
+                const restricted = (draft.restrictedPos||[]).includes(grp);
+                return (
+                  <button key={grp} onClick={() => {
+                    const cur = draft.restrictedPos || [];
+                    upd('restrictedPos', restricted ? cur.filter(g=>g!==grp) : [...cur, grp]);
+                  }} style={{
+                    padding:'7px 14px', borderRadius:20, fontSize:13, fontWeight:600, cursor:'pointer', border:'none',
+                    background: restricted ? 'rgba(239,68,68,0.15)' : '#1E1E1E',
+                    color: restricted ? '#f87171' : '#666',
+                    outline: restricted ? '1px solid rgba(239,68,68,0.4)' : '1px solid transparent'
+                  }}>{restricted ? '✕ ' : ''}{label}</button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Coach Notes */}
           <div style={{ background:'#111111', borderRadius:14, padding:'16px', border:'1px solid #1E1E1E', marginBottom:12 }}>
             <div style={{ fontSize:10, fontWeight:700, color:'#777', letterSpacing:1.5, textTransform:'uppercase', marginBottom:8 }}>Coach Notes</div>
@@ -5644,16 +5689,41 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
       if(filled>=Math.max(1,positions.length-2)) return san;
     }
     const d = loadDraft();
-    if(d.h1Periods?.length) return sanitizePeriods(d.h1Periods, squad.map(p=>p.name));
+    if(d.h1Periods?.length) {
+      const sanDraft = sanitizePeriods(d.h1Periods, squad.map(p=>p.name));
+      const draftFilled = sanDraft[0] ? Object.values(sanDraft[0]).filter(v=>v).length : 0;
+      if (draftFilled >= Math.max(1, positions.length - 2)) return sanDraft;
+      // stale draft — fall through to fresh seed
+    }
     // Seed from: 1) explicit default lineup, 2) last saved lineup, 3) auto-fill by position
     const validNames = squad.map(p=>p.name);
     const _defLU = (() => { try { return JSON.parse(localStorage.getItem('soccerCoach_defaultLineup')||'null'); } catch { return null; } })();
     const _lastLU = loadSavedLineup();
     const _base = (() => {
       if(_defLU?.slots) {
-        const auto = autoFillSlots(squad, positions);
-        const merged = {...auto};
-        Object.entries(_defLU.slots).forEach(([k,v])=>{ if(positions.find(p=>p.id===k)&&validNames.includes(v)) merged[k]=v; });
+        // Build merged lineup without duplicates:
+        // 1) Apply saved default slots first (most intentional assignments)
+        // 2) Fill remaining empty slots by position preference
+        // 3) Fill any still-empty slots with remaining players in squad order
+        const mergedUsed = new Set();
+        const merged = {};
+        posIds.forEach(id => merged[id] = '');
+        Object.entries(_defLU.slots).forEach(([k,v])=>{
+          if(posIds.includes(k) && validNames.includes(v) && !mergedUsed.has(v)) {
+            merged[k] = v; mergedUsed.add(v);
+          }
+        });
+        for (const passKey of ['pos', 'pos2', 'pos3']) {
+          squad.forEach(p => {
+            if (mergedUsed.has(p.name)) return;
+            const pos = p[passKey];
+            if (pos && posIds.includes(pos) && !merged[pos]) {
+              merged[pos] = p.name; mergedUsed.add(p.name);
+            }
+          });
+        }
+        const mergedRemaining = validNames.filter(n => !mergedUsed.has(n));
+        posIds.forEach(id => { if (!merged[id] && mergedRemaining.length) merged[id] = mergedRemaining.shift(); });
         return Array.from({length:config.numPeriods||3}, ()=>cloneSlots(merged));
       }
       if(_lastLU?.h1Periods?.length){
@@ -5672,16 +5742,41 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
       if(filled>=Math.max(1,positions.length-2)) return san;
     }
     const d = loadDraft();
-    if(d.h2Periods?.length) return sanitizePeriods(d.h2Periods, squad.map(p=>p.name));
+    if(d.h2Periods?.length) {
+      const sanDraft = sanitizePeriods(d.h2Periods, squad.map(p=>p.name));
+      const draftFilled = sanDraft[0] ? Object.values(sanDraft[0]).filter(v=>v).length : 0;
+      if (draftFilled >= Math.max(1, positions.length - 2)) return sanDraft;
+      // stale draft — fall through to fresh seed
+    }
     // Seed from: 1) explicit default lineup (mirror H1 slots), 2) last saved lineup H2, 3) auto-fill
     const validNames = squad.map(p=>p.name);
     const _defLU = (() => { try { return JSON.parse(localStorage.getItem('soccerCoach_defaultLineup')||'null'); } catch { return null; } })();
     const _lastLU = loadSavedLineup();
     const _base = (() => {
       if(_defLU?.slots) {
-        const auto = autoFillSlots(squad, positions);
-        const merged = {...auto};
-        Object.entries(_defLU.slots).forEach(([k,v])=>{ if(positions.find(p=>p.id===k)&&validNames.includes(v)) merged[k]=v; });
+        // Build merged lineup without duplicates:
+        // 1) Apply saved default slots first (most intentional assignments)
+        // 2) Fill remaining empty slots by position preference
+        // 3) Fill any still-empty slots with remaining players in squad order
+        const mergedUsed = new Set();
+        const merged = {};
+        posIds.forEach(id => merged[id] = '');
+        Object.entries(_defLU.slots).forEach(([k,v])=>{
+          if(posIds.includes(k) && validNames.includes(v) && !mergedUsed.has(v)) {
+            merged[k] = v; mergedUsed.add(v);
+          }
+        });
+        for (const passKey of ['pos', 'pos2', 'pos3']) {
+          squad.forEach(p => {
+            if (mergedUsed.has(p.name)) return;
+            const pos = p[passKey];
+            if (pos && posIds.includes(pos) && !merged[pos]) {
+              merged[pos] = p.name; mergedUsed.add(p.name);
+            }
+          });
+        }
+        const mergedRemaining = validNames.filter(n => !mergedUsed.has(n));
+        posIds.forEach(id => { if (!merged[id] && mergedRemaining.length) merged[id] = mergedRemaining.shift(); });
         return Array.from({length:config.numPeriods||3}, ()=>cloneSlots(merged));
       }
       if(_lastLU?.h2Periods?.length){
@@ -5699,6 +5794,8 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
   const [pickerTab,    setPickerTab]    = useState(initialTab||'squad');
   const [lineupMode,      setLineupMode]      = useState('manual');
   const [optimizeSummary, setOptimizeSummary] = useState(null);
+  const [showGKSetup,     setShowGKSetup]     = useState(false);
+  const [gkSetupConfig,   setGKSetupConfig]   = useState({ splitGK: true,  h1GK: '', h2GK: '' });
   const [saveConfirm,     setSaveConfirm]     = useState(false);
   const [analysisSubTab,  setAnalysisSubTab]  = useState('minutes'); // 'minutes' | 'positions'
   const [selectedPosView, setSelectedPosView] = useState(0); // index into allPeriodViews
@@ -5911,7 +6008,163 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
     return activePeriods.map((p,i)=>({ i, on:Object.values(p).includes(name), color:PAIR_COLORS[i%PAIR_COLORS.length] }));
   }
 
-  function runOptimizeRotation() {
+  // ── GK Setup Sheet ───────────────────────────────────────────────────────
+  function GKSetupSheet({ onRun, onCancel }) {
+    const [splitGK, setSplitGK] = React.useState(gkSetupConfig.splitGK);
+    const [h1GK,   setH1GK]    = React.useState(gkSetupConfig.h1GK);
+    const [h2GK,   setH2GK]    = React.useState(gkSetupConfig.h2GK);
+
+    const allActive = squad.filter(p => !p.injured && !p.archived);
+    const isGKEligible = p => p.pos === 'gk' || p.canPlayGK;
+
+    const avatarColors = ['#1d4ed8','#7c3aed','#db2777','#0891b2','#059669','#d97706','#dc2626'];
+    function avatarColor(p) { return avatarColors[(p.name||'').charCodeAt(0) % avatarColors.length]; }
+    function initials(p) { return (p.firstName || p.name || '?')[0].toUpperCase() + (p.lastName ? p.lastName[0].toUpperCase() : ''); }
+
+    // In split mode: one list, sequential taps.
+    // First tap → H1 GK (green). Second tap on a different player → H2 GK (amber).
+    // Tapping a selected player deselects them; if H1 is deselected, H2 slides up to H1.
+    function handleSplitTap(name) {
+      if (name === h1GK) {
+        // Deselect H1; H2 (if set) becomes the new H1
+        setH1GK(h2GK); setH2GK('');
+      } else if (name === h2GK) {
+        setH2GK('');
+      } else if (!h1GK) {
+        setH1GK(name);
+      } else if (!h2GK) {
+        setH2GK(name);
+      } else {
+        // Both slots filled — replace H2
+        setH2GK(name);
+      }
+    }
+
+    const canRun = splitGK ? (h1GK && h2GK) : !!h1GK;
+
+    function PlayerCard({ player }) {
+      const isH1 = h1GK === player.name;
+      const isH2 = splitGK && h2GK === player.name;
+      const color = isH1 ? '#22c55e' : isH2 ? '#f59e0b' : null;
+      const bg    = isH1 ? '#0f2a18' : isH2 ? '#2a1f00' : '#242424';
+      return (
+        <div
+          onClick={() => splitGK ? handleSplitTap(player.name) : setH1GK(player.name)}
+          style={{
+            display:'flex', flexDirection:'column', alignItems:'center', gap:5,
+            background:bg, border: color ? `2px solid ${color}` : '2px solid transparent',
+            borderRadius:12, padding:'10px 6px', cursor:'pointer', width:68, flexShrink:0, position:'relative'
+          }}>
+          {isGKEligible(player) && (
+            <div style={{
+              position:'absolute', top:4, left:4,
+              background:'#f59e0b', color:'#000', fontSize:8, fontWeight:700,
+              borderRadius:3, padding:'1px 3px', lineHeight:1.4, letterSpacing:'0.03em'
+            }}>GK</div>
+          )}
+          {/* Half label badge when selected in split mode */}
+          {(isH1 || isH2) && splitGK && (
+            <div style={{
+              position:'absolute', top:4, right:4,
+              background: color, color:'#000', fontSize:8, fontWeight:700,
+              borderRadius:3, padding:'1px 3px', lineHeight:1.4
+            }}>{isH1 ? 'H1' : 'H2'}</div>
+          )}
+          {player.photo
+            ? <img src={player.photo} alt={player.name} style={{ width:38, height:38, borderRadius:'50%', objectFit:'cover' }} />
+            : <div style={{ width:38, height:38, borderRadius:'50%', background:avatarColor(player), display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700, color:'#fff' }}>
+                {initials(player)}
+              </div>
+          }
+          <div style={{ fontSize:11, color: color || '#ccc', textAlign:'center', lineHeight:1.2, maxWidth:60, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+            {player.firstName || player.name.split(' ')[0]}
+          </div>
+          {player.number && <div style={{ fontSize:10, color:'#666' }}>#{player.number}</div>}
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:9999, display:'flex', alignItems:'flex-end' }}
+           onClick={e => { if (e.target === e.currentTarget) onCancel(); }}>
+        <div style={{ background:'#1a1a1a', borderRadius:'20px 20px 0 0', padding:'20px 16px 32px', width:'100%', maxHeight:'80dvh', overflowY:'auto' }}>
+          {/* Handle */}
+          <div style={{ width:36, height:4, background:'#444', borderRadius:2, margin:'0 auto 18px' }} />
+
+          <div style={{ fontSize:16, fontWeight:600, color:'#fff', marginBottom:4 }}>Goalkeeper setup</div>
+          <div style={{ fontSize:13, color:'#888', marginBottom:16 }}>Your choices lock in before optimising</div>
+
+          {/* Split toggle */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', background:'#242424', borderRadius:12, padding:'12px 14px', marginBottom:16 }}>
+            <span style={{ color:'#ccc', fontSize:14 }}>Different GK each half</span>
+            <div onClick={() => { setSplitGK(v => !v); setH2GK(''); }} style={{ width:44, height:26, background: splitGK ? '#f59e0b' : '#555', borderRadius:13, position:'relative', cursor:'pointer', transition:'background .2s', flexShrink:0 }}>
+              <div style={{ width:20, height:20, background:'#fff', borderRadius:'50%', position:'absolute', top:3, left: splitGK ? 21 : 3, transition:'left .2s' }} />
+            </div>
+          </div>
+
+          {/* Legend — only shown in split mode */}
+          {splitGK && (
+            <div style={{ display:'flex', gap:16, marginBottom:14, paddingLeft:2 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                <div style={{ width:12, height:12, borderRadius:3, background:'#22c55e' }} />
+                <span style={{ fontSize:12, color:'#aaa' }}>1st half GK</span>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                <div style={{ width:12, height:12, borderRadius:3, background:'#f59e0b' }} />
+                <span style={{ fontSize:12, color:'#aaa' }}>2nd half GK</span>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                <div style={{ width:12, height:12, borderRadius:3, background:'#f59e0b', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <span style={{ fontSize:7, fontWeight:700, color:'#000', lineHeight:1 }}>GK</span>
+                </div>
+                <span style={{ fontSize:12, color:'#aaa' }}>GK trained</span>
+              </div>
+            </div>
+          )}
+          {!splitGK && (
+            <div style={{ display:'flex', gap:16, marginBottom:14, paddingLeft:2 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                <div style={{ width:12, height:12, borderRadius:3, background:'#22c55e' }} />
+                <span style={{ fontSize:12, color:'#aaa' }}>Selected GK</span>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                <div style={{ width:12, height:12, borderRadius:3, background:'#f59e0b', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <span style={{ fontSize:7, fontWeight:700, color:'#000', lineHeight:1 }}>GK</span>
+                </div>
+                <span style={{ fontSize:12, color:'#aaa' }}>GK trained</span>
+              </div>
+            </div>
+          )}
+
+          <div style={{ fontSize:11, fontWeight:600, color:'#888', letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:10 }}>
+            {splitGK ? 'Tap to select — 1st then 2nd half' : 'Select goalkeeper'}
+          </div>
+
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:24 }}>
+            {allActive.map(p => <PlayerCard key={p.name} player={p} />)}
+          </div>
+
+          <button
+            disabled={!canRun}
+            onClick={() => {
+              const cfg = { splitGK, h1GK, h2GK: splitGK ? h2GK : h1GK };
+              setGKSetupConfig(cfg);
+              setShowGKSetup(false);
+              onRun(cfg);
+            }}
+            style={{ width:'100%', background: canRun ? '#22c55e' : '#2a2a2a', color: canRun ? '#000' : '#555', fontSize:15, fontWeight:700, border:'none', borderRadius:12, padding:14, cursor: canRun ? 'pointer' : 'default' }}>
+            Run optimiser
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function openGKSetup() { setShowGKSetup(true); }
+
+  function runOptimizeRotation(gkConfig) {
+    // gkConfig = { splitGK: bool, h1GK: string, h2GK: string }
+    // If not provided (legacy call), fall through with no GK override.
     const nP        = config?.numPeriods     || 3;
     const mode      = config?.rotationMode   || 'balanced';
     const threshold = config?.rotationThreshold ?? 1;
@@ -5944,23 +6197,22 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
     const activePlayers = squad.filter(p => !p.injured && !p.archived);
 
     // priorPeriods: completed periods from the PREVIOUS half (so H2 can account for H1 history)
+    // Returns true if the player is not restricted from the given position's group
+    function notRestricted(player, posId) {
+      const grp = POS_GROUP[posId] || posId;
+      return !(player.restrictedPos || []).includes(grp);
+    }
+
     function optimizeHalf(startPeriods, halfIdx, priorPeriods = []) {
-      const periods = startPeriods.map(cloneSlots);
-      const gkInP0  = periods[0]['gk'] || null;
+      const periods        = startPeriods.map(cloneSlots);
+      const gkInP0         = periods[0]['gk'] || null;
       const outfieldPosIds = posIds.filter(id => id !== 'gk');
+      const nOutfield      = outfieldPosIds.length;
+      const eligibleOutfield = activePlayers.filter(pl => pl.name !== gkInP0 && pl.pos !== 'gk');
 
       for (let p = 1; p < nP; p++) {
         if (coachLockedRef.current.has(`${halfIdx}-${p}`)) continue;
 
-        const prev = periods[p - 1];
-        const curr = cloneSlots(prev);
-        curr['gk'] = gkInP0;
-
-        const onField = outfieldPosIds.map(id => prev[id]).filter(Boolean);
-        const eligibleOutfield = activePlayers.filter(pl => pl.name !== gkInP0 && pl.pos !== 'gk');
-        const onBench = eligibleOutfield.filter(pl => !onField.includes(pl.name));
-
-        // All periods seen so far: prior half + this half up to (not including) p
         const allPeriodsToHere = [...priorPeriods, ...periods.slice(0, p)];
 
         // Consecutive bench streak per player — carries across halves
@@ -5981,63 +6233,181 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
           ).length;
         });
 
-        // Must-come-on: no player should sit out 2+ consecutive periods
-        const mustComeOn = onBench.filter(pl => benchStreaks[pl.name] >= 1);
+        if (mode === 'preferred') {
+          // ── PREFERRED: strict position matching (unchanged) ──────────────────
+          const prev   = periods[p - 1];
+          const curr   = cloneSlots(prev);
+          curr['gk']   = gkInP0;
+          const onField = outfieldPosIds.map(id => prev[id]).filter(Boolean);
+          const onBench = eligibleOutfield.filter(pl => !onField.includes(pl.name));
+          const mustComeOn = onBench.filter(pl => benchStreaks[pl.name] >= 1);
+          const incoming = [...mustComeOn].sort(
+            (a,b) => benchStreaks[b.name] - benchStreaks[a.name] || periodsOnField[a.name] - periodsOnField[b.name]
+          );
+          const goingOff = new Set();
+          const comingOn = new Set();
+          for (const inc of incoming) {
+            if (comingOn.has(inc.name)) continue;
+            const streak = benchStreaks[inc.name];
+            const slots = outfieldPosIds
+              .filter(id => {
+                const occ = curr[id];
+                if (!occ || goingOff.has(occ) || comingOn.has(occ)) return false;
+                return canPlay(inc, id, streak);
+              })
+              .sort((a,b) => {
+                const aScore = inc.pos===a ? 2 : inc.pos2===a ? 1 : 0;
+                const bScore = inc.pos===b ? 2 : inc.pos2===b ? 1 : 0;
+                if (bScore !== aScore) return bScore - aScore;
+                return (periodsOnField[curr[b]]||0) - (periodsOnField[curr[a]]||0);
+              });
+            if (slots.length === 0) continue;
+            const slot = slots[0];
+            curr[slot] = inc.name;
+            goingOff.add(curr[slot]);
+            comingOn.add(inc.name);
+          }
+          periods[p] = curr;
 
-        // Build incoming queue: must-come-on first (most bench time → first), then
-        // in fair mode also queue remaining bench players (fewest field time → first)
-        const incoming = [...mustComeOn].sort(
-          (a,b) => benchStreaks[b.name] - benchStreaks[a.name] || periodsOnField[a.name] - periodsOnField[b.name]
-        );
-        if (mode === 'fair') {
-          const extra = onBench
-            .filter(pl => !mustComeOn.includes(pl))
-            .sort((a,b) => periodsOnField[a.name] - periodsOnField[b.name]);
-          incoming.push(...extra);
+        } else {
+          // ── BALANCED / FAIR: time-fairness with positional assignment ────────
+          //
+          // Step 1 — decide WHO plays this period:
+          //   • Hard rule: any player with bench streak ≥ 1 MUST play (they have
+          //     already sat one period — they cannot sit two in a row).
+          //   • Among remaining slots, prefer the least-played players.
+          //   • Tiebreak by bench streak (longest wait goes first).
+          const mustPlay = new Set(
+            eligibleOutfield.filter(pl => benchStreaks[pl.name] >= 1).map(pl => pl.name)
+          );
+
+          const sortedByNeed = [...eligibleOutfield].sort((a, b) => {
+            const aMust = mustPlay.has(a.name) ? 0 : 1;
+            const bMust = mustPlay.has(b.name) ? 0 : 1;
+            if (aMust !== bMust) return aMust - bMust;
+            if (periodsOnField[a.name] !== periodsOnField[b.name])
+              return periodsOnField[a.name] - periodsOnField[b.name];
+            return benchStreaks[b.name] - benchStreaks[a.name];
+          });
+
+          const selected = sortedByNeed.slice(0, nOutfield);
+
+          // Step 2 — assign selected players to positions.
+          //
+          //   Pass 0 → HARD RULE: any player who was already on the field in the
+          //             previous period must stay in exactly the same position.
+          //             Direct position changes (LM → LB) are not allowed; a player
+          //             must go via the bench first.
+          //   Pass 1 → primary position (pos)          — bench entrants only
+          //   Pass 2 → secondary position (pos2)       — bench entrants only
+          //   Pass 3 → tertiary position (pos3)        — bench entrants only
+          //   Pass 4 → same position group             — bench entrants, balanced only
+          //   Pass 5 → any empty slot (last resort)    — bench entrants only
+          const curr = {};
+          posIds.forEach(id => curr[id] = '');
+          curr['gk'] = gkInP0;
+          const assigned = new Set();
+          const prevPeriodSlots = periods[p - 1];
+
+          // Pass 0: lock continuing field players into their existing position
+          for (const pl of selected) {
+            if (assigned.has(pl.name)) continue;
+            const prevPos = outfieldPosIds.find(id => prevPeriodSlots[id] === pl.name);
+            if (prevPos !== undefined) {
+              curr[prevPos] = pl.name;
+              assigned.add(pl.name);
+            }
+          }
+          // Passes 1-5: assign players coming on from the bench
+          for (const pl of selected) {
+            if (assigned.has(pl.name)) continue;
+            if (pl.pos && outfieldPosIds.includes(pl.pos) && !curr[pl.pos] && notRestricted(pl, pl.pos)) {
+              curr[pl.pos] = pl.name; assigned.add(pl.name);
+            }
+          }
+          for (const pl of selected) {
+            if (assigned.has(pl.name)) continue;
+            if (pl.pos2 && outfieldPosIds.includes(pl.pos2) && !curr[pl.pos2] && notRestricted(pl, pl.pos2)) {
+              curr[pl.pos2] = pl.name; assigned.add(pl.name);
+            }
+          }
+          for (const pl of selected) {
+            if (assigned.has(pl.name)) continue;
+            if (pl.pos3 && outfieldPosIds.includes(pl.pos3) && !curr[pl.pos3] && notRestricted(pl, pl.pos3)) {
+              curr[pl.pos3] = pl.name; assigned.add(pl.name);
+            }
+          }
+          if (mode === 'balanced') {
+            for (const pl of selected) {
+              if (assigned.has(pl.name)) continue;
+              const grp = POS_GROUP[pl.pos];
+              const slot = outfieldPosIds.find(id => !curr[id] && POS_GROUP[id] === grp && notRestricted(pl, id));
+              if (slot) { curr[slot] = pl.name; assigned.add(pl.name); }
+            }
+          }
+          // Any remaining unassigned players fill leftover empty slots (respecting restrictions)
+          const emptySlots = outfieldPosIds.filter(id => !curr[id]);
+          let emptyIdx = 0;
+          for (const pl of selected) {
+            if (assigned.has(pl.name)) continue;
+            // Find next empty slot this player is not restricted from
+            while (emptyIdx < emptySlots.length && !notRestricted(pl, emptySlots[emptyIdx])) emptyIdx++;
+            if (emptyIdx < emptySlots.length) {
+              curr[emptySlots[emptyIdx++]] = pl.name;
+              assigned.add(pl.name);
+            }
+          }
+
+          periods[p] = curr;
         }
-
-        const goingOff = new Set();
-        const comingOn  = new Set();
-
-        for (const inc of incoming) {
-          if (comingOn.has(inc.name)) continue;
-          const streak = benchStreaks[inc.name];
-
-          const slots = outfieldPosIds
-            .filter(id => {
-              const occ = curr[id];
-              if (!occ || goingOff.has(occ) || comingOn.has(occ)) return false;
-              return canPlay(inc, id, streak);
-            })
-            .sort((a,b) => {
-              // Prefer exact position match, then secondary
-              const aScore = inc.pos===a ? 2 : inc.pos2===a ? 1 : 0;
-              const bScore = inc.pos===b ? 2 : inc.pos2===b ? 1 : 0;
-              if (bScore !== aScore) return bScore - aScore;
-              // Replace the player with the most field time
-              return (periodsOnField[curr[b]]||0) - (periodsOnField[curr[a]]||0);
-            });
-
-          if (slots.length === 0) continue;
-
-          const slot = slots[0];
-          const out  = curr[slot];
-
-          // Fair mode: only swap if it genuinely helps balance (incoming has fewer periods)
-          if (mode === 'fair' && streak < 1 && (periodsOnField[inc.name]||0) >= (periodsOnField[out]||0)) continue;
-
-          curr[slot] = inc.name;
-          goingOff.add(out);
-          comingOn.add(inc.name);
-        }
-
-        periods[p] = curr;
       }
       return periods;
     }
 
-    const newH1 = optimizeHalf(h1Periods, 0);
-    const newH2 = optimizeHalf(h2Periods, 1, newH1); // pass H1 so H2 accounts for full-match history
+    // ── Apply coach-chosen GKs before optimising ─────────────────────────────
+    // Rewrite the GK slot in every period of each half so the optimizer
+    // inherits the correct GK from period 0 and the no-position-change rule
+    // locks them in for all subsequent periods automatically.
+    function applyChosenGK(periods, chosenGK) {
+      if (!chosenGK) return periods;
+      return periods.map(p => {
+        const next = { ...p, gk: chosenGK };
+        // Remove chosen GK from any outfield slot — prevents them appearing twice
+        Object.keys(next).forEach(k => {
+          if (k !== 'gk' && next[k] === chosenGK) next[k] = '';
+        });
+        return next;
+      });
+    }
+    const h1GK = gkConfig?.h1GK || gkConfig?.h2GK || null;
+    const h2GK = gkConfig?.splitGK ? (gkConfig?.h2GK || null) : h1GK;
+    const h1PeriodsForOpt = applyChosenGK(h1Periods, h1GK);
+    const h2PeriodsForOpt = applyChosenGK(h2Periods, h2GK);
+
+    const newH1raw = optimizeHalf(h1PeriodsForOpt, 0);
+    const newH2raw = optimizeHalf(h2PeriodsForOpt, 1, newH1raw); // pass H1 so H2 accounts for full-match history
+
+    // ── Checksum: remove duplicate player entries from each period ────────────
+    // GK slot wins; remaining slots are scanned left-to-right.
+    // Also ensures bench count = squad size − filled slots (no phantom extras).
+    function deduplicatePeriod(period) {
+      const seen = new Set();
+      const next = { ...period };
+      // GK is locked — register them first
+      if (next['gk']) seen.add(next['gk']);
+      posIds.filter(id => id !== 'gk').forEach(id => {
+        const name = next[id];
+        if (!name) return;
+        if (seen.has(name)) {
+          next[id] = ''; // duplicate — clear this slot
+        } else {
+          seen.add(name);
+        }
+      });
+      return next;
+    }
+    const newH1 = newH1raw.map(deduplicatePeriod);
+    const newH2 = newH2raw.map(deduplicatePeriod);
     pushUndo();
     setH1Periods(newH1);
     setH2Periods(newH2);
@@ -6181,7 +6551,7 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
           },
           { label: lineupMode==='optimize' ? 'Re-run Optimize Rotation' : 'Optimize Rotation',
             icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>,
-            action: runOptimizeRotation
+            action: openGKSetup
           },
         ]}
       />}
@@ -7480,6 +7850,8 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
       )}
 
       {/* ── Shared rotation summary renderer ── */}
+      {showGKSetup && <GKSetupSheet onRun={runOptimizeRotation} onCancel={() => setShowGKSetup(false)} />}
+
       {(optimizeSummary || saveConfirm) && (() => {
         const groups   = optimizeSummary || buildRotationSummary();
         const isSave   = !!saveConfirm;
@@ -7566,7 +7938,7 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
                 Undo
               </button>
-              <button onClick={runOptimizeRotation}
+              <button onClick={openGKSetup}
                 style={{ ...btnBase, color:'#34d399', borderColor:'rgba(52,211,153,0.25)' }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
                 Optimise
@@ -11134,210 +11506,119 @@ function MatchDayScreen({ settings, onStartMatch, onLineup, onScout, onSettings,
   );
 }
 
-function generatePostMatchOutputs({ game, opponent, teamName, oppR, ourR, notes, priorities, mostImproved, playerNotes, isQuick }) {
-  const won = game.scoreUs > game.scoreThem;
+// ════════════════════════════════════════════════════════════════════════════════
+//  HELPERS: POST MATCH OUTPUTS
+// ════════════════════════════════════════════════════════════════════════════════
+function generatePostMatchOutputs({ game, opponent, teamName, priorities, mostImproved }) {
+  const won  = game.scoreUs > game.scoreThem;
   const drew = game.scoreUs === game.scoreThem;
   const result = won ? 'won' : drew ? 'drew' : 'lost';
-  const score = `${game.scoreUs}–${game.scoreThem}`;
-  const emoji = won ? '🏆' : drew ? '🤝' : '💪';
+  const score  = `${game.scoreUs}–${game.scoreThem}`;
+  const emoji  = won ? '🏆' : drew ? '🤝' : '💪';
 
-  const avgRating = (obj) => {
-    const vals = Object.values(obj).filter(v => v > 0);
-    return vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : null;
-  };
-  const stars = (n) => '★'.repeat(Math.round(n||0)) + '☆'.repeat(5-Math.round(n||0));
-  const oppAvg = avgRating(oppR);
-  const ourAvg = avgRating(ourR);
-
-  // Derive strengths/weaknesses from ratings
-  const oppStrengths = Object.entries(oppR).filter(([,v])=>v>=4).map(([k])=>k);
-  const oppWeaknesses = Object.entries(oppR).filter(([,v])=>v<=2).map(([k])=>k);
-  const ourStrengths = Object.entries(ourR).filter(([,v])=>v>=4).map(([k])=>k);
-  const ourWeaknesses = Object.entries(ourR).filter(([,v])=>v<=2).map(([k])=>k);
-
-  const label = (k) => ({
-    overallStrength:'Overall Strength', attacking:'Attacking', defending:'Defending',
-    passing:'Passing', pressing:'Pressing', physicality:'Physicality', goalkeeper:'Goalkeeper',
-    overallPerformance:'Overall Performance', teamShape:'Team Shape', communication:'Communication',
-    workRate:'Work Rate', decisionMaking:'Decision Making', composure:'Composure', finishing:'Finishing'
-  }[k] || k);
-
-  // 1. Parent Summary
+  // Parent Summary — WhatsApp-ready
   const parentSummary = [
     `${emoji} ${teamName} ${result} ${score} against ${opponent} today!`,
-    notes.ourPleased ? `\n✅ ${notes.ourPleased}` : (ourStrengths.length ? `\n✅ Great ${ourStrengths.slice(0,2).map(label).join(' & ').toLowerCase()} today.` : ''),
-    priorities.length ? `\n📈 This week we'll focus on: ${priorities.slice(0,2).join(' & ')}.` : (notes.ourImprove ? `\n📈 Next focus: ${notes.ourImprove.split('.')[0]}.` : ''),
+    priorities.length ? `\n📈 This week we'll focus on: ${priorities.slice(0,2).join(' & ')}.` : '',
     mostImproved ? `\n⭐ Special shoutout to ${mostImproved} for their improvement today!` : '',
     `\nWell done everyone! 👏`,
   ].filter(Boolean).join('');
 
-  // 2. Scout Report
-  const scoutLines = [`${opponent} – Scout Report`, `Overall: ${oppAvg ? stars(oppAvg) + ' (' + oppAvg + '/5)' : 'Not rated'}`, ''];
-  Object.entries(oppR).forEach(([k,v]) => { if(v) scoutLines.push(`${label(k)}: ${stars(v)}`); });
-  if(oppStrengths.length) { scoutLines.push('', 'Strengths:'); oppStrengths.forEach(k => scoutLines.push(`• Strong ${label(k).toLowerCase()}`)); }
-  if(oppWeaknesses.length) { scoutLines.push('', 'Vulnerabilities:'); oppWeaknesses.forEach(k => scoutLines.push(`• Weak ${label(k).toLowerCase()}`)); }
-  if(notes.oppDidWell) scoutLines.push('', 'What they did well:', notes.oppDidWell);
-  if(notes.oppProblems) scoutLines.push('', 'Caused us problems with:', notes.oppProblems);
-  if(notes.oppAdvice) scoutLines.push('', 'Coach advice:', notes.oppAdvice);
-  const scoutReport = scoutLines.join('\n');
+  // Training Recommendation
+  const trainingRec = priorities.length
+    ? ['Recommended Training Focus:', ...priorities.map((p,i) => `${i===0?'Primary':'Additional'}: ${p}`)].join('\n')
+    : 'No training priorities selected.';
 
-  // 3. Team Review
-  const teamLines = [`${teamName} – Match Review vs ${opponent} (${score})`, ''];
-  if(ourAvg) teamLines.push(`Overall Rating: ${stars(ourAvg)} (${ourAvg}/5)`, '');
-  if(ourStrengths.length || notes.ourPleased) {
-    teamLines.push('Positives:');
-    if(notes.ourPleased) teamLines.push(`• ${notes.ourPleased}`);
-    ourStrengths.forEach(k => teamLines.push(`• Strong ${label(k).toLowerCase()}`));
-  }
-  if(ourWeaknesses.length || notes.ourImprove || priorities.length) {
-    teamLines.push('', 'Development Areas:');
-    if(notes.ourImprove) teamLines.push(`• ${notes.ourImprove}`);
-    ourWeaknesses.forEach(k => teamLines.push(`• Improve ${label(k).toLowerCase()}`));
-  }
-  const teamReview = teamLines.join('\n');
-
-  // 4. Training Recommendation
-  const trainingLines = ['Recommended Training Focus:'];
-  if(priorities.length) { priorities.forEach((p,i) => trainingLines.push(`${i===0?'Primary':'Additional'}: ${p}`)); }
-  else if(ourWeaknesses.length) { ourWeaknesses.slice(0,3).forEach(k => trainingLines.push(`• ${label(k)}`)); }
-  const trainingRec = trainingLines.join('\n');
-
-  // 5. Player Updates
-  const playerLines = [];
-  if(mostImproved) playerLines.push(`⭐ Most Improved: ${mostImproved}`);
-  Object.entries(playerNotes).filter(([,v])=>v.trim()).forEach(([name,note]) => {
-    playerLines.push('', `${name}:`, note);
-  });
-  const playerUpdates = playerLines.length ? playerLines.join('\n') : 'No individual notes recorded.';
-
-  return { parentSummary, scoutReport, teamReview, trainingRec, playerUpdates };
+  return { parentSummary, trainingRec };
 }
 
+// ════════════════════════════════════════════════════════════════════════════════
+//  SCREEN: POST MATCH REVIEW (new simplified 2-step flow)
+// ════════════════════════════════════════════════════════════════════════════════
 function PostMatchReviewScreen({ game, squad, opponent, config, onDone }) {
   const teamName = config?.teamName || localStorage.getItem('soccerCoach_fixtureTeam') || 'Us';
   const players  = (squad || []).map(p => p.name);
 
-  const [step,            setStep]           = React.useState(0); // 0=summary, 1=ratings, 2=notes, 3=training
-  const [oppR,            setOppR]           = React.useState({});
-  const [ourR,            setOurR]           = React.useState({});
-  const [notes,           setNotes]          = React.useState({ oppProblems:'', oppDidWell:'', oppAdvice:'', ourPleased:'', ourImprove:'' });
-  const [priorities,      setPriorities]     = React.useState([]);
-  const [mostImproved,    setMostImproved]   = React.useState('');
-  const [playerNotes,     setPlayerNotes]    = React.useState({});
-  const [generating,      setGenerating]     = React.useState(false);
-  const [outputs,         setOutputs]        = React.useState(null);
-  const [copiedKey,       setCopiedKey]      = React.useState(null);
-  const [listeningField,  setListeningField] = React.useState(null);
-  const [aiReview,        setAiReview]       = React.useState('');
+  const [step,          setStep]         = React.useState(0);
+  const [extraNotes,    setExtraNotes]   = React.useState('');
+  const [priorities,    setPriorities]   = React.useState([]);
+  const [mostImproved,  setMostImproved] = React.useState('');
+  const [generating,    setGenerating]   = React.useState(false);
+  const [outputs,       setOutputs]      = React.useState(null);
+  const [aiReview,      setAiReview]     = React.useState('');
+  const [listening,     setListening]    = React.useState(false);
+  const [copiedKey,     setCopiedKey]    = React.useState(null);
+  const [showAllVoice,  setShowAllVoice] = React.useState(false);
   const recogRef = React.useRef(null);
 
-  const won  = game.scoreUs > game.scoreThem;
-  const drew = game.scoreUs === game.scoreThem;
+  const won  = (game.scoreUs || 0) > (game.scoreThem || 0);
+  const drew = (game.scoreUs || 0) === (game.scoreThem || 0);
   const resultColor = won ? '#22c55e' : drew ? '#F5C04A' : '#ef4444';
   const resultLabel = won ? 'WIN' : drew ? 'DRAW' : 'LOSS';
 
-  const voiceNotes   = game.voiceNotes || '';
-  const matchEvents  = game.matchEvents || [];
-  const goals        = game.goals || [];
+  const voiceNotes   = game.voiceNotes   || '';
+  const matchEvents  = game.matchEvents  || [];
+  const goals        = game.goals        || [];
 
-  // Format match events for display/AI
-  function fmtEvents(evts) {
-    return evts.map(e => {
-      const rule = (typeof MATCH_EVENT_RULES !== 'undefined' ? MATCH_EVENT_RULES : []).find(r => r.type === e.type) || { icon:'📝', label: e.type };
-      const team = e.team === 'us' ? teamName : (opponent || 'Them');
-      const parts = [];
-      if (e.player) parts.push(e.player + (e.secondaryPlayer ? ` (assist: ${e.secondaryPlayer})` : ''));
-      if (e.category) parts.push(`cause: ${e.category}`);
-      const noteVal = e.note || e.notes || '';
-      if (noteVal) parts.push(noteVal);
-      return `${rule.icon} ${e.minute}' ${rule.label}${e.team ? ` (${team})` : ''}${parts.length ? ' — ' + parts.join(', ') : ''}`;
-    }).join('\n');
+  const ALL_PRIORITIES = ['Building Out','Playing Through Midfield','Final Third','Finishing','Width',
+    'Switching Play','First Touch','Passing','Communication','Team Shape','Pressing','Recovery Runs',
+    'Counter Attacking','1v1 Attacking','1v1 Defending','Throw Ins','Corners','Goal Kicks','Goalkeeping'];
+
+  function togglePriority(p) {
+    setPriorities(prev => prev.includes(p) ? prev.filter(x=>x!==p) : prev.length < 3 ? [...prev,p] : prev);
   }
 
-  // ── Voice dictation ──────────────────────────────────────────────────────────
-  function toggleVoice(field) {
-    if (listeningField === field) { recogRef.current && recogRef.current.stop(); setListeningField(null); return; }
+  // ── Voice dictation for extra notes ──────────────────────────────────────────
+  function toggleVoice() {
+    if (listening) { recogRef.current && recogRef.current.stop(); setListening(false); return; }
     if (!SpeechRec) return;
     const r = new SpeechRec();
     r.continuous = true; r.interimResults = false; r.lang = 'en-AU';
-    r.onresult = e => { const t = Array.from(e.results).map(x=>x[0].transcript).join(' '); setNotes(prev=>({...prev,[field]:(prev[field]?prev[field]+' ':'')+t})); };
-    r.onend = () => setListeningField(null);
-    recogRef.current = r; r.start(); setListeningField(field);
+    r.onresult = e => {
+      const t = Array.from(e.results).map(x=>x[0].transcript).join(' ');
+      setExtraNotes(prev => (prev ? prev + ' ' : '') + t);
+    };
+    r.onend = () => setListening(false);
+    recogRef.current = r; r.start(); setListening(true);
   }
 
-  // ── Star rating ──────────────────────────────────────────────────────────────
-  function StarRow({ label, field, ratings, setRatings }) {
-    const val = ratings[field] || 0;
-    return (
-      <div style={{display:'flex',alignItems:'center',padding:'10px 0',borderBottom:'1px solid #1E1E1E'}}>
-        <div style={{flex:1,fontSize:13,color:'#A1A1A1'}}>{label}</div>
-        <div style={{display:'flex',gap:2}}>
-          {[1,2,3,4,5].map(n=>(
-            <button key={n} onClick={()=>setRatings(prev=>({...prev,[field]:n}))}
-              style={{background:'none',border:'none',cursor:'pointer',padding:'2px',fontSize:26,lineHeight:1,color:n<=val?'#F5C04A':'#2A2A2A',transition:'color 0.1s'}}>★</button>
-          ))}
-        </div>
-      </div>
-    );
+  // ── Format match events ───────────────────────────────────────────────────────
+  function fmtEvents(evts) {
+    return evts.map(e => {
+      const rule = (typeof MATCH_EVENT_RULES !== 'undefined' ? MATCH_EVENT_RULES : []).find(r=>r.type===e.type) || {icon:'📝',label:e.type};
+      const team = e.team === 'us' ? teamName : (opponent || 'Them');
+      const noteVal = e.note || e.notes || '';
+      const parts = [];
+      if (e.player) parts.push(e.player + (e.secondaryPlayer ? ` (assist: ${e.secondaryPlayer})` : ''));
+      if (noteVal) parts.push(noteVal);
+      return `${rule.icon} ${e.minute}' ${rule.label} (${team})${parts.length ? ' — ' + parts.join(', ') : ''}`;
+    }).join('\n');
   }
 
-  // ── Note field with mic ──────────────────────────────────────────────────────
-  function InnerNoteField({ label, field, placeholder, rows=3 }) {
-    const isLive = listeningField === field;
-    return (
-      <div style={{marginBottom:14}}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
-          <div style={{fontSize:12,fontWeight:700,color:'#A1A1A1',textTransform:'uppercase',letterSpacing:0.8}}>{label}</div>
-          {SpeechRec && (
-            <button onClick={()=>toggleVoice(field)}
-              style={{background:isLive?'#ef444418':'none',border:isLive?'1px solid #ef4444':'none',borderRadius:6,padding:'3px 8px',cursor:'pointer',display:'flex',alignItems:'center',gap:4,color:isLive?'#ef4444':'#555'}}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
-              <span style={{fontSize:10,fontWeight:700}}>{isLive?'Stop':'Dictate'}</span>
-            </button>
-          )}
-        </div>
-        <textarea value={notes[field]} onChange={e=>setNotes(prev=>({...prev,[field]:e.target.value}))}
-          placeholder={placeholder} rows={rows}
-          style={{width:'100%',background:'#0D0D0D',border:`1px solid ${isLive?'#ef4444':'#2A2A2A'}`,borderRadius:10,padding:'10px 12px',color:'#FFF',fontSize:13,outline:'none',resize:'vertical',fontFamily:'inherit',boxSizing:'border-box',lineHeight:1.5}}/>
-      </div>
-    );
-  }
-
-  // ── Training priorities ──────────────────────────────────────────────────────
-  const ALL_PRIORITIES = ['Building Out','Playing Through Midfield','Final Third','Finishing','Width','Switching Play','First Touch','Passing','Communication','Team Shape','Pressing','Recovery Runs','Counter Attacking','1v1 Attacking','1v1 Defending','Throw Ins','Corners','Goal Kicks','Goalkeeping'];
-  function togglePriority(p) { setPriorities(prev=>prev.includes(p)?prev.filter(x=>x!==p):prev.length<3?[...prev,p]:prev); }
-
-  // ── Delete voice transcript from saved game ──────────────────────────────────
-  const [localVoiceNotes, setLocalVoiceNotes] = React.useState(voiceNotes);
-  function deleteTranscript() {
-    setLocalVoiceNotes('');
-    try {
-      const games = loadGames();
-      const updated = games.map(g => g.id === game.id ? { ...g, voiceNotes: '' } : g);
-      saveGames(updated);
-    } catch {}
-  }
-
-  // ── Build AI prompt ────────────────────────────────────────────────────────────
+  // ── Build AI prompt ───────────────────────────────────────────────────────────
   function buildAIPrompt() {
-    const us = goals.filter(g=>g.team==='us').length;
+    const us   = goals.filter(g=>g.team==='us').length;
     const them = goals.filter(g=>g.team==='them').length;
-    const goalSummary = goals.map(g=>`${g.team==='us'?`${g.scorer||'Unknown'}${g.position?` (${g.position})`:''} (us)`:'Opponent'} — H${g.half} ${g.timeStr}`).join('\n') || 'No goals logged';
+    const goalSummary = goals.length
+      ? goals.map(g => g.team==='us'
+          ? `⚽ ${g.scorer||'Unknown'} (us) — H${g.half} ${g.timeStr}`
+          : `⚽ ${opponent} (them) — H${g.half} ${g.timeStr}`
+        ).join('\n')
+      : 'No goals logged';
     const evtSummary = matchEvents.length ? fmtEvents(matchEvents) : 'No match events recorded';
-    const coachNotes = [
-      notes.ourPleased ? `What pleased us: ${notes.ourPleased}` : '',
-      notes.ourImprove ? `Areas to improve: ${notes.ourImprove}` : '',
-      notes.oppProblems ? `Opposition caused problems with: ${notes.oppProblems}` : '',
-      notes.oppAdvice ? `Advice for playing them: ${notes.oppAdvice}` : '',
-      priorities.length ? `Training priorities: ${priorities.join(', ')}` : '',
-      mostImproved ? `Most improved: ${mostImproved}` : '',
-    ].filter(Boolean).join('\n');
-    const pNotes = Object.entries(playerNotes).filter(([,v])=>v.trim()).map(([n,v])=>`${n}: ${v}`).join('\n');
-    return `Generate a detailed match review for a U11 girls soccer match. Be direct and factual. Do not embellish with fluff.
+    const squadDevFocus = (() => {
+      try {
+        const sq = JSON.parse(localStorage.getItem('soccerCoach_squad')||'[]');
+        const lines = sq.filter(p=>p.devFocus&&p.devFocus.trim()).map(p=>`${p.name}: ${p.devFocus.split('\n')[0]}`).join('\n');
+        return lines ? `\nPlayer development focus:\n${lines}` : '';
+      } catch { return ''; }
+    })();
+
+    return `Generate a detailed match review for a U11 girls soccer match. Be direct and factual.
 
 Opponent: ${opponent || 'Opposition'}
 Formation: ${game.config?.formation || '1-3-2-3'}
-Final score: Us ${us} – Them ${them}
+Final score: ${teamName} ${us} – ${opponent} ${them}
 Result: ${won?'Win':drew?'Draw':'Loss'}
 
 Goals:
@@ -11345,52 +11626,76 @@ ${goalSummary}
 
 Match events:
 ${evtSummary}
-${localVoiceNotes.trim() ? `\nVoice note transcription from coach:\n${localVoiceNotes.trim()}` : ''}
-${coachNotes ? `\nCoach notes:\n${coachNotes}` : ''}
-${pNotes ? `\nPlayer observations:\n${pNotes}` : ''}
-${(()=>{ try { const sq=JSON.parse(localStorage.getItem('soccerCoach_squad')||'[]'); const devLines=sq.filter(p=>p.devFocus&&p.devFocus.trim()).map(p=>`${p.name}: ${p.devFocus.split('\n')[0]}`).join('\n'); return devLines?`\nPlayer development focus:\n${devLines}`:''; } catch{return '';} })()}
+${voiceNotes.trim() ? `\nCoach voice notes (captured during match):\n${voiceNotes.trim()}` : ''}
+${extraNotes.trim() ? `\nCoach post-match notes:\n${extraNotes.trim()}` : ''}
+${priorities.length ? `\nTraining priorities identified: ${priorities.join(', ')}` : ''}
+${mostImproved ? `\nMost improved player: ${mostImproved}` : ''}
+${squadDevFocus}
 
-Write 3-4 focused paragraphs covering: result and key moments, what worked well (with player names where known), 1-2 clear development areas referencing individual development focus where relevant, and brief next steps. Be specific and grounded.`;
+Write 3–4 focused paragraphs: result and key moments, what worked well (with specific player names from voice notes and events), 1–2 clear development areas, brief next steps.
+
+Then on a new line write exactly "PLAYER NOTES:" followed by individual observations for any player specifically mentioned in the voice notes or events. Format each as:
+[Name]: [strength/development] — [one sentence observation]
+
+Be specific and grounded. Do not invent observations not supported by the notes.`;
   }
 
-  // ── Generate match notes (AI + local outputs) ─────────────────────────────────
+  // ── Generate ──────────────────────────────────────────────────────────────────
   async function handleGenerate() {
     setGenerating(true);
-    // Run local outputs
-    const result = generatePostMatchOutputs({ game, opponent, teamName, oppR, ourR, notes, priorities, mostImproved, playerNotes, isQuick: true });
-    // Run AI review
+    const localOut = generatePostMatchOutputs({ game, opponent, teamName, priorities, mostImproved });
+
     let ai = '';
     try {
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method:'POST',
-        headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01'},
-        body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:900, messages:[{role:'user',content:buildAIPrompt()}] })
+        method: 'POST',
+        headers: { 'Content-Type':'application/json','anthropic-version':'2023-06-01' },
+        body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1200, messages:[{role:'user',content:buildAIPrompt()}] })
       });
       const data = await resp.json();
       ai = data?.content?.[0]?.text || '';
     } catch {}
-    setAiReview(ai);
+
+    // Split AI response into review + player notes
+    let aiMatchReview = ai;
+    let aiPlayerNotes = '';
+    const pnSplit = ai.indexOf('PLAYER NOTES:');
+    if (pnSplit !== -1) {
+      aiMatchReview = ai.slice(0, pnSplit).trim();
+      aiPlayerNotes = ai.slice(pnSplit + 'PLAYER NOTES:'.length).trim();
+    }
+
+    setAiReview(aiMatchReview);
+
+    // ── Persist to storage ────────────────────────────────────────────────────
     try {
-      const key = 'soccerCoach_postMatch_' + (game.id || Date.now());
+      // Save post-match record
       const stored = JSON.parse(localStorage.getItem('soccerCoach_allPostMatch') || '[]');
-      stored.unshift({ id:key, gameId:game.id, opponent, date:Date.now(), oppR, ourR, notes, priorities, mostImproved, playerNotes, aiReview:ai, outputs:result });
+      stored.unshift({
+        id: 'soccerCoach_postMatch_' + (game.id || Date.now()),
+        gameId: game.id, opponent, date: Date.now(),
+        priorities, mostImproved, extraNotes,
+        aiReview: aiMatchReview, outputs: localOut
+      });
       localStorage.setItem('soccerCoach_allPostMatch', JSON.stringify(stored.slice(0,50)));
-      // Write player observations back to squad coachNotes
-      const _pnEntries = Object.entries(playerNotes).filter(([,v])=>v&&v.trim());
-      if(_pnEntries.length) {
-        const _sq = JSON.parse(localStorage.getItem('soccerCoach_squad')||'[]');
-        const _matchDate = new Date().toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
-        const _updated = _sq.map(p=>{
-          const _note = playerNotes[p.name];
-          if(!_note||!_note.trim()) return p;
-          const _entry = `[${_matchDate} vs ${opponent||'Opp'}] ${_note.trim()}`;
-          const _existing = p.coachNotes||'';
-          return {...p, coachNotes: _existing ? _existing+'\n'+_entry : _entry};
+
+      // Write AI player notes back to squad coachNotes
+      if (aiPlayerNotes) {
+        const sq = JSON.parse(localStorage.getItem('soccerCoach_squad')||'[]');
+        const matchDate = new Date().toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
+        const updatedSq = sq.map(p => {
+          const regex = new RegExp(`^${p.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}:\\s*(.+)$`, 'im');
+          const match = aiPlayerNotes.match(regex);
+          if (!match) return p;
+          const entry = `[${matchDate} vs ${opponent||'Opp'}] ${match[1].trim()}`;
+          const existing = p.coachNotes || '';
+          return { ...p, coachNotes: existing ? existing + '\n' + entry : entry };
         });
-        localStorage.setItem('soccerCoach_squad', JSON.stringify(_updated));
+        localStorage.setItem('soccerCoach_squad', JSON.stringify(updatedSq));
       }
     } catch {}
-    setOutputs(result);
+
+    setOutputs({ ...localOut, aiMatchReview, aiPlayerNotes });
     setGenerating(false);
   }
 
@@ -11399,102 +11704,48 @@ Write 3-4 focused paragraphs covering: result and key moments, what worked well 
     setCopiedKey(key); setTimeout(()=>setCopiedKey(null), 2000);
   }
 
-  const oppCats = [['overallStrength','Overall Strength'],['attacking','Attacking'],['defending','Defending'],['pressing','Pressing']];
-  const ourCats = [['overallPerformance','Overall Performance'],['attacking','Attacking'],['defending','Defending'],['teamShape','Team Shape']];
-
-  // ── Shared page header ────────────────────────────────────────────────────────
-  function InnerPageHeader({ title, step: s, total, onBack }) {
-    return (
-      <div style={{background:'#0D0D0D',borderBottom:'1px solid #1A1A1A',paddingTop:'max(env(safe-area-inset-top),14px)',paddingBottom:14,paddingLeft:16,paddingRight:16,flexShrink:0,display:'flex',alignItems:'center',position:'relative'}}>
-        <button onClick={onBack} style={{background:'none',border:'none',color:'#F5C04A',fontSize:22,cursor:'pointer',padding:0,lineHeight:1,flexShrink:0,zIndex:1}}>←</button>
-        <img src={KHULA_LOGO} alt="Khula" style={{height:40,objectFit:'contain',marginLeft:8,zIndex:1}} />
-        <div style={{position:'absolute',left:0,right:0,textAlign:'center',pointerEvents:'none'}}>
-          <span style={{fontSize:17,fontWeight:500,color:'#CCC'}}>{title}</span>
-        </div>
-        <div style={{flex:1}} />
-        {s && total && (
-          <div style={{display:'flex',alignItems:'center',gap:4,zIndex:1}}>
-            <span style={{fontSize:11,color:'#555'}}>{s}/{total}</span>
-            <div style={{display:'flex',gap:3}}>
-              {Array.from({length:total}).map((_,i)=>(
-                <div key={i} style={{height:3,borderRadius:2,width:i<s?18:10,background:i<s?'#F5C04A':'#2A2A2A',transition:'all 0.3s'}}/>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ────────────────────────────────────────────────────────────────────────────
-  // SCREEN 0: Match Summary (entry point)
-  // ────────────────────────────────────────────────────────────────────────────
-  if (step === 0 && !outputs) return (
+  // ── SCREEN 0: Confirm & Go ────────────────────────────────────────────────────
+  if (step === 0 && !outputs && !generating) return (
     <div style={{minHeight:'100dvh',background:'#0D0D0D',display:'flex',flexDirection:'column',paddingBottom:90}}>
-      {/* Header */}
-      <div style={{background:'#0D0D0D',borderBottom:'1px solid #1A1A1A',paddingTop:'max(env(safe-area-inset-top),14px)',paddingBottom:14,paddingLeft:16,paddingRight:16,display:'flex',alignItems:'center',position:'relative',flexShrink:0}}>
-        <img src={KHULA_LOGO} alt="Khula" style={{height:40,objectFit:'contain',zIndex:1}} />
-        <div style={{position:'absolute',left:0,right:0,textAlign:'center',pointerEvents:'none'}}>
-          <span style={{fontSize:17,fontWeight:500,color:'#CCC'}}>Post Match Review</span>
-        </div>
-        <div style={{flex:1}} />
-        <button onClick={onDone} style={{background:'none',border:'none',color:'#555',fontSize:13,cursor:'pointer',padding:0,zIndex:1}}>Skip</button>
-      </div>
-      <div style={{background:'#111111',borderBottom:'1px solid #1E1E1E',padding:'14px 16px'}}>
+      <KhulaHeader showBack={false} title="Post Match" />
+
+      {/* Result hero */}
+      <div style={{background:'#111111',borderBottom:'1px solid #1E1E1E',padding:'14px 16px',flexShrink:0}}>
         <div style={{display:'flex',alignItems:'center',gap:12}}>
           <TeamBadge name={teamName} size={44} radius={10}/>
           <div style={{flex:1}}>
-            <div style={{fontSize:28,fontWeight:900,color:'#FFFFFF',lineHeight:1}}>{game.scoreUs} – {game.scoreThem}</div>
+            <div style={{fontSize:30,fontWeight:900,color:'#FFFFFF',lineHeight:1}}>{game.scoreUs} – {game.scoreThem}</div>
             <div style={{fontSize:13,color:'#A1A1A1',marginTop:3}}>vs {opponent}</div>
           </div>
           <div style={{background:resultColor+'22',border:`1px solid ${resultColor}44`,borderRadius:10,padding:'6px 14px',fontSize:13,fontWeight:800,color:resultColor}}>{resultLabel}</div>
         </div>
       </div>
 
-      <div style={{flex:1,overflowY:'auto',padding:'16px 16px 8px'}}>
+      <div style={{flex:1,overflowY:'auto',padding:'14px 16px 8px'}}>
 
-        {/* Voice notes summary */}
-        {localVoiceNotes.trim() && (
+        {/* Voice notes card */}
+        {voiceNotes.trim() && (
           <div style={{background:'#111111',border:'1px solid #a78bfa33',borderRadius:14,padding:'14px 16px',marginBottom:12}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
-              <div style={{fontSize:11,fontWeight:800,color:'#a78bfa',letterSpacing:1.2,textTransform:'uppercase'}}>🎙️ Voice Note Transcription</div>
-              <button onClick={deleteTranscript}
-                style={{background:'#1A0A0A',border:'1px solid #ef444433',borderRadius:6,padding:'3px 8px',color:'#ef4444',fontSize:10,fontWeight:700,cursor:'pointer'}}>
-                Delete
+              <div style={{fontSize:11,fontWeight:800,color:'#a78bfa',letterSpacing:1,textTransform:'uppercase'}}>🎙 Voice Notes</div>
+              <button onClick={()=>setShowAllVoice(v=>!v)}
+                style={{background:'none',border:'none',color:'#a78bfa',fontSize:11,fontWeight:700,cursor:'pointer',padding:0}}>
+                {showAllVoice ? 'Collapse' : 'View all'}
               </button>
             </div>
-            <div style={{fontSize:13,color:'#d1d5db',lineHeight:1.6,whiteSpace:'pre-wrap',maxHeight:120,overflow:'hidden',WebkitMaskImage:'linear-gradient(to bottom, black 70%, transparent 100%)',maskImage:'linear-gradient(to bottom, black 70%, transparent 100%)'}}>{localVoiceNotes.trim()}</div>
-          </div>
-        )}
-
-        {/* Match events summary */}
-        {matchEvents.length > 0 && (
-          <div style={{background:'#111111',border:'1px solid #1E1E1E',borderRadius:14,padding:'14px 16px',marginBottom:12}}>
-            <div style={{fontSize:11,fontWeight:800,color:'#38bdf8',letterSpacing:1.2,textTransform:'uppercase',marginBottom:8}}>📋 Match Events ({matchEvents.length})</div>
-            <div style={{display:'flex',flexDirection:'column',gap:4}}>
-              {matchEvents.slice(0,6).map((ev,i) => {
-                const rule = (typeof MATCH_EVENT_RULES !== 'undefined' ? MATCH_EVENT_RULES : []).find(r=>r.type===ev.type) || {icon:'📝',label:ev.type,color:'#A1A1A1'};
-                return (
-                  <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 0',borderBottom:i<Math.min(matchEvents.length,6)-1?'1px solid #1E1E1E':'none'}}>
-                    <span style={{fontSize:12,color:'#555',minWidth:24,fontWeight:700}}>{ev.minute}'</span>
-                    <span style={{fontSize:13}}>{rule.icon}</span>
-                    <span style={{fontSize:12,color:rule.color||'#A1A1A1',fontWeight:600}}>{rule.label}</span>
-                    <span style={{fontSize:11,color:'#555'}}>{ev.team==='us'?teamName:opponent||'Them'}</span>
-                    {ev.notes && <span style={{fontSize:11,color:'#555',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>— {ev.notes}</span>}
-                  </div>
-                );
-              })}
-              {matchEvents.length > 6 && <div style={{fontSize:11,color:'#555',paddingTop:4}}>+{matchEvents.length-6} more events</div>}
+            <div style={{fontSize:12,color:'#d1d5db',lineHeight:1.6,whiteSpace:'pre-wrap',
+              ...(showAllVoice ? {} : {maxHeight:80,overflow:'hidden',WebkitMaskImage:'linear-gradient(to bottom, black 50%, transparent 100%)',maskImage:'linear-gradient(to bottom, black 50%, transparent 100%)'})}}>
+              {voiceNotes.trim()}
             </div>
           </div>
         )}
 
-        {/* Goals summary */}
+        {/* Goals */}
         {goals.length > 0 && (
           <div style={{background:'#111111',border:'1px solid #1E1E1E',borderRadius:14,padding:'14px 16px',marginBottom:12}}>
-            <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:1.2,textTransform:'uppercase',marginBottom:8}}>⚽ Goals</div>
+            <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:1,textTransform:'uppercase',marginBottom:8}}>⚽ Goals</div>
             {goals.filter(g=>g.team==='us').map((g,i)=>(
-              <div key={i} style={{fontSize:13,color:'#FFFFFF',paddingBottom:4}}>⚽ {g.scorer} <span style={{color:'#555',fontSize:11}}>{g.timeStr}</span></div>
+              <div key={i} style={{fontSize:13,color:'#FFFFFF',paddingBottom:4}}>⚽ {g.scorer||'Unknown'} <span style={{color:'#555',fontSize:11}}>{g.timeStr}</span></div>
             ))}
             {goals.filter(g=>g.team==='them').map((g,i)=>(
               <div key={i} style={{fontSize:13,color:'#fca5a5',paddingBottom:4}}>⚽ {opponent} <span style={{color:'#555',fontSize:11}}>{g.timeStr}</span></div>
@@ -11502,128 +11753,83 @@ Write 3-4 focused paragraphs covering: result and key moments, what worked well 
           </div>
         )}
 
-        {/* No data notice */}
+        {/* Match events */}
+        {matchEvents.length > 0 && (
+          <div style={{background:'#111111',border:'1px solid #1E1E1E',borderRadius:14,padding:'14px 16px',marginBottom:12}}>
+            <div style={{fontSize:11,fontWeight:800,color:'#38bdf8',letterSpacing:1,textTransform:'uppercase',marginBottom:8}}>📋 Match Events ({matchEvents.length})</div>
+            <div style={{display:'flex',flexDirection:'column',gap:4}}>
+              {matchEvents.slice(0,5).map((ev,i) => {
+                const rule = (typeof MATCH_EVENT_RULES !== 'undefined' ? MATCH_EVENT_RULES : []).find(r=>r.type===ev.type) || {icon:'📝',label:ev.type,color:'#A1A1A1'};
+                return (
+                  <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'3px 0',borderBottom:i<Math.min(matchEvents.length,5)-1?'1px solid #1E1E1E':'none'}}>
+                    <span style={{fontSize:11,color:'#555',minWidth:22,fontWeight:700}}>{ev.minute}'</span>
+                    <span style={{fontSize:12}}>{rule.icon}</span>
+                    <span style={{fontSize:12,color:rule.color||'#A1A1A1',fontWeight:600}}>{rule.label}</span>
+                    {ev.notes && <span style={{fontSize:11,color:'#555',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>— {ev.notes}</span>}
+                  </div>
+                );
+              })}
+              {matchEvents.length > 5 && <div style={{fontSize:11,color:'#555',paddingTop:4}}>+{matchEvents.length-5} more</div>}
+            </div>
+          </div>
+        )}
+
+        {/* Nothing captured */}
         {!voiceNotes.trim() && matchEvents.length === 0 && goals.length === 0 && (
           <div style={{background:'#111111',border:'1px solid #1E1E1E',borderRadius:14,padding:'20px 16px',marginBottom:12,textAlign:'center'}}>
             <div style={{fontSize:32,marginBottom:8}}>📋</div>
             <div style={{fontSize:14,fontWeight:700,color:'#FFF',marginBottom:4}}>Match saved</div>
-            <div style={{fontSize:12,color:'#555'}}>Add further notes below to capture your coaching observations.</div>
+            <div style={{fontSize:12,color:'#555'}}>No voice notes or events captured. Add some detail below before generating.</div>
           </div>
         )}
 
-        {/* CTAs */}
-        <button onClick={()=>setStep(1)}
-          style={{width:'100%',padding:'16px',border:'none',borderRadius:14,fontSize:15,fontWeight:800,cursor:'pointer',background:'#F5C04A',color:'#000',marginBottom:10}}>
-          Further Notes →
-        </button>
         <button onClick={handleGenerate}
-          style={{width:'100%',padding:'14px',border:'1px solid #22c55e44',borderRadius:14,fontSize:14,fontWeight:700,cursor:'pointer',background:'#22c55e18',color:'#22c55e',marginBottom:10}}>
-          Generate Match Notes
+          style={{width:'100%',padding:'16px',border:'none',borderRadius:14,fontSize:15,fontWeight:800,cursor:'pointer',background:'#F5C04A',color:'#000',marginBottom:10}}>
+          Generate Match Notes ✨
         </button>
-
-      </div>
-      <BottomNav activeTab="match" onTab={onDone}/>
-    </div>
-  );
-
-  // ────────────────────────────────────────────────────────────────────────────
-  // STEP 1: Ratings
-  // ────────────────────────────────────────────────────────────────────────────
-  if (step === 1 && !outputs) return (
-    <div style={{display:'flex',flexDirection:'column',height:'100dvh',background:'#0D0D0D',overflow:'hidden'}}>
-      <InnerPageHeader title="Match Ratings" step={1} total={3} onBack={()=>setStep(0)}/>
-      <div style={{flex:1,overflowY:'auto',padding:'16px',paddingBottom:110}}>
-
-        <div style={{background:'#111111',borderRadius:14,border:'1px solid #1E1E1E',overflow:'hidden',marginBottom:12}}>
-          <div style={{padding:'12px 16px',borderBottom:'1px solid #1E1E1E',display:'flex',alignItems:'center',gap:10}}>
-            <TeamBadge name={opponent} size={28} radius={6}/>
-            <div style={{fontSize:12,fontWeight:800,color:'#38bdf8',letterSpacing:1,textTransform:'uppercase'}}>{opponent}</div>
-          </div>
-          <div style={{padding:'0 16px'}}>
-            {oppCats.map(([field,label])=>(<StarRow key={field} label={label} field={field} ratings={oppR} setRatings={setOppR}/>))}
-          </div>
-        </div>
-
-        <div style={{background:'#111111',borderRadius:14,border:'1px solid #1E1E1E',overflow:'hidden',marginBottom:12}}>
-          <div style={{padding:'12px 16px',borderBottom:'1px solid #1E1E1E',display:'flex',alignItems:'center',gap:10}}>
-            <TeamBadge name={teamName} size={28} radius={6}/>
-            <div style={{fontSize:12,fontWeight:800,color:'#22c55e',letterSpacing:1,textTransform:'uppercase'}}>{teamName}</div>
-          </div>
-          <div style={{padding:'0 16px'}}>
-            {ourCats.map(([field,label])=>(<StarRow key={field} label={label} field={field} ratings={ourR} setRatings={setOurR}/>))}
-          </div>
-        </div>
-      </div>
-      <div style={{position:'fixed',bottom:80,left:0,right:0,padding:'12px 16px',background:'#0D0D0D',borderTop:'1px solid #1E1E1E'}}>
-        <button onClick={()=>setStep(2)} style={{width:'100%',padding:'15px',border:'none',borderRadius:14,fontSize:15,fontWeight:800,cursor:'pointer',background:'#F5C04A',color:'#000'}}>
-          Next →
+        <button onClick={()=>setStep(1)}
+          style={{width:'100%',padding:'13px',border:'1px solid #2A2A2A',borderRadius:14,fontSize:13,fontWeight:600,cursor:'pointer',background:'transparent',color:'#A1A1A1'}}>
+          Add more detail first →
         </button>
       </div>
       <BottomNav activeTab="match" onTab={onDone}/>
     </div>
   );
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // STEP 2: Coaching notes + Player notes
-  // ────────────────────────────────────────────────────────────────────────────
-  if (step === 2 && !outputs) return (
+  // ── SCREEN 1: Quick Add (optional) ───────────────────────────────────────────
+  if (step === 1 && !outputs && !generating) return (
     <div style={{display:'flex',flexDirection:'column',height:'100dvh',background:'#0D0D0D',overflow:'hidden'}}>
-      <InnerPageHeader title="Coaching Notes" step={2} total={3} onBack={()=>setStep(1)}/>
+      <KhulaHeader showBack={true} onBack={()=>setStep(0)} title="Add Detail" />
       <div style={{flex:1,overflowY:'auto',padding:'16px',paddingBottom:110}}>
 
-        <div style={{background:'#111111',borderRadius:14,border:'1px solid #1E1E1E',padding:'14px 16px',marginBottom:12}}>
-          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-            <TeamBadge name={opponent} size={22} radius={5}/>
-            <div style={{fontSize:11,fontWeight:800,color:'#38bdf8',letterSpacing:1,textTransform:'uppercase'}}>{opponent}</div>
+        {/* Extra notes */}
+        <div style={{background:'#111111',border:'1px solid #1E1E1E',borderRadius:14,padding:'14px 16px',marginBottom:12}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+            <div style={{fontSize:12,fontWeight:800,color:'#A1A1A1',textTransform:'uppercase',letterSpacing:0.8}}>Any final thoughts?</div>
+            {SpeechRec && (
+              <button onClick={toggleVoice}
+                style={{background:listening?'#ef444418':'#1A1A1A',border:listening?'1px solid #ef4444':'1px solid #2A2A2A',
+                  borderRadius:8,padding:'5px 10px',cursor:'pointer',display:'flex',alignItems:'center',gap:5,
+                  color:listening?'#ef4444':'#A1A1A1'}}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+                <span style={{fontSize:11,fontWeight:700}}>{listening?'Stop':'Dictate'}</span>
+              </button>
+            )}
           </div>
-          <InnerNoteField label="What caused us the most problems?" field="oppProblems" placeholder="Their pressing, direct play, set pieces…"/>
-          <InnerNoteField label="Advice for playing them next time" field="oppAdvice" placeholder="Play wide, quick transitions, watch #9…"/>
+          <textarea value={extraNotes} onChange={e=>setExtraNotes(e.target.value)}
+            placeholder="Anything not captured during the match — tactics, individual moments, things to remember…"
+            rows={4}
+            style={{width:'100%',background:'#0D0D0D',border:`1px solid ${listening?'#ef4444':'#2A2A2A'}`,borderRadius:10,
+              padding:'10px 12px',color:'#FFF',fontSize:13,outline:'none',resize:'vertical',fontFamily:'inherit',
+              boxSizing:'border-box',lineHeight:1.5}}/>
+          {listening && <div style={{fontSize:11,color:'#ef4444',marginTop:6,fontWeight:600}}>🎙 Recording…</div>}
         </div>
 
-        <div style={{background:'#111111',borderRadius:14,border:'1px solid #1E1E1E',padding:'14px 16px',marginBottom:12}}>
-          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-            <TeamBadge name={teamName} size={22} radius={5}/>
-            <div style={{fontSize:11,fontWeight:800,color:'#22c55e',letterSpacing:1,textTransform:'uppercase'}}>{teamName}</div>
+        {/* Training priorities */}
+        <div style={{background:'#111111',border:'1px solid #1E1E1E',borderRadius:14,padding:'14px 16px',marginBottom:12}}>
+          <div style={{fontSize:12,fontWeight:800,color:'#F5C04A',textTransform:'uppercase',letterSpacing:0.8,marginBottom:4}}>
+            Training Focus <span style={{color:'#555',fontWeight:500}}>({priorities.length}/3)</span>
           </div>
-          <InnerNoteField label="What pleased you today?" field="ourPleased" placeholder="Great pressing, team shape held well…"/>
-          <InnerNoteField label="What should we improve?" field="ourImprove" placeholder="Final third decisions, composure in front of goal…"/>
-        </div>
-
-        {/* Player notes — always shown */}
-        {players.length > 0 && (
-          <div style={{background:'#111111',borderRadius:14,border:'1px solid #1E1E1E',padding:'14px 16px',marginBottom:12}}>
-            <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:1.2,textTransform:'uppercase',marginBottom:4}}>Player Notes</div>
-            <div style={{fontSize:11,color:'#555',marginBottom:12}}>Individual observations — optional</div>
-            {players.slice(0,14).map(name=>(
-              <div key={name} style={{marginBottom:10}}>
-                <div style={{fontSize:12,fontWeight:700,color:'#A1A1A1',marginBottom:4}}>{name}</div>
-                <input value={playerNotes[name]||''} onChange={e=>setPlayerNotes(prev=>({...prev,[name]:e.target.value}))}
-                  placeholder="Short observation…"
-                  style={{width:'100%',background:'#0D0D0D',border:'1px solid #2A2A2A',borderRadius:8,padding:'9px 12px',color:'#FFF',fontSize:13,outline:'none',boxSizing:'border-box'}}/>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      <div style={{position:'fixed',bottom:80,left:0,right:0,padding:'12px 16px',background:'#0D0D0D',borderTop:'1px solid #1E1E1E'}}>
-        <button onClick={()=>setStep(3)} style={{width:'100%',padding:'15px',border:'none',borderRadius:14,fontSize:15,fontWeight:800,cursor:'pointer',background:'#F5C04A',color:'#000'}}>
-          Next →
-        </button>
-      </div>
-      <BottomNav activeTab="match" onTab={onDone}/>
-    </div>
-  );
-
-  // ────────────────────────────────────────────────────────────────────────────
-  // STEP 3: Training priorities + AI Review
-  // ────────────────────────────────────────────────────────────────────────────
-  if (step === 3 && !outputs) return (
-    <div style={{display:'flex',flexDirection:'column',height:'100dvh',background:'#0D0D0D',overflow:'hidden'}}>
-      <InnerPageHeader title="Training Focus" step={3} total={3} onBack={()=>setStep(2)}/>
-      <div style={{flex:1,overflowY:'auto',padding:'16px',paddingBottom:110}}>
-
-        <div style={{background:'#111111',borderRadius:14,border:'1px solid #1E1E1E',padding:'14px 16px',marginBottom:12}}>
-          <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:1.2,textTransform:'uppercase',marginBottom:4}}>Training Priorities <span style={{color:'#555',fontWeight:500,fontSize:11}}>({priorities.length}/3)</span></div>
           <div style={{fontSize:11,color:'#555',marginBottom:12}}>Select up to 3 focus areas for next session</div>
           <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
             {ALL_PRIORITIES.map(p => {
@@ -11631,7 +11837,11 @@ Write 3-4 focused paragraphs covering: result and key moments, what worked well 
               const dis = !sel && priorities.length >= 3;
               return (
                 <button key={p} onClick={()=>!dis&&togglePriority(p)}
-                  style={{padding:'8px 14px',borderRadius:20,border:`1.5px solid ${sel?'#F5C04A':'#2A2A2A'}`,background:sel?'#F5C04A18':'#1A1A1A',color:sel?'#F5C04A':dis?'#333':'#A1A1A1',fontSize:12,fontWeight:sel?700:500,cursor:dis?'default':'pointer'}}>
+                  style={{padding:'8px 14px',borderRadius:20,
+                    border:`1.5px solid ${sel?'#F5C04A':'#2A2A2A'}`,
+                    background:sel?'#F5C04A18':'#1A1A1A',
+                    color:sel?'#F5C04A':dis?'#333':'#A1A1A1',
+                    fontSize:12,fontWeight:sel?700:500,cursor:dis?'default':'pointer'}}>
                   {p}
                 </button>
               );
@@ -11639,12 +11849,14 @@ Write 3-4 focused paragraphs covering: result and key moments, what worked well 
           </div>
         </div>
 
-        <div style={{background:'#111111',borderRadius:14,border:'1px solid #1E1E1E',padding:'14px 16px',marginBottom:12}}>
-          <div style={{fontSize:11,fontWeight:800,color:'#F5C04A',letterSpacing:1.2,textTransform:'uppercase',marginBottom:4}}>Most Improved Player</div>
+        {/* Most improved */}
+        <div style={{background:'#111111',border:'1px solid #1E1E1E',borderRadius:14,padding:'14px 16px',marginBottom:12}}>
+          <div style={{fontSize:12,fontWeight:800,color:'#F5C04A',textTransform:'uppercase',letterSpacing:0.8,marginBottom:4}}>Most Improved Player</div>
           <div style={{fontSize:11,color:'#555',marginBottom:10}}>Track development — not Player of the Match</div>
           <select value={mostImproved} onChange={e=>setMostImproved(e.target.value)}
-            style={{width:'100%',background:'#0D0D0D',border:'1px solid #2A2A2A',borderRadius:10,padding:'11px 14px',color:mostImproved?'#FFF':'#555',fontSize:14,outline:'none'}}>
-            <option value="">Select player…</option>
+            style={{width:'100%',background:'#0D0D0D',border:'1px solid #2A2A2A',borderRadius:10,
+              padding:'11px 14px',color:mostImproved?'#FFF':'#555',fontSize:14,outline:'none'}}>
+            <option value=''>Select player…</option>
             {players.map(p=><option key={p} value={p}>{p}</option>)}
           </select>
         </div>
@@ -11660,14 +11872,12 @@ Write 3-4 focused paragraphs covering: result and key moments, what worked well 
     </div>
   );
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // Generating loader
-  // ────────────────────────────────────────────────────────────────────────────
+  // ── Generating loader ─────────────────────────────────────────────────────────
   if (generating) return (
     <div style={{minHeight:'100dvh',background:'#0D0D0D',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:20,padding:32}}>
       <div style={{fontSize:40}}>✨</div>
       <div style={{fontSize:18,fontWeight:800,color:'#FFF',textAlign:'center'}}>Generating Match Notes…</div>
-      <div style={{fontSize:13,color:'#555',textAlign:'center',maxWidth:280}}>Building AI review, parent summary, scout report, team review, and training plan</div>
+      <div style={{fontSize:13,color:'#555',textAlign:'center',maxWidth:280}}>Analysing voice notes, events and generating AI review</div>
       <div style={{display:'flex',gap:6,marginTop:4}}>
         {[0,1,2].map(i=>(
           <div key={i} style={{width:8,height:8,borderRadius:4,background:'#22c55e',opacity:0.4,animation:'pulse 1.2s ease-in-out infinite',animationDelay:`${i*0.3}s`}}/>
@@ -11677,30 +11887,25 @@ Write 3-4 focused paragraphs covering: result and key moments, what worked well 
     </div>
   );
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // Outputs screen
-  // ────────────────────────────────────────────────────────────────────────────
+  // ── Outputs ───────────────────────────────────────────────────────────────────
   if (outputs) {
     const OUT_CARDS = [
-      { key:'parentSummary', title:'📱 Parent Summary',  subtitle:'WhatsApp-ready', color:'#22c55e',  text:outputs.parentSummary },
-      { key:'scoutReport',   title:'🔍 Scout Report',    subtitle:opponent,         color:'#F5C04A',  text:outputs.scoutReport   },
-      { key:'teamReview',    title:'📊 Team Review',     subtitle:teamName,         color:'#38bdf8',  text:outputs.teamReview    },
-      { key:'trainingRec',   title:'🏋️ Training Focus',  subtitle:'Next session',   color:'#a78bfa',  text:outputs.trainingRec   },
-      { key:'playerUpdates', title:'⭐ Player Notes',    subtitle:'Development',    color:'#fb923c',  text:outputs.playerUpdates },
-    ];
-    if (aiReview) OUT_CARDS.splice(2, 0, { key:'aiReview', title:'✨ AI Match Review', subtitle:'Detailed analysis', color:'#a78bfa', text:aiReview });
+      { key:'parentSummary', title:'📱 Parent Summary',   subtitle:'WhatsApp-ready',      color:'#22c55e', text:outputs.parentSummary },
+      { key:'aiMatchReview', title:'✨ AI Match Review',  subtitle:'Detailed analysis',    color:'#a78bfa', text:outputs.aiMatchReview },
+      { key:'trainingRec',   title:'🏋️ Training Focus',   subtitle:'Next session',         color:'#F5C04A', text:outputs.trainingRec   },
+      ...(outputs.aiPlayerNotes ? [{ key:'playerNotes', title:'⭐ Player Notes', subtitle:'From voice notes', color:'#fb923c', text:outputs.aiPlayerNotes }] : []),
+    ].filter(c => c.text && c.text.trim());
 
     return (
       <div style={{display:'flex',flexDirection:'column',minHeight:'100dvh',background:'#0D0D0D'}}>
-        <div style={{background:'#0D0D0D',borderBottom:'1px solid #1A1A1A',paddingTop:'max(env(safe-area-inset-top),14px)',paddingBottom:14,paddingLeft:16,paddingRight:16,display:'flex',alignItems:'center',position:'relative'}}>
+        <div style={{background:'#0D0D0D',borderBottom:'1px solid #1A1A1A',paddingTop:'max(env(safe-area-inset-top),14px)',
+          paddingBottom:14,paddingLeft:16,paddingRight:16,display:'flex',alignItems:'center',position:'relative',flexShrink:0}}>
           <img src={KHULA_LOGO} alt="Khula" style={{height:40,objectFit:'contain',zIndex:1}} />
           <div style={{position:'absolute',left:0,right:0,textAlign:'center',pointerEvents:'none'}}>
             <span style={{fontSize:17,fontWeight:500,color:'#CCC'}}>Review Complete</span>
           </div>
-          <div style={{flex:1}} />
-          <div style={{display:'flex',alignItems:'center',gap:5,zIndex:1}}>
-            <span style={{fontSize:11,color:'#22c55e',fontWeight:600}}>✓ Done</span>
-          </div>
+          <div style={{flex:1}}/>
+          <span style={{fontSize:11,color:'#22c55e',fontWeight:600,zIndex:1}}>✓ Done</span>
         </div>
         <div style={{flex:1,padding:'16px',paddingBottom:120,display:'flex',flexDirection:'column',gap:10}}>
           {OUT_CARDS.map(card=>(
@@ -11711,7 +11916,10 @@ Write 3-4 focused paragraphs covering: result and key moments, what worked well 
                   <div style={{fontSize:11,color:'#555',marginTop:1}}>{card.subtitle}</div>
                 </div>
                 <button onClick={()=>copyOutput(card.key,card.text)}
-                  style={{background:copiedKey===card.key?card.color+'22':'#1A1A1A',border:`1px solid ${copiedKey===card.key?card.color:'#2A2A2A'}`,borderRadius:8,padding:'6px 12px',cursor:'pointer',color:copiedKey===card.key?card.color:'#A1A1A1',fontSize:11,fontWeight:700}}>
+                  style={{background:copiedKey===card.key?card.color+'22':'#1A1A1A',
+                    border:`1px solid ${copiedKey===card.key?card.color:'#2A2A2A'}`,
+                    borderRadius:8,padding:'6px 12px',cursor:'pointer',
+                    color:copiedKey===card.key?card.color:'#A1A1A1',fontSize:11,fontWeight:700}}>
                   {copiedKey===card.key?'✓ Copied':'Copy'}
                 </button>
               </div>
@@ -11733,6 +11941,7 @@ Write 3-4 focused paragraphs covering: result and key moments, what worked well 
 
   return null;
 }
+
 
 function HomeScreen({ games, settings, onMatchDay, onGoSeason, onGoTeam, onGoMore, onGoAccount, setTab }) {
   const coachName = settings?.coachName || 'Coach';
