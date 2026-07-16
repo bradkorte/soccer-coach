@@ -1890,14 +1890,21 @@ function SectionTabs({ tabs, activeTab, onTabChange, scrollable = true }) {
 }
 
 function FixturesScreen({ onBack, embedded, games=[], onViewGame=null, onScout=null }) {
-  const [myTeam, setMyTeam] = useState(() => localStorage.getItem('soccerCoach_fixtureTeam') || '');
-  const [tab, setTab]         = useState('All');
-  const [scores, setScores]   = useState(() => loadFxScores());
-  const [editing, setEditing] = useState(null);
-  const [hg, setHg]           = useState('');
-  const [ag, setAg]           = useState('');
-
   const stngs = loadSettings();
+  // userTeam is the coach's own team — never changes in this screen
+  const userTeam = localStorage.getItem('soccerCoach_fixtureTeam') || stngs.teamName || '';
+  // viewingTeam can be switched to any team to browse their fixtures
+  const [viewingTeam, setViewingTeam] = useState(userTeam);
+  const myTeam = viewingTeam; // alias so existing code below doesn't need to change
+  const [tab, setTab]           = useState('All');
+  const [scores, setScores]     = useState(() => loadFxScores());
+  const [editing, setEditing]   = useState(null);
+  const [hg, setHg]             = useState('');
+  const [ag, setAg]             = useState('');
+  const [showTeamPicker, setShowTeamPicker] = useState(false);
+  const [teamSearch, setTeamSearch]         = useState('');
+
+  const allFixtureTeams = React.useMemo(()=>[...new Set(FIXTURES.flatMap(f=>[f.home,f.away]))].sort(),[]);
 
   const DAY_S = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const MON_S = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -2113,19 +2120,27 @@ function FixturesScreen({ onBack, embedded, games=[], onViewGame=null, onScout=n
       </div>
 
       {/* Team card */}
-      {myTeam && (
-        <div style={{ margin:'0 16px 12px', background:'#111111', border:'1px solid #1E1E1E', borderRadius:14, padding:'14px 16px', display:'flex', alignItems:'center', gap:12 }}>
-          <TeamBadge name={myTeam} size={52} radius={10} />
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontSize:16, fontWeight:800, color:'#FFF' }}>{myTeam}</div>
-            {(stngs.ageGroup || stngs.season) && (
-              <div style={{ fontSize:12, color:'#888', marginTop:2 }}>{[stngs.ageGroup, stngs.season].filter(Boolean).join(' • ')}</div>
-            )}
-            {stngs.venue && <div style={{ fontSize:11, color:'#666', marginTop:1 }}>{stngs.venue}</div>}
-          </div>
-
+      <div style={{ margin:'0 16px 12px', background:'#111111', border:`1px solid ${viewingTeam !== userTeam ? '#F5C04A44' : '#1E1E1E'}`, borderRadius:14, padding:'14px 16px', display:'flex', alignItems:'center', gap:12 }}>
+        <TeamBadge name={myTeam || 'Team'} size={52} radius={10} />
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:16, fontWeight:800, color:'#FFF' }}>{myTeam || 'Select a team'}</div>
+          {viewingTeam === userTeam
+            ? <>
+                {(stngs.ageGroup || stngs.season) && <div style={{ fontSize:12, color:'#888', marginTop:2 }}>{[stngs.ageGroup, stngs.season].filter(Boolean).join(' • ')}</div>}
+                {stngs.venue && <div style={{ fontSize:11, color:'#666', marginTop:1 }}>{stngs.venue}</div>}
+              </>
+            : <button onClick={()=>{setViewingTeam(userTeam);setTab('All');}} style={{ background:'none', border:'none', padding:0, cursor:'pointer', marginTop:3, display:'flex', alignItems:'center', gap:4 }}>
+                <span style={{ fontSize:11, color:'#F5C04A', fontWeight:600 }}>← Back to my team</span>
+              </button>
+          }
         </div>
-      )}
+        {/* Edit / change team button */}
+        <button onClick={()=>{setTeamSearch('');setShowTeamPicker(true);}}
+          style={{ flexShrink:0, background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:9, padding:'7px 10px', cursor:'pointer', display:'flex', alignItems:'center', gap:5 }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#A1A1A1" strokeWidth="2.5" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          <span style={{ fontSize:11, fontWeight:600, color:'#A1A1A1' }}>Change</span>
+        </button>
+      </div>
 
       {/* SectionTabs */}
       <SectionTabs
@@ -2175,7 +2190,57 @@ function FixturesScreen({ onBack, embedded, games=[], onViewGame=null, onScout=n
     </div>
   );
 
-  return <>{modal}{body}</>;
+  // ── Team Picker Modal ──────────────────────────────────────────────────────
+  const filteredPickerTeams = allFixtureTeams.filter(t =>
+    !teamSearch || t.toLowerCase().includes(teamSearch.toLowerCase())
+  );
+  const teamPickerModal = showTeamPicker && (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', zIndex:9998, display:'flex', alignItems:'flex-end' }}
+      onClick={e=>{if(e.target===e.currentTarget){setShowTeamPicker(false);}}}>
+      <div style={{ background:'#1A1A1A', borderRadius:'18px 18px 0 0', width:'100%', maxHeight:'75dvh', display:'flex', flexDirection:'column' }}>
+        {/* Handle */}
+        <div style={{ width:36, height:4, background:'#333', borderRadius:2, margin:'12px auto 0' }} />
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'center', padding:'14px 16px 12px', borderBottom:'1px solid #222' }}>
+          <div style={{ flex:1, fontSize:15, fontWeight:700, color:'#FFF' }}>View team's fixtures</div>
+          <button onClick={()=>setShowTeamPicker(false)} style={{ background:'none', border:'none', color:'#555', fontSize:22, cursor:'pointer', lineHeight:1 }}>×</button>
+        </div>
+        {/* Search */}
+        <div style={{ padding:'10px 16px 6px', flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', background:'#111', border:'1px solid #2A2A2A', borderRadius:10, padding:'8px 12px', gap:8 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input autoFocus value={teamSearch} onChange={e=>setTeamSearch(e.target.value)} placeholder="Search teams…"
+              style={{ flex:1, background:'none', border:'none', color:'#FFF', fontSize:13, outline:'none' }}/>
+          </div>
+        </div>
+        {/* Team list */}
+        <div style={{ flex:1, overflowY:'auto', padding:'6px 0 24px' }}>
+          {/* My team first */}
+          {userTeam && (!teamSearch || userTeam.toLowerCase().includes(teamSearch.toLowerCase())) && (
+            <button key="__mine__" onClick={()=>{setViewingTeam(userTeam);setTab('All');setShowTeamPicker(false);}}
+              style={{ width:'100%', display:'flex', alignItems:'center', gap:12, padding:'12px 16px', background: viewingTeam===userTeam?'#1A2A1A':'none', border:'none', borderBottom:'1px solid #1E1E1E', cursor:'pointer', textAlign:'left' }}>
+              <TeamBadge name={userTeam} size={36} radius={7} />
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:13, fontWeight:700, color:viewingTeam===userTeam?'#22c55e':'#FFF' }}>{userTeam}</div>
+                <div style={{ fontSize:10, color:'#555', marginTop:1 }}>My team</div>
+              </div>
+              {viewingTeam===userTeam && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>}
+            </button>
+          )}
+          {filteredPickerTeams.filter(t=>t!==userTeam).map(t=>(
+            <button key={t} onClick={()=>{setViewingTeam(t);setTab('All');setShowTeamPicker(false);}}
+              style={{ width:'100%', display:'flex', alignItems:'center', gap:12, padding:'12px 16px', background: viewingTeam===t?'#1A1A2A':'none', border:'none', borderBottom:'1px solid #1E1E1E', cursor:'pointer', textAlign:'left' }}>
+              <TeamBadge name={t} size={36} radius={7} />
+              <div style={{ flex:1, fontSize:13, fontWeight:600, color:viewingTeam===t?'#F5C04A':'#FFF' }}>{t}</div>
+              {viewingTeam===t && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  return <>{modal}{teamPickerModal}{body}</>;
 }
 
 
@@ -2268,14 +2333,46 @@ function generateOpponentInsights(name, stats, results, uqfcGames, vsUsGames, th
 }
 
 function OpponentStatsScreen({ opponent, onBack, onChangeOpponent, embedded }) {
-  const [editing, setEditing]   = React.useState(false);
-  const [scout, setScout]       = React.useState(() => loadScoutReport(opponent));
-  const [draft, setDraft]       = React.useState({});
-  const [scoutTab, setScoutTab] = React.useState('Overview');
+  const [editing, setEditing]         = React.useState(false);
+  const [scout, setScout]             = React.useState(() => loadScoutReport(opponent));
+  const [draft, setDraft]             = React.useState({});
+  const [scoutTab, setScoutTab]       = React.useState('Overview');
+  const [isScoutRec, setIsScoutRec]   = React.useState(false);
+  const [scoutRecField, setScoutRecField] = React.useState(null); // which field is being dictated into
+  const scoutRecogRef                 = React.useRef(null);
 
   function startEdit() { setDraft({...scout}); setEditing(true); }
-  function saveDraft() { saveScoutReport(opponent, draft); setScout({...draft, lastUpdated: new Date().toISOString()}); setEditing(false); }
-  function cancelEdit() { setEditing(false); }
+  function saveDraft() {
+    stopScoutDictation();
+    saveScoutReport(opponent, draft);
+    setScout({...draft, lastUpdated: new Date().toISOString()});
+    setEditing(false);
+  }
+  function cancelEdit() { stopScoutDictation(); setEditing(false); }
+
+  function toggleScoutDictation(fieldKey) {
+    if (isScoutRec && scoutRecField === fieldKey) { stopScoutDictation(); return; }
+    stopScoutDictation();
+    if (!SpeechRec) { alert('Voice dictation is not supported in this browser.'); return; }
+    const r = new SpeechRec();
+    r.continuous = true; r.interimResults = false; r.lang = 'en-AU';
+    r.onresult = e => {
+      const text = Array.from(e.results).slice(e.resultIndex).map(x => x[0].transcript).join(' ').trim();
+      if (text) setDraft(dd => ({ ...dd, [fieldKey]: (dd[fieldKey] ? dd[fieldKey] + ' ' : '') + text }));
+    };
+    r.onend = () => setIsScoutRec(false);
+    r.onerror = () => setIsScoutRec(false);
+    r.start();
+    scoutRecogRef.current = r;
+    setIsScoutRec(true);
+    setScoutRecField(fieldKey);
+  }
+
+  function stopScoutDictation() {
+    if (scoutRecogRef.current) { try { scoutRecogRef.current.stop(); } catch {} scoutRecogRef.current = null; }
+    setIsScoutRec(false);
+    setScoutRecField(null);
+  }
 
   const scores = loadFxScores();
   const myTeam = localStorage.getItem('soccerCoach_fixtureTeam') || '';
@@ -2553,10 +2650,29 @@ function OpponentStatsScreen({ opponent, onBack, onChangeOpponent, embedded }) {
             { key:'suggestedTactics',label:'Suggested Tactics',placeholder:'e.g. Press early, stay compact…',         color:'#a78bfa' },
           ].map(({ key, label, placeholder, color }) => (
             <div key={key} style={{ marginBottom:14 }}>
-              <div style={{ fontSize:10, fontWeight:700, color, letterSpacing:1, textTransform:'uppercase', marginBottom:6 }}>{label}</div>
-              <textarea value={draft[key]||''} onChange={e=>setDraft(dd=>({...dd,[key]:e.target.value}))}
-                placeholder={placeholder} rows={2}
-                style={{ width:'100%', background:'#0D0D0D', border:'1px solid #2A2A2A', borderRadius:9, color:'#FFF', fontSize:13, padding:'9px 11px', resize:'vertical', outline:'none', fontFamily:'inherit', boxSizing:'border-box' }}/>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                <div style={{ fontSize:10, fontWeight:700, color, letterSpacing:1, textTransform:'uppercase' }}>{label}</div>
+                <button
+                  onPointerDown={e=>{e.preventDefault();toggleScoutDictation(key);}}
+                  title={isScoutRec && scoutRecField===key ? 'Stop dictation' : 'Dictate'}
+                  style={{ width:26, height:26, borderRadius:7, border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', background: isScoutRec && scoutRecField===key ? '#ef4444' : 'transparent', flexShrink:0 }}>
+                  {isScoutRec && scoutRecField===key
+                    ? <svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                    : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+                  }
+                </button>
+              </div>
+              <div style={{ position:'relative' }}>
+                <textarea value={draft[key]||''} onChange={e=>setDraft(dd=>({...dd,[key]:e.target.value}))}
+                  placeholder={placeholder} rows={2}
+                  style={{ width:'100%', background:'#0D0D0D', border: isScoutRec && scoutRecField===key ? `1px solid #ef4444` : '1px solid #2A2A2A', borderRadius:9, color:'#FFF', fontSize:13, padding:'9px 11px', resize:'vertical', outline:'none', fontFamily:'inherit', boxSizing:'border-box' }}/>
+                {isScoutRec && scoutRecField===key && (
+                  <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:4, fontSize:11, color:'#ef4444', fontWeight:600 }}>
+                    <span style={{ width:6, height:6, borderRadius:'50%', background:'#ef4444', display:'inline-block' }}/>
+                    Listening…
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -2604,9 +2720,27 @@ function OpponentStatsScreen({ opponent, onBack, onChangeOpponent, embedded }) {
               <button onClick={saveDraft} style={{ background:'#F5C04A', border:'none', color:'#000', borderRadius:8, padding:'6px 14px', fontSize:13, fontWeight:700, cursor:'pointer' }}>Save</button>
             </div>
           </div>
-          <textarea value={draft.coachNotes||''} onChange={e=>setDraft(dd=>({...dd,coachNotes:e.target.value}))}
-            placeholder="Your pre-match notes, game plan, key talking points…" rows={8}
-            style={{ width:'100%', background:'#0D0D0D', border:'1px solid #2A2A2A', borderRadius:9, color:'#FFF', fontSize:13, padding:'9px 11px', resize:'vertical', outline:'none', fontFamily:'inherit', boxSizing:'border-box' }}/>
+          <div style={{ position:'relative' }}>
+            <textarea value={draft.coachNotes||''} onChange={e=>setDraft(dd=>({...dd,coachNotes:e.target.value}))}
+              placeholder="Your pre-match notes, game plan, key talking points… or tap the mic to dictate."
+              rows={8}
+              style={{ width:'100%', background:'#0D0D0D', border: isScoutRec && scoutRecField==='coachNotes' ? '1px solid #ef4444' : '1px solid #2A2A2A', borderRadius:9, color:'#FFF', fontSize:13, padding:'9px 40px 9px 11px', resize:'vertical', outline:'none', fontFamily:'inherit', boxSizing:'border-box' }}/>
+            <button
+              onPointerDown={e=>{e.preventDefault();toggleScoutDictation('coachNotes');}}
+              title={isScoutRec && scoutRecField==='coachNotes' ? 'Stop dictation' : 'Dictate notes'}
+              style={{ position:'absolute', top:8, right:8, width:28, height:28, borderRadius:7, border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', background: isScoutRec && scoutRecField==='coachNotes' ? '#ef4444' : '#1E1E1E', flexShrink:0 }}>
+              {isScoutRec && scoutRecField==='coachNotes'
+                ? <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A1A1A1" strokeWidth="2" strokeLinecap="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+              }
+            </button>
+          </div>
+          {isScoutRec && scoutRecField==='coachNotes' && (
+            <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:5, fontSize:12, color:'#ef4444', fontWeight:600 }}>
+              <span style={{ width:7, height:7, borderRadius:'50%', background:'#ef4444', display:'inline-block', animation:'pulse 1s infinite' }}/>
+              Listening… tap the mic to stop
+            </div>
+          )}
         </div>
       ) : (
         <>
@@ -6540,6 +6674,231 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
     img.src = url;
   }
 
+  // ── Print Match Line-up ────────────────────────────────────────────────────
+  function printMatchLineup() {
+    const settings = loadSettings();
+    const teamName  = settings.teamName  || 'Team';
+    const coachName = settings.coachName || '';
+    const nP    = config.numPeriods || 3;
+    const hMins = config.halfMins   || 24;
+    const pMins = hMins / nP;
+
+    const SWAP_COLS = ['#E67E22','#2980B9','#8E44AD','#16A085','#C0392B','#D4AC0D','#27AE60','#E91E63'];
+
+    const FWD_IDS = new Set(['al','ar','st','lf','rf']);
+    const MID_IDS = new Set(['ml','mc','mr']);
+    const DEF_IDS = new Set(['dl','dc','dr']);
+
+    function getRows(slots) {
+      const fwds = posIds.filter(id => FWD_IDS.has(id) && slots[id]);
+      const mids = posIds.filter(id => MID_IDS.has(id) && slots[id]);
+      const defs = posIds.filter(id => DEF_IDS.has(id) && slots[id]);
+      const gks  = posIds.filter(id => id === 'gk' && slots[id]);
+      return [fwds, mids, defs, gks].filter(r => r.length > 0);
+    }
+
+    function getChanges(slots, prevSlots) {
+      if (!prevSlots) return [];
+      const changes = [];
+      posIds.forEach(id => {
+        const was = prevSlots[id] || '';
+        const now = slots[id] || '';
+        if (was !== now && now) changes.push({ inn: now, out: was || '—' });
+      });
+      return changes;
+    }
+
+    function getBench(slots) {
+      const onField = new Set(Object.values(slots).filter(Boolean));
+      return names.filter(n => !onField.has(n));
+    }
+
+    const allPeriods = [
+      ...h1Periods.map((slots, i) => ({
+        half: 1, label: `Period ${i + 1}`,
+        time: `${Math.round(i * pMins)}–${Math.round((i + 1) * pMins)} min`,
+        slots, prevSlots: i === 0 ? null : h1Periods[i - 1],
+        bench: getBench(slots),
+      })),
+      ...h2Periods.map((slots, i) => ({
+        half: 2, label: `Period ${nP + i + 1}`,
+        time: `${Math.round(hMins + i * pMins)}–${Math.round(hMins + (i + 1) * pMins)} min`,
+        slots, prevSlots: i === 0 ? (h1Periods[h1Periods.length - 1] || null) : h2Periods[i - 1],
+        bench: getBench(slots),
+      })),
+    ];
+
+    function buildPitch(slots, changes) {
+      const colMap = {};
+      changes.forEach((c, i) => { if (c.inn) colMap[c.inn] = SWAP_COLS[i % SWAP_COLS.length]; });
+      const rows = getRows(slots);
+      const W = 90, H = 124;
+      let dots = '';
+      rows.forEach((row, ri) => {
+        const y = ((ri + 0.55) / rows.length) * (H * 0.84) + (H * 0.06);
+        row.forEach((posId, ci) => {
+          const name = slots[posId] || '';
+          const x = ((ci + 0.5) / row.length) * (W * 0.84) + (W * 0.08);
+          const isGK = posId === 'gk';
+          const fill = isGK ? '#E57373' : '#F5C04A';
+          const swapCol = colMap[name];
+          const stroke = swapCol || 'rgba(255,255,255,0.85)';
+          const sw = swapCol ? 2.2 : 1.2;
+          const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2);
+          const firstName = (name.split(' ')[0] || '').slice(0, 7);
+          dots += `<g>
+            <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>
+            <text x="${x.toFixed(1)}" y="${(y + 1.3).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="4.5" font-weight="700" fill="#1a3a08" font-family="sans-serif">${initials}</text>
+            <text x="${x.toFixed(1)}" y="${(y + 10.5).toFixed(1)}" text-anchor="middle" font-size="5.2" font-weight="600" fill="white" font-family="sans-serif">${firstName}</text>
+          </g>`;
+        });
+      });
+      return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="${W}" height="${H}" fill="#2E7D32" rx="3"/>
+        <rect x="3" y="3" width="${W-6}" height="${H-6}" fill="none" stroke="rgba(255,255,255,.2)" stroke-width=".7" rx="2"/>
+        <line x1="3" y1="${H/2}" x2="${W-3}" y2="${H/2}" stroke="rgba(255,255,255,.2)" stroke-width=".7"/>
+        <circle cx="${W/2}" cy="${H/2}" r="12" fill="none" stroke="rgba(255,255,255,.2)" stroke-width=".7"/>
+        <rect x="${W/2-17}" y="3" width="34" height="14" fill="none" stroke="rgba(255,255,255,.2)" stroke-width=".7" rx="1"/>
+        <rect x="${W/2-17}" y="${H-17}" width="34" height="14" fill="none" stroke="rgba(255,255,255,.2)" stroke-width=".7" rx="1"/>
+        ${dots}
+      </svg>`;
+    }
+
+    function buildChangesHtml(changes) {
+      if (!changes.length) return '<div class="sec-lbl">Changes</div><div class="kickoff">Kick-off</div>';
+      const rows = changes.map((c, i) => {
+        const col = SWAP_COLS[i % SWAP_COLS.length];
+        return `<div class="c-row">
+          <div class="c-swatch" style="background:${col}"></div>
+          <span class="chip-in">&#9650; ${(c.inn || '').split(' ')[0]}</span>
+          <span class="c-for">for</span>
+          <span class="chip-out">&#9660; ${(c.out === '—' ? '—' : (c.out || '').split(' ')[0])}</span>
+        </div>`;
+      }).join('');
+      return `<div class="sec-lbl">Changes</div><div class="changes">${rows}</div>`;
+    }
+
+    function buildBenchHtml(bench) {
+      if (!bench.length) return '';
+      return `<div class="sec-lbl" style="margin-top:3px">Bench</div>
+        <div class="bench-chips">${bench.map(n => `<span class="bchip">${n.split(' ')[0]}</span>`).join('')}</div>`;
+    }
+
+    function buildCard(period) {
+      const changes = getChanges(period.slots, period.prevSlots);
+      return `<div class="pcard">
+        <div class="pcard-hdr">
+          <span class="p-lbl">${period.label}</span>
+          <span class="p-time">${period.time}</span>
+        </div>
+        <div class="pcard-body">
+          ${buildPitch(period.slots, changes)}
+          <div class="pcard-right">
+            ${buildChangesHtml(changes)}
+            ${buildBenchHtml(period.bench)}
+          </div>
+        </div>
+      </div>`;
+    }
+
+    const h1Cards = allPeriods.filter(p => p.half === 1).map(buildCard).join('');
+    const h2Cards = allPeriods.filter(p => p.half === 2).map(buildCard).join('');
+    const today   = new Date().toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short', year:'numeric' });
+    const oppText = opponent || 'TBD';
+    const pMinsDisplay = Number.isInteger(pMins) ? `${pMins}` : pMins.toFixed(1);
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Match Line-up — ${teamName} vs ${oppText}</title>
+<style>
+@page { size: A4 landscape; margin: 10mm; }
+@media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fff; color: #111; }
+.sh-hdr { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1B5E20; padding-bottom: 6px; margin-bottom: 8px; }
+.club-row { display: flex; align-items: center; gap: 7px; }
+.club-badge { width: 26px; height: 26px; background: #1B5E20; border-radius: 5px; display: flex; align-items: center; justify-content: center; color: #F5C04A; font-size: 13px; flex-shrink: 0; }
+.sh-title { font-size: 13px; font-weight: 700; color: #1B5E20; line-height: 1.2; }
+.sh-sub { font-size: 8px; color: #666; }
+.sh-meta { font-size: 8px; color: #777; text-align: right; line-height: 1.8; }
+.sh-meta b { color: #333; font-weight: 700; }
+.legend { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.leg { display: flex; align-items: center; gap: 2px; font-size: 7px; color: #666; white-space: nowrap; }
+.ldot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.body { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.half-lbl { font-size: 7.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1B5E20; border-bottom: 1.5px solid #C8E6C9; padding-bottom: 2px; margin-bottom: 4px; }
+.period-stack { display: flex; flex-direction: column; gap: 5px; }
+.pcard { border: 0.5px solid #dde8dd; border-radius: 4px; padding: 5px 6px; }
+.pcard-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.p-lbl { font-size: 7.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #555; }
+.p-time { font-size: 7px; font-weight: 600; color: #1B5E20; background: #E8F5E9; border-radius: 8px; padding: 1px 5px; }
+.pcard-body { display: grid; grid-template-columns: 95px 1fr; gap: 6px; align-items: start; }
+.pcard-right { display: flex; flex-direction: column; gap: 3px; }
+.sec-lbl { font-size: 6.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #999; margin-bottom: 2px; }
+.changes { display: flex; flex-direction: column; gap: 2.5px; }
+.c-row { display: flex; align-items: center; gap: 3px; }
+.c-swatch { width: 6px; height: 6px; border-radius: 2px; flex-shrink: 0; display: inline-block; }
+.chip-in { display: inline-flex; align-items: center; border-radius: 10px; padding: 1px 4px; font-size: 7px; font-weight: 700; white-space: nowrap; background: #E8F5E9; color: #1B5E20; }
+.chip-out { display: inline-flex; align-items: center; border-radius: 10px; padding: 1px 4px; font-size: 7px; font-weight: 700; white-space: nowrap; background: #FFEBEE; color: #B71C1C; }
+.c-for { font-size: 6.5px; color: #bbb; flex-shrink: 0; }
+.kickoff { font-size: 7px; color: #bbb; font-style: italic; }
+.bench-chips { display: flex; flex-wrap: wrap; gap: 2px; }
+.bchip { background: #F3F4F6; color: #444; border-radius: 8px; padding: 1px 4px; font-size: 7px; font-weight: 500; }
+.sh-footer { display: flex; gap: 7px; margin-top: 7px; padding-top: 7px; border-top: 1px solid #E8F5E9; }
+.notes-box { flex: 1; border: 0.5px solid #dde8dd; border-radius: 4px; padding: 4px 6px; }
+.notes-title { font-size: 7px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #999; margin-bottom: 2px; }
+.note-line { border-bottom: .5px solid #e8e8e8; height: 11px; }
+</style>
+</head>
+<body>
+<div class="sh-hdr">
+  <div class="club-row">
+    <div class="club-badge">&#9917;</div>
+    <div>
+      <div class="sh-title">${teamName} — Match Line-up</div>
+      <div class="sh-sub">${coachName ? 'Coach: ' + coachName + ' · ' : ''}${today}</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="legend">
+      <div class="leg"><span class="ldot" style="background:#F5C04A;border:1px solid rgba(0,0,0,.1)"></span>Outfield</div>
+      <div class="leg"><span class="ldot" style="background:#E57373;border:1px solid rgba(0,0,0,.1)"></span>GK</div>
+      <div class="leg"><span class="ldot" style="background:#F5C04A;border:2.5px solid #E67E22"></span>coloured border = swap pair</div>
+      <div class="leg"><span class="chip-in" style="font-size:6.5px">&#9650; On</span></div>
+      <div class="leg"><span class="chip-out" style="font-size:6.5px">&#9660; Off</span></div>
+    </div>
+    <div class="sh-meta">
+      <div><b>vs</b> ${oppText}</div>
+      <div>${config.formation || DEFAULT_FORMATION} · ${nP} periods × ${pMinsDisplay} min</div>
+    </div>
+  </div>
+</div>
+<div class="body">
+  <div><div class="half-lbl">First half</div><div class="period-stack">${h1Cards}</div></div>
+  <div><div class="half-lbl">Second half</div><div class="period-stack">${h2Cards}</div></div>
+</div>
+<div class="sh-footer">
+  <div class="notes-box">
+    <div class="notes-title">Coach notes</div>
+    <div class="note-line"></div><div class="note-line"></div><div class="note-line"></div>
+  </div>
+  <div class="notes-box" style="max-width:130px">
+    <div class="notes-title">Result</div>
+    <div class="note-line"></div><div class="note-line"></div>
+  </div>
+</div>
+<script>window.onload = function() { window.print(); }<\/script>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank');
+    if (!win) { alert('Please allow pop-ups to print the line-up.'); return; }
+    win.document.write(html);
+    win.document.close();
+  }
+
   function canStart() { return h1Periods.every(p=>positions.every(pos=>p[pos.id])); }
 
   // Build grouped rotation summary from any two half-arrays (current state or new computed values)
@@ -6648,6 +7007,9 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
           },
           { label:'Export as Image', icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
             action: exportLineupImage
+          },
+          { label:'Print line-up', icon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>,
+            action: printMatchLineup
           },
           { label: lineupMode==='optimize' ? 'Re-run Optimize Rotation' : 'Optimize Rotation',
             icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>,
@@ -9030,11 +9392,28 @@ function ImportExportScreen({ onBack }) {
     }
     if(type==='all'){
       // JSON for full backup (CSV can't handle nested data)
-      const ALL_KEYS=['soccerCoach_squad','soccerCoach_config','soccerCoach_games',
-        'soccerCoach_settings','soccerCoach_fixtureScores','soccerCoach_teamNotes','soccerCoach_allPostMatch',
-        'soccerCoach_teamNicknames','soccerCoach_fixtureTeam','soccerCoach_fixtures'];
-      const data={_exported:new Date().toISOString()};
-      ALL_KEYS.forEach(k=>{const v=localStorage.getItem(k);if(v)data[k]=JSON.parse(v);});
+      const STATIC_KEYS=[
+        'soccerCoach_squad',
+        'soccerCoach_config',
+        'soccerCoach_games',
+        'soccerCoach_settings',
+        'soccerCoach_fixtureScores',
+        'soccerCoach_teamNotes',       // scout reports
+        'soccerCoach_allPostMatch',    // post-match reviews
+        'soccerCoach_teamNicknames',
+        'soccerCoach_fixtureTeam',
+        'soccerCoach_fixtures',
+        'soccerCoach_contexts',        // lineup plans per upcoming game
+        'soccerCoach_savedLineup',     // last saved lineup from picker
+        'soccerCoach_defaultLineup',   // "Set Default Lineup" setting
+      ];
+      // Dynamic keys: opponent team rosters (soccerCoach_teamRoster_<TeamName>)
+      const dynamicKeys = Object.keys(localStorage).filter(k =>
+        k.startsWith('soccerCoach_teamRoster_')
+      );
+      const ALL_KEYS = [...STATIC_KEYS, ...dynamicKeys];
+      const data={_exported:new Date().toISOString(), _version:'2'};
+      ALL_KEYS.forEach(k=>{const v=localStorage.getItem(k);if(v!=null){try{data[k]=JSON.parse(v);}catch{data[k]=v;}}});
       return JSON.stringify(data,null,2);
     }
     return '';
@@ -9155,12 +9534,31 @@ function ImportExportScreen({ onBack }) {
             // ── Standard keys (skip special ones handled above) ──
             const SKIP=new Set(['_exported','_version','_description','_gameRecords',
               'soccerCoach_teamNotes','soccerCoach_allPostMatch']);
+            const FRIENDLY={
+              'soccerCoach_squad':         'squad',
+              'soccerCoach_games':         'game records',
+              'soccerCoach_settings':      'settings',
+              'soccerCoach_config':        'match config',
+              'soccerCoach_fixtureScores': 'fixture scores',
+              'soccerCoach_contexts':      'lineup plans',
+              'soccerCoach_savedLineup':   'saved lineup',
+              'soccerCoach_defaultLineup': 'default lineup',
+              'soccerCoach_fixtureTeam':   'team selection',
+              'soccerCoach_teamNicknames': 'team nicknames',
+            };
             Object.entries(data).forEach(([k,v])=>{
-              if(!SKIP.has(k)){localStorage.setItem(k,JSON.stringify(v));count++;}
+              if(!SKIP.has(k)){
+                localStorage.setItem(k,JSON.stringify(v));
+                count++;
+                const label = k.startsWith('soccerCoach_teamRoster_')
+                  ? 'opponent roster ('+k.replace('soccerCoach_teamRoster_','')+')'
+                  : (FRIENDLY[k] || null);
+                if(label) msgs.push(label);
+              }
             });
 
-            const summary=msgs.length?msgs.join(' · '):''+count+' data sets';
-            msg('Imported: '+summary+' — reloading',true);
+            const summary=msgs.length?msgs.join(', '):''+count+' data sets';
+            msg('Restored: '+summary+' — reloading',true);
             setTimeout(()=>window.location.reload(),1500);
             return;
           }
