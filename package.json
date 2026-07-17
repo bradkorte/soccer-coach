@@ -1,4 +1,11 @@
 {
+  "name": "khula-coaching",
+  "version": "1.0.0",
+  "description": "Khula soccer coaching app",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node preview-server.mjs"
+  },
   "devDependencies": {
     "@babel/standalone": "^7.29.7"
   }

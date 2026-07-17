@@ -6001,6 +6001,8 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
   const [showGKSetup,     setShowGKSetup]     = useState(false);
   const [gkSetupConfig,   setGKSetupConfig]   = useState({ splitGK: true,  h1GK: '', h2GK: '' });
   const [saveConfirm,     setSaveConfirm]     = useState(false);
+  const [printModalOpen,  setPrintModalOpen]  = useState(false);
+  const [printContent,    setPrintContent]    = useState({ styleContent: '', bodyContent: '' });
   const [analysisSubTab,  setAnalysisSubTab]  = useState('minutes'); // 'minutes' | 'positions'
   const [selectedPosView, setSelectedPosView] = useState(0); // index into allPeriodViews
   const [periodMenu,      setPeriodMenu]      = useState(null); // {th, tp} | null
@@ -6669,7 +6671,10 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
       const link = document.createElement('a');
       link.download = `lineup-${config.formation||'lineup'}-P${activePeriod+1}.png`;
       link.href = canvas.toDataURL('image/png');
+      link.style.display = 'none';
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
     };
     img.src = url;
   }
@@ -6889,14 +6894,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="note-line"></div><div class="note-line"></div>
   </div>
 </div>
-<script>window.onload = function() { window.print(); }<\/script>
 </body>
 </html>`;
 
-    const win = window.open('', '_blank');
-    if (!win) { alert('Please allow pop-ups to print the line-up.'); return; }
-    win.document.write(html);
-    win.document.close();
+    // Parse the HTML document string to extract styles + body content for the preview modal
+    const parsed = new DOMParser().parseFromString(html, 'text/html');
+    const styleContent = Array.from(parsed.querySelectorAll('style')).map(s => s.textContent).join('\n');
+    const bodyContent  = parsed.body?.innerHTML || '';
+
+    // Open the preview modal — user clicks Print inside it (direct gesture → window.print() works)
+    setPrintContent({ styleContent, bodyContent });
+    setPrintModalOpen(true);
   }
 
   function canStart() { return h1Periods.every(p=>positions.every(pos=>p[pos.id])); }
@@ -8414,6 +8422,50 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           {canStart() ? '✓ Save Line-up' : 'Assign all positions to save'}
         </button>
       </div>
+
+      {/* ── PRINT PREVIEW MODAL ── */}
+      {printModalOpen && <div style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        zIndex: 9999, background: 'rgba(0,0,0,0.96)',
+        display: 'flex', flexDirection: 'column',
+      }}>
+        {/* Inject lineup styles + @media print rules into the document */}
+        <style dangerouslySetInnerHTML={{__html: printContent.styleContent + `
+          @media print {
+            body * { visibility: hidden !important; }
+            #__kp_content__, #__kp_content__ * { visibility: visible !important; }
+            #__kp_content__ {
+              position: fixed !important; top: 0 !important; left: 0 !important;
+              width: 100% !important; height: auto !important;
+              overflow: visible !important; background: white !important;
+              border-radius: 0 !important; padding: 12px !important; margin: 0 !important;
+            }
+          }
+        `}} />
+        {/* Header */}
+        <div style={{
+          background: '#1a1a1a', padding: '12px 16px',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          flexShrink: 0, borderBottom: '1px solid #2a2a2a',
+        }}>
+          <button onClick={() => setPrintModalOpen(false)} style={{
+            background: '#2a2a2a', color: '#fff', border: 'none',
+            borderRadius: 8, padding: '8px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 600,
+          }}>✕ Close</button>
+          <span style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>Print Preview</span>
+          <button onClick={() => window.print()} style={{
+            background: '#F5C04A', color: '#000', border: 'none',
+            borderRadius: 8, padding: '8px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 700,
+          }}>🖨 Print</button>
+        </div>
+        {/* Lineup preview */}
+        <div style={{ flex: 1, overflow: 'auto', padding: 12 }}>
+          <div id="__kp_content__"
+            style={{ background: '#fff', borderRadius: 8, padding: 12 }}
+            dangerouslySetInnerHTML={{ __html: printContent.bodyContent }}
+          />
+        </div>
+      </div>}
     </div>
   );
 }
@@ -11086,7 +11138,7 @@ function LiveMatchV2Screen({ half1, half2, config, squad, opponent, linkedFixKey
     : (squad||[]).filter(p=>!p.injured&&!p.archived)
         .filter(p=>!Object.values(liveSlots).filter(v=>typeof v==='string').includes(p.name))
         .map(p=>p.name);
-  const benchPlayers = (squad||[]).filter(p=>benchNames.includes(p.name));
+  const benchPlayers = (squad||[]).filter(p=>benchNames.includes(p.name) && !p.injured && !p.archived);
 
   // ── Quick events ────────────────────────────────────────────────────────────
   function openQuickEvt(rule) { setQuickEvtRule(rule); setQuickEvtPlayer(''); setQuickEvtNote(''); }
