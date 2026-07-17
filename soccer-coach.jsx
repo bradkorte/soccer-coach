@@ -6684,22 +6684,26 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
     const settings = loadSettings();
     const teamName  = settings.teamName  || 'Team';
     const coachName = settings.coachName || '';
+    const teamLogo  = getTeamLogo(teamName);
     const nP    = config.numPeriods || 3;
     const hMins = config.halfMins   || 24;
     const pMins = hMins / nP;
 
     const SWAP_COLS = ['#E67E22','#2980B9','#8E44AD','#16A085','#C0392B','#D4AC0D','#27AE60','#E91E63'];
 
-    const FWD_IDS = new Set(['al','ar','st','lf','rf']);
-    const MID_IDS = new Set(['ml','mc','mr']);
-    const DEF_IDS = new Set(['dl','dc','dr']);
+    // Separate striker from wings so ST sits in its own row in front of AL/AR
+    const ST_IDS   = new Set(['st']);
+    const WING_IDS = new Set(['al','ar','lf','rf']);
+    const MID_IDS  = new Set(['ml','mc','mr']);
+    const DEF_IDS  = new Set(['dl','dc','dr']);
 
     function getRows(slots) {
-      const fwds = posIds.filter(id => FWD_IDS.has(id) && slots[id]);
-      const mids = posIds.filter(id => MID_IDS.has(id) && slots[id]);
-      const defs = posIds.filter(id => DEF_IDS.has(id) && slots[id]);
-      const gks  = posIds.filter(id => id === 'gk' && slots[id]);
-      return [fwds, mids, defs, gks].filter(r => r.length > 0);
+      const strikers = posIds.filter(id => ST_IDS.has(id)   && slots[id]);
+      const wings    = posIds.filter(id => WING_IDS.has(id) && slots[id]);
+      const mids     = posIds.filter(id => MID_IDS.has(id)  && slots[id]);
+      const defs     = posIds.filter(id => DEF_IDS.has(id)  && slots[id]);
+      const gks      = posIds.filter(id => id === 'gk'      && slots[id]);
+      return [strikers, wings, mids, defs, gks].filter(r => r.length > 0);
     }
 
     function getChanges(slots, prevSlots) {
@@ -6737,35 +6741,36 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
       const colMap = {};
       changes.forEach((c, i) => { if (c.inn) colMap[c.inn] = SWAP_COLS[i % SWAP_COLS.length]; });
       const rows = getRows(slots);
-      const W = 90, H = 124;
-      let dots = '';
+      const W = 270, H = 180;
+      let players = '';
       rows.forEach((row, ri) => {
-        const y = ((ri + 0.55) / rows.length) * (H * 0.84) + (H * 0.06);
+        // Distribute rows evenly with a little padding top/bottom
+        const y = ((ri + 0.5) / rows.length) * (H * 0.84) + (H * 0.08);
         row.forEach((posId, ci) => {
           const name = slots[posId] || '';
-          const x = ((ci + 0.5) / row.length) * (W * 0.84) + (W * 0.08);
-          const isGK = posId === 'gk';
-          const fill = isGK ? '#E57373' : '#F5C04A';
+          if (!name) return;
+          const x = ((ci + 0.5) / row.length) * (W * 0.86) + (W * 0.07);
+          const firstName = (name.split(' ')[0] || '').slice(0, 10);
           const swapCol = colMap[name];
-          const stroke = swapCol || 'rgba(255,255,255,0.85)';
-          const sw = swapCol ? 2.2 : 1.2;
-          const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2);
-          const firstName = (name.split(' ')[0] || '').slice(0, 7);
-          dots += `<g>
-            <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>
-            <text x="${x.toFixed(1)}" y="${(y + 1.3).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-size="4.5" font-weight="700" fill="#1a3a08" font-family="sans-serif">${initials}</text>
-            <text x="${x.toFixed(1)}" y="${(y + 10.5).toFixed(1)}" text-anchor="middle" font-size="5.2" font-weight="600" fill="white" font-family="sans-serif">${firstName}</text>
-          </g>`;
+          if (swapCol) {
+            // Sub coming on: coloured outlined box, name in matching colour
+            const bW = Math.max(firstName.length * 6.8 + 14, 48);
+            players += `<rect x="${(x - bW/2).toFixed(1)}" y="${(y - 9).toFixed(1)}" width="${bW.toFixed(1)}" height="18" fill="rgba(0,0,0,0.25)" stroke="${swapCol}" stroke-width="2" rx="2"/>
+            <text x="${x.toFixed(1)}" y="${(y + 4.5).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="700" fill="${swapCol}" font-family="sans-serif">${firstName}</text>`;
+          } else {
+            // Staying on: plain white name
+            players += `<text x="${x.toFixed(1)}" y="${(y + 4.5).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="700" fill="white" font-family="sans-serif">${firstName}</text>`;
+          }
         });
       });
       return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
         <rect width="${W}" height="${H}" fill="#2E7D32" rx="3"/>
-        <rect x="3" y="3" width="${W-6}" height="${H-6}" fill="none" stroke="rgba(255,255,255,.2)" stroke-width=".7" rx="2"/>
-        <line x1="3" y1="${H/2}" x2="${W-3}" y2="${H/2}" stroke="rgba(255,255,255,.2)" stroke-width=".7"/>
-        <circle cx="${W/2}" cy="${H/2}" r="12" fill="none" stroke="rgba(255,255,255,.2)" stroke-width=".7"/>
-        <rect x="${W/2-17}" y="3" width="34" height="14" fill="none" stroke="rgba(255,255,255,.2)" stroke-width=".7" rx="1"/>
-        <rect x="${W/2-17}" y="${H-17}" width="34" height="14" fill="none" stroke="rgba(255,255,255,.2)" stroke-width=".7" rx="1"/>
-        ${dots}
+        <rect x="4" y="4" width="${W-8}" height="${H-8}" fill="none" stroke="rgba(255,255,255,.22)" stroke-width=".8" rx="2"/>
+        <line x1="4" y1="${H/2}" x2="${W-4}" y2="${H/2}" stroke="rgba(255,255,255,.18)" stroke-width=".8"/>
+        <circle cx="${W/2}" cy="${H/2}" r="24" fill="none" stroke="rgba(255,255,255,.18)" stroke-width=".8"/>
+        <rect x="${(W/2-42).toFixed(1)}" y="4" width="84" height="22" fill="none" stroke="rgba(255,255,255,.18)" stroke-width=".8" rx="1"/>
+        <rect x="${(W/2-42).toFixed(1)}" y="${H-26}" width="84" height="22" fill="none" stroke="rgba(255,255,255,.18)" stroke-width=".8" rx="1"/>
+        ${players}
       </svg>`;
     }
 
@@ -6839,7 +6844,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .pcard-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
 .p-lbl { font-size: 7.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #555; }
 .p-time { font-size: 7px; font-weight: 600; color: #1B5E20; background: #E8F5E9; border-radius: 8px; padding: 1px 5px; }
-.pcard-body { display: grid; grid-template-columns: 95px 1fr; gap: 6px; align-items: start; }
+.pcard-body { display: grid; grid-template-columns: 270px 1fr; gap: 8px; align-items: start; }
 .pcard-right { display: flex; flex-direction: column; gap: 3px; }
 .sec-lbl { font-size: 6.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #999; margin-bottom: 2px; }
 .changes { display: flex; flex-direction: column; gap: 2.5px; }
@@ -6860,7 +6865,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <body>
 <div class="sh-hdr">
   <div class="club-row">
-    <div class="club-badge">&#9917;</div>
+    ${teamLogo ? `<img src="${teamLogo}" style="width:32px;height:32px;object-fit:contain;flex-shrink:0;" />` : `<div class="club-badge">&#9917;</div>`}
     <div>
       <div class="sh-title">${teamName} — Match Line-up</div>
       <div class="sh-sub">${coachName ? 'Coach: ' + coachName + ' · ' : ''}${today}</div>
@@ -6868,9 +6873,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </div>
   <div style="display:flex;align-items:center;gap:12px">
     <div class="legend">
-      <div class="leg"><span class="ldot" style="background:#F5C04A;border:1px solid rgba(0,0,0,.1)"></span>Outfield</div>
-      <div class="leg"><span class="ldot" style="background:#E57373;border:1px solid rgba(0,0,0,.1)"></span>GK</div>
-      <div class="leg"><span class="ldot" style="background:#F5C04A;border:2.5px solid #E67E22"></span>coloured border = swap pair</div>
+      <div class="leg"><span style="display:inline-block;width:28px;height:11px;border:2px solid #E67E22;border-radius:2px;vertical-align:middle;margin-right:3px"></span>Coloured box = coming on</div>
       <div class="leg"><span class="chip-in" style="font-size:6.5px">&#9650; On</span></div>
       <div class="leg"><span class="chip-out" style="font-size:6.5px">&#9660; Off</span></div>
     </div>
@@ -10960,38 +10963,60 @@ function LiveMatchV2Screen({ half1, half2, config, squad, opponent, linkedFixKey
   const [flashOn,     setFlashOn]     = React.useState(false);
   const prevLivePRef  = React.useRef(0);
   const alarmAudioRef = React.useRef(null);
+  const audioCtxRef   = React.useRef(null); // persistent, unlocked on first Play tap
   const startTsRef  = React.useRef(null); // wall-clock ms when clock last started
   const baseElapsed = React.useRef(0);    // elapsed seconds accumulated before last start
   const wakeLockRef = React.useRef(null);
 
   // ── Alarm audio ────────────────────────────────────────────────────────────
-  function startAlarmSound() {
-    if (alarmAudioRef.current) return;
+  // Must be called from a user gesture (e.g. Play tap) to unlock the AudioContext.
+  // Browsers suspend AudioContext created outside a gesture — this pre-unlocks it.
+  function ensureAudioCtx() {
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      // Triple-beep every 2 seconds
-      function beepSet() {
-        [0, 0.18, 0.36].forEach(offset => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.type = 'sine'; osc.frequency.value = 880;
-          gain.gain.setValueAtTime(0.6, ctx.currentTime + offset);
-          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.14);
-          osc.start(ctx.currentTime + offset);
-          osc.stop(ctx.currentTime + offset + 0.14);
-        });
+      if (!audioCtxRef.current) {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        audioCtxRef.current = ctx;
+        // Play a silent 1-frame buffer — iOS Safari requires this to truly unlock
+        const buf = ctx.createBuffer(1, 1, 22050);
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(ctx.destination);
+        src.start(0);
+      } else if (audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume();
       }
-      beepSet();
-      const iv = setInterval(beepSet, 2000);
-      alarmAudioRef.current = { ctx, iv };
     } catch(e) {}
   }
+
+  function startAlarmSound() {
+    if (alarmAudioRef.current) return;
+    const ctx = audioCtxRef.current;
+    if (!ctx) return; // not unlocked yet — user hasn't tapped Play
+    function beepSet() {
+      [0, 0.18, 0.36].forEach(offset => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine'; osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0.7, ctx.currentTime + offset);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.18);
+        osc.start(ctx.currentTime + offset);
+        osc.stop(ctx.currentTime + offset + 0.18);
+      });
+    }
+    // Resume in case context was suspended, then start beeping
+    const ready = ctx.state === 'suspended' ? ctx.resume() : Promise.resolve();
+    ready.then(() => {
+      beepSet();
+      alarmAudioRef.current = { iv: setInterval(beepSet, 2000) };
+    });
+  }
+
   function stopAlarmSound() {
     if (!alarmAudioRef.current) return;
     clearInterval(alarmAudioRef.current.iv);
-    try { alarmAudioRef.current.ctx.close(); } catch(e) {}
     alarmAudioRef.current = null;
+    // Keep audioCtxRef alive and running for future alarms
   }
 
   // ── Sub alarm — fires when livePeriod advances ───────────────────────────
@@ -11289,7 +11314,7 @@ function LiveMatchV2Screen({ half1, half2, config, squad, opponent, linkedFixKey
           const color = notStarted?'#22c55e':running?'#FFF':'#F5C04A';
           const label = notStarted?'Play':running?'Pause':'Resume';
           return (
-            <button onClick={()=>setRunning(r=>{ if(r){ baseElapsed.current=elapsed; } else { startTsRef.current=Date.now(); } return !r; })}
+            <button onClick={()=>{ ensureAudioCtx(); setRunning(r=>{ if(r){ baseElapsed.current=elapsed; } else { startTsRef.current=Date.now(); } return !r; }); }}
               style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:8,
                 padding:'10px 0',margin:'6px 6px 6px 8px',background:'#1A1A1A',
                 border:`1px solid ${color}44`,borderRadius:10,cursor:'pointer'}}>
