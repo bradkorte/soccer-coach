@@ -9830,6 +9830,39 @@ function ImportExportScreen({ onBack }) {
       });
       return lines.join('\n');
     }
+    if(type==='reviews'){
+      const games = JSON.parse(localStorage.getItem('soccerCoach_games')||'[]');
+      const fxSc  = JSON.parse(localStorage.getItem('soccerCoach_fixtureScores')||'{}');
+      const headers = ['Round','Date','Opponent','Score Us','Score Them','Result','Goalkeeper','Player Recognition','Goals Scored','Goal Scorers','Match Report','Voice Notes'];
+      const lines = [row(headers)];
+      const sorted = [...games].sort((a,b)=>(a.date||0)-(b.date||0));
+      sorted.forEach(g=>{
+        // Resolve score: fixture score takes priority
+        let us = g.scoreUs||0, them = g.scoreThem||0;
+        if(g.linkedFixtureKey && fxSc[g.linkedFixtureKey]){
+          const sc = fxSc[g.linkedFixtureKey];
+          const parts = g.linkedFixtureKey.split('|||');
+          const myTeam = localStorage.getItem('soccerCoach_fixtureTeam')||'';
+          const isHome = parts[1]===myTeam;
+          us   = isHome ? sc.home : sc.away;
+          them = isHome ? sc.away : sc.home;
+        }
+        const res    = us>them?'W':us<them?'L':'D';
+        // GK: prefer halves-tracked gk, fall back to gk string
+        const halvesGK = g.halves?.[0]?.[0]?.slots?.gk || '';
+        const gk = halvesGK || g.gk || '';
+        const potm   = Array.isArray(g.potm) ? g.potm.join('; ') : (g.potm||'');
+        const ourGoals = (g.goals||[]).filter(x=>x.team==='us');
+        const scorers = [...new Set(ourGoals.map(x=>x.scorer))].filter(Boolean).join('; ');
+        lines.push(row([
+          g.khula_round||'', new Date(g.date).toLocaleDateString('en-AU'),
+          g.opponent||'', us, them, res, gk, potm,
+          ourGoals.length, scorers,
+          (g.report||'').replace(/\n/g,' '), (g.voiceNotes||'').replace(/\n/g,' ')
+        ]));
+      });
+      return lines.join('\n');
+    }
     if(type==='fixtures'){
       // Comma-separated CSV
       const SEP = ',';
@@ -10076,6 +10109,59 @@ function ImportExportScreen({ onBack }) {
             saveGames([...existing, ...toAdd]);
             msg('Imported '+toAdd.length+' game records'+(newGames.length-toAdd.length>0?' ('+( newGames.length-toAdd.length)+' skipped — already exist)':'')+' — reloading',true);
             setTimeout(()=>window.location.reload(),1500);
+          } else if(type==='reviews'){
+            // Merge review fields (GK, potm, report, voiceNotes, score) into existing game records
+            // Matches by Round+Opponent, or Date+Opponent as fallback
+            const existing = JSON.parse(localStorage.getItem('soccerCoach_games')||'[]');
+            const csvSquad = loadSquad();
+            let updated = 0, added = 0;
+            const fxSc = JSON.parse(localStorage.getItem('soccerCoach_fixtureScores')||'{}');
+            rows.forEach(r=>{
+              const opp   = (r['Opponent']||'').trim(); if(!opp) return;
+              const round = (r['Round']||'').trim();
+              const dateStr = (r['Date']||'').trim();
+              const parts = dateStr.split('/');
+              const dateMs = parts.length===3 ? new Date(parts[2]+'-'+String(parts[1]).padStart(2,'0')+'-'+String(parts[0]).padStart(2,'0')).getTime() : null;
+              // Find matching game
+              let idx = existing.findIndex(g=>round && g.khula_round===round && g.opponent===opp);
+              if(idx===-1 && dateMs) idx = existing.findIndex(g=>Math.abs(g.date-dateMs)<86400000 && g.opponent===opp);
+              const gk   = (r['Goalkeeper']||'').trim();
+              const potmRaw = (r['Player Recognition']||'').trim();
+              const potm = potmRaw ? potmRaw.split(/[;,]/).map(s=>normalizePlayerName(s.trim(),csvSquad)).filter(Boolean) : [];
+              const report = (r['Match Report']||'').trim();
+              const voiceNotes = (r['Voice Notes']||'').trim();
+              const us   = parseInt(r['Score Us'])||0;
+              const them = parseInt(r['Score Them'])||0;
+              if(idx!==-1){
+                // Patch existing record
+                const g = {...existing[idx]};
+                if(gk) g.gk = gk;
+                if(potm.length) g.potm = potm;
+                if(report) g.report = report;
+                if(voiceNotes) g.voiceNotes = voiceNotes;
+                // Only update score if not already set via fixture scores
+                if(!g.linkedFixtureKey || !fxSc[g.linkedFixtureKey]){
+                  g.scoreUs = us; g.scoreThem = them;
+                  g.result = us>them?'W':us<them?'L':'D';
+                }
+                existing[idx] = g;
+                updated++;
+              } else {
+                // Create new game record
+                const id = 'g_imp_'+(dateMs||Date.now())+'_'+Math.random().toString(36).slice(2);
+                existing.push({
+                  id, date:dateMs||Date.now(), opponent:opp,
+                  khula_round:round, scoreUs:us, scoreThem:them,
+                  result:us>them?'W':us<them?'L':'D',
+                  gk, potm, report, voiceNotes,
+                  goals:[], matchEvents:[], halves:[], config:{},
+                });
+                added++;
+              }
+            });
+            localStorage.setItem('soccerCoach_games', JSON.stringify(existing));
+            msg(`Reviews imported: ${updated} updated, ${added} new — reloading`, true);
+            setTimeout(()=>window.location.reload(),1500);
           } else if(type==='fixtures'){
             // Parse FA-format date "Sat, May 2, 2026, 09:30 AM" -> {date:"2 May", time:"9:30am"}
             function parseFADateTime(str) {
@@ -10187,8 +10273,9 @@ function ImportExportScreen({ onBack }) {
       <div style={{ flex:1, overflowY:'auto', padding:'16px' }}>
       {status&&<div style={{background:statusOk?'#110D00':'#3a0b0b',border:'1px solid '+(statusOk?'#F5C04A44':'#ef444444'),borderRadius:9,padding:'10px 14px',marginBottom:14,fontSize:13,color:statusOk?'#FCD34D':'#fca5a5',fontWeight:600,flexShrink:0}}>{status}</div>}
         <Section icon="👥" title="Squad" subtitle="Player names & positions (CSV)" type="team" defaultName={'squad-'+today} />
-        <Section icon="📊" title="Scores" subtitle="Game results and match events" type="scores" defaultName={'scores-'+today} />
-        <Section icon="📅" title="Fixtures" subtitle="Fixture results and team" type="fixtures" defaultName={'fixtures-'+today} />
+        <Section icon="📋" title="Match Reviews" subtitle="Scores, GK, player recognition, reports (CSV)" type="reviews" defaultName={'match-reviews-'+today} />
+        <Section icon="📊" title="Scores Only" subtitle="Compact game results and events (CSV)" type="scores" defaultName={'scores-'+today} />
+        <Section icon="📅" title="Fixtures" subtitle="Fixture results and team (CSV)" type="fixtures" defaultName={'fixtures-'+today} />
         <Section icon="📦" title="Everything" subtitle="Full JSON backup — all data" type="all" defaultName={'soccer-backup-'+today} />
 
         <div style={{background:'#3a0b0b',border:'1px solid #ef444433',borderRadius:12,padding:'14px 16px',marginTop:4}}>
