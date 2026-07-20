@@ -208,7 +208,12 @@ function seedHardcodedData() {
   try {
     const existingGames = JSON.parse(localStorage.getItem('soccerCoach_games')||'[]');
     if (!Array.isArray(existingGames) || existingGames.length === 0) {
-      localStorage.setItem('soccerCoach_games', JSON.stringify(DEFAULT_GAMES));
+      const seeded = DEFAULT_GAMES.map(g => {
+        const gkSeed = DEFAULT_GAME_GK_RECOG[g.id];
+        if (!gkSeed) return g;
+        return { ...g, h1Goalkeeper: gkSeed.h1Goalkeeper, h2Goalkeeper: gkSeed.h2Goalkeeper, recognitions: gkSeed.recognitions };
+      });
+      localStorage.setItem('soccerCoach_games', JSON.stringify(seeded));
     } else {
       const defMap = new Map(DEFAULT_GAMES.map(g => [g.id, g]));
       // Remove phantom / deleted seed entries that no longer exist in DEFAULT_GAMES
@@ -1564,8 +1569,10 @@ function resolveHalfGoalkeepers(game) {
     names.forEach(n => { counts[n] = (counts[n] || 0) + 1; });
     return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
   }
-  const h1 = modeGk(game.halves?.[0]) ?? (game.h1Goalkeeper !== undefined ? (game.h1Goalkeeper ?? null) : null);
-  const h2 = modeGk(game.halves?.[1]) ?? (game.h2Goalkeeper !== undefined ? (game.h2Goalkeeper ?? null) : null);
+  // Explicit fields take priority — they are the authoritative post-match record.
+  // Fall back to halves slot data only when no explicit assignment exists.
+  const h1 = (game.h1Goalkeeper !== undefined) ? (game.h1Goalkeeper ?? null) : modeGk(game.halves?.[0]);
+  const h2 = (game.h2Goalkeeper !== undefined) ? (game.h2Goalkeeper ?? null) : modeGk(game.halves?.[1]);
   return { h1, h2 };
 }
 
