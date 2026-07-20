@@ -116,8 +116,76 @@ function teamRosterKey(team) { return 'soccerCoach_teamRoster_' + team; }
 function loadTeamRoster(team) { try { const v=JSON.parse(localStorage.getItem(teamRosterKey(team))); return Array.isArray(v)?v:null; } catch{return null;} }
 function saveTeamRoster(team,roster) { try{localStorage.setItem(teamRosterKey(team),JSON.stringify(roster));}catch{} }
 // Seed squad for a given team name if the squad is currently empty
-const DEFAULT_GAMES=[{"id":"g_imp_1746144000000","opponent":"Brisbane Knights","date":1746144000000,"scoreUs":6,"scoreThem":0,"result":"W","goals":[{"team":"us","scorer":"Mia Prebble","secs":0},{"team":"us","scorer":"Mia Prebble","secs":0},{"team":"us","scorer":"Sydney Garson","secs":0},{"team":"us","scorer":"Sydney Garson","secs":0},{"team":"us","scorer":"Sydney Garson","secs":0},{"team":"us","scorer":"Taylor Korte","secs":0}],"potm":["Sydney Garson"],"formation":"1-3-2-3","khula_round":"Round 1","voiceNotes":"A strong team performance resulted in a convincing 6–0 win over the Brisbane Knights, with all players contributing well across the pitch.\n\nSydney had an outstanding game, starting in midfield before moving to striker. She showed excellent determination, working through multiple tackles and converting her efforts into goals.\n\nNaomi played in defence for the full match but kept roaming across the field, leaving gaps. Given her natural movement and ability to get around the field, it may be worth trialling her in midfield.\n\nSienna delivered an excellent all-round performance, playing both goalkeeper and left wing. In goal she handled sustained pressure confidently, making multiple strong saves. Her distribution was also strong.\n\nCharlotte appeared uncomfortable in midfield — worth trialling her back in defence.\n\nThe team showed particularly strong intent when pressing from opposition restarts. On opposition goal kicks and kickoffs, the girls applied immediate pressure, often winning the ball back quickly.\n\nDefensively the first half was solid, but the second half saw a drop in structure — players occasionally out of position, allowing opposition attackers to get in behind. Area to focus on.\n\nThings to work on: defensive positional discipline; Naomi ball control and getting kicks away; throw-in technique and support; corner kicks.","report":"A strong team performance resulted in a convincing 6–0 win over the Brisbane Knights, with all players contributing well across the pitch.\n\nSydney had an outstanding game, starting in midfield before moving to striker. She showed excellent determination, working through multiple tackles and converting her efforts into goals.\n\nNaomi played in defence for the full match but kept roaming across the field, leaving gaps. Given her natural movement and ability to get around the field, it may be worth trialling her in midfield.\n\nSienna delivered an excellent all-round performance, playing both goalkeeper and left wing. In goal she handled sustained pressure confidently, making multiple strong saves. Her distribution was also strong.\n\nCharlotte appeared uncomfortable in midfield — worth trialling her back in defence.\n\nThe team showed particularly strong intent when pressing from opposition restarts. On opposition goal kicks and kickoffs, the girls applied immediate pressure, often winning the ball back quickly.\n\nDefensively the first half was solid, but the second half saw a drop in structure — players occasionally out of position, allowing opposition attackers to get in behind. Area to focus on.\n\nThings to work on: defensive positional discipline; Naomi ball control and getting kicks away; throw-in technique and support; corner kicks.","matchEvents":[],"quickNotes":[],"halves":[[{"slots":{"st":"Grace Quinn","al":"Naomi Connolly","ar":"Poppy Leyden","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Simone Connolly","dc":"Sydney Garson","dr":"Nixie Fittler","bench":[],"gk":"Taylor Korte"}},{"slots":{"st":"Grace Quinn","al":"Sienna Mclean","ar":"Poppy Leyden","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Kiera Korte","dc":"Sydney Garson","dr":"Nixie Fittler","bench":[],"gk":"Taylor Korte"}},{"slots":{"st":"Sydney Garson","al":"Sienna Mclean","ar":"Poppy Leyden","ml":"Naomi Connolly","mr":"Mia Prebble","dl":"Kiera Korte","dc":"Simone Connolly","dr":"Nixie Fittler","bench":[],"gk":"Taylor Korte"}}],[{"slots":{"bench":["Poppy Leyden"],"gk":"Kiera Korte"}},{"slots":{"bench":["Naomi Connolly"],"gk":"Kiera Korte"}},{"slots":{"bench":["Taylor Korte"],"gk":"Kiera Korte"}}]],"config":{"formation":"1-3-2-3"},"linkedFixtureKey":"Round 1|||UQFC Rubies|||Brisbane Knights"},{"id":"g_imp_1746748800000","opponent":"Ipswich Koalas","date":1746748800000,"scoreUs":2,"scoreThem":0,"result":"W","goals":[],"potm":["Taylor Korte"],"formation":"1-3-2-3","khula_round":"Round 2","voiceNotes":"","report":"","matchEvents":[],"quickNotes":[],"halves":[[{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Naomi Connolly","mr":"Mia Prebble","dl":"Nixie Fittler","dc":"Kiera Korte","dr":"Ruby Deutsch","bench":["Poppy Leyden","Charlotte Harris","Simone Connolly","Sydney Garson"]}},{"slots":{"st":"Pippa Ferrier","al":"Poppy Leyden","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Ruby Deutsch","bench":["Sienna Mclean","Naomi Connolly","Nixie Fittler","Sydney Garson"]}},{"slots":{"st":"Sienna Mclean","al":"Poppy Leyden","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Naomi Connolly","dl":"Simone Connolly","dc":"Nixie Fittler","dr":"Ruby Deutsch","bench":["Pippa Ferrier","Mia Prebble","Kiera Korte","Sydney Garson"]}}],[{"slots":{"st":"Sydney Garson","al":"Poppy Leyden","ar":"Pippa Ferrier","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Ruby Deutsch","dc":"Nixie Fittler","dr":"Simone Connolly","bench":["Taylor Korte","Naomi Connolly","Kiera Korte","Sienna Mclean"]}},{"slots":{"st":"Sydney Garson","al":"Poppy Leyden","ar":"Taylor Korte","ml":"Naomi Connolly","mr":"Mia Prebble","dl":"Ruby Deutsch","dc":"Nixie Fittler","dr":"Kiera Korte","bench":["Pippa Ferrier","Charlotte Harris","Simone Connolly","Sienna Mclean"]}},{"slots":{"st":"Sydney Garson","al":"Pippa Ferrier","ar":"Taylor Korte","ml":"Naomi Connolly","mr":"Charlotte Harris","dl":"Simone Connolly","dc":"Nixie Fittler","dr":"Kiera Korte","bench":["Poppy Leyden","Mia Prebble","Ruby Deutsch","Sienna Mclean"]}}]],"config":{"formation":"1-3-2-3"},"linkedFixtureKey":"Round 2|||Ipswich Koalas|||UQFC Rubies"},{"id":"g_imp_1747353600000","opponent":"Bardon Bananas","date":1747353600000,"scoreUs":4,"scoreThem":0,"result":"W","goals":[],"potm":["Charlotte Harris"],"formation":"1-3-2-3","khula_round":"Round 3","voiceNotes":"Nixie was absent for this game.","report":"","matchEvents":[],"quickNotes":[],"halves":[[{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Sydney Garson","mr":"Mia Prebble","dl":"Poppy Leyden","dc":"Kiera Korte","dr":"Naomi Connolly","bench":["Simone Connolly","Charlotte Harris","Ruby Deutsch"]}},{"slots":{"st":"Simone Connolly","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Poppy Leyden","dc":"Kiera Korte","dr":"Naomi Connolly","bench":["Pippa Ferrier","Sydney Garson","Ruby Deutsch"]}},{"slots":{"st":"Simone Connolly","al":"Pippa Ferrier","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Sydney Garson","dl":"Poppy Leyden","dc":"Kiera Korte","dr":"Naomi Connolly","bench":["Sienna Mclean","Mia Prebble","Ruby Deutsch"]}}],[{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Sydney Garson","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Ruby Deutsch","bench":["Mia Prebble","Poppy Leyden","Naomi Connolly"]}},{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Simone Connolly","dc":"Poppy Leyden","dr":"Ruby Deutsch","bench":["Sydney Garson","Kiera Korte","Naomi Connolly"]}},{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Sydney Garson","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Simone Connolly","dc":"Poppy Leyden","dr":"Kiera Korte","bench":["Taylor Korte","Ruby Deutsch","Naomi Connolly"]}}]],"config":{"formation":"1-3-2-3"},"linkedFixtureKey":"Round 3|||UQFC Rubies|||Bardon Bananas"},{"id":"g_imp_1747958400000","opponent":"Toowong White","date":1747958400000,"scoreUs":3,"scoreThem":1,"result":"W","goals":[{"team":"us","scorer":"Taylor Korte","secs":0},{"team":"us","scorer":"Sydney Garson","secs":0},{"team":"us","scorer":"Pippa Ferrier","secs":0}],"potm":["Pippa Ferrier","Kiera Korte"],"formation":"1-3-2-3","khula_round":"Round 4","voiceNotes":"This was a really competitive and close game against Toowong White, with the girls showing strong determination, resilience, and composure throughout. Defensively, this was probably our strongest performance of the season so far — notably the first game we have conceded a goal, which highlights just how strong the team's defensive efforts have been all season.\n\nOne of the major positives was how much time we spent in the opposition half. We controlled large periods of possession and territory, often forcing Toowong White to bunch numbers back defensively. The next major step is learning how to convert that territorial advantage into more clear scoring opportunities.\n\nThe referee spoke to coaching staff at halftime regarding pushing and physical contact during challenges — we need to reinforce competing hard but within the rules. Throw-in technique was also inconsistent and needs to tighten up.\n\nFocus: \"beat one, then distribute\" — players are winning 1v1s well, now need to release the ball earlier.","report":"This was a really competitive and close game against Toowong White, with the girls showing strong determination, resilience, and composure throughout. Defensively, this was probably our strongest performance of the season so far — notably the first game we have conceded a goal, which highlights just how strong the team's defensive efforts have been all season.\n\nOne of the major positives was how much time we spent in the opposition half. We controlled large periods of possession and territory, often forcing Toowong White to bunch numbers back defensively. The next major step is learning how to convert that territorial advantage into more clear scoring opportunities.\n\nThe referee spoke to coaching staff at halftime regarding pushing and physical contact during challenges — we need to reinforce competing hard but within the rules. Throw-in technique was also inconsistent and needs to tighten up.\n\nFocus: \"beat one, then distribute\" — players are winning 1v1s well, now need to release the ball earlier.","matchEvents":[],"quickNotes":[],"halves":[[{"slots":{"st":"Pippa Ferrier","al":"Mia Prebble","ar":"Sienna Mclean","ml":"Sydney Garson","mr":"Taylor Korte","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Ruby Deutsch","bench":["Charlotte Harris","Naomi Connolly","Nixie Fittler"]}},{"slots":{"st":"Pippa Ferrier","al":"Mia Prebble","ar":"Sienna Mclean","ml":"Sydney Garson","mr":"Charlotte Harris","dl":"Naomi Connolly","dc":"Kiera Korte","dr":"Ruby Deutsch","bench":["Taylor Korte","Simone Connolly","Nixie Fittler"]}},{"slots":{"st":"Pippa Ferrier","al":"Mia Prebble","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Sydney Garson","dl":"Naomi Connolly","dc":"Kiera Korte","dr":"Simone Connolly","bench":["Sienna Mclean","Ruby Deutsch","Nixie Fittler"]}}],[{"slots":{"st":"Pippa Ferrier","al":"Mia Prebble","ar":"Ruby Deutsch","ml":"Charlotte Harris","mr":"Taylor Korte","dl":"Naomi Connolly","dc":"Nixie Fittler","dr":"Simone Connolly","bench":["Sydney Garson","Kiera Korte","Sienna Mclean"]}},{"slots":{"st":"Sydney Garson","al":"Kiera Korte","ar":"Ruby Deutsch","ml":"Charlotte Harris","mr":"Taylor Korte","dl":"Naomi Connolly","dc":"Nixie Fittler","dr":"Simone Connolly","bench":["Pippa Ferrier","Mia Prebble","Sienna Mclean"]}},{"slots":{"st":"Sydney Garson","al":"Kiera Korte","ar":"Mia Prebble","ml":"Charlotte Harris","mr":"Taylor Korte","dl":"Pippa Ferrier","dc":"Nixie Fittler","dr":"Simone Connolly","bench":["Naomi Connolly","Sienna Mclean"]}}]],"config":{"formation":"1-3-2-3"},"gk":"Sienna / Simone","linkedFixtureKey":"Round 4|||Toowong White|||UQFC Rubies"},{"id":"g_imp_1748563200000","opponent":"Mitchelton Glitter Dragons","date":1748563200000,"scoreUs":1,"scoreThem":0,"result":"W","goals":[{"team":"us","scorer":"Taylor Korte","secs":0}],"potm":["Mia Prebble","Poppy Leyden","Naomi Connolly"],"formation":"1-3-2-3","khula_round":"Round 5","voiceNotes":"The Rubies came away with another win, but it was one of our toughest and most hard-fought matches of the season. Despite spending much of the game in the opposition half, we struggled to turn our territorial dominance into goals and had to work hard right until the final whistle.\n\nThe conditions didn't help — strong wind and a low sun made the first half difficult. There were quite a few occasions where we mis-hit passes, missed the ball when attempting to clear or shoot, or couldn't quite connect cleanly. While it wasn't our most polished performance, the girls showed great determination and resilience to grind out the result.\n\nOne ongoing challenge: when we dominate territory, opposition teams often retreat almost all of their players into their own penalty area. This creates a crowded box with very little space to play through. Training focus: converting territory into goals, creating space around the box, finishing scrappy chances.","report":"The Rubies came away with another win, but it was one of our toughest and most hard-fought matches of the season. Despite spending much of the game in the opposition half, we struggled to turn our territorial dominance into goals and had to work hard right until the final whistle.\n\nThe conditions didn't help — strong wind and a low sun made the first half difficult. There were quite a few occasions where we mis-hit passes, missed the ball when attempting to clear or shoot, or couldn't quite connect cleanly. While it wasn't our most polished performance, the girls showed great determination and resilience to grind out the result.\n\nOne ongoing challenge: when we dominate territory, opposition teams often retreat almost all of their players into their own penalty area. This creates a crowded box with very little space to play through. Training focus: converting territory into goals, creating space around the box, finishing scrappy chances.","matchEvents":[],"quickNotes":[],"halves":[[{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Naomi Connolly","mr":"Mia Prebble","dl":"Nixie Fittler","dc":"Kiera Korte","dr":"Ruby Deutsch","bench":["Poppy Leyden","Charlotte Harris","Simone Connolly","Sydney Garson"]}},{"slots":{"st":"Pippa Ferrier","al":"Poppy Leyden","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Ruby Deutsch","bench":["Sienna Mclean","Naomi Connolly","Nixie Fittler","Sydney Garson"]}},{"slots":{"st":"Sienna Mclean","al":"Poppy Leyden","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Naomi Connolly","dl":"Simone Connolly","dc":"Nixie Fittler","dr":"Ruby Deutsch","bench":["Pippa Ferrier","Mia Prebble","Kiera Korte","Sydney Garson"]}}],[{"slots":{"st":"Sydney Garson","al":"Poppy Leyden","ar":"Pippa Ferrier","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Ruby Deutsch","dc":"Nixie Fittler","dr":"Simone Connolly","bench":["Taylor Korte","Naomi Connolly","Kiera Korte","Sienna Mclean"]}},{"slots":{"st":"Sydney Garson","al":"Poppy Leyden","ar":"Taylor Korte","ml":"Naomi Connolly","mr":"Mia Prebble","dl":"Ruby Deutsch","dc":"Nixie Fittler","dr":"Kiera Korte","bench":["Pippa Ferrier","Charlotte Harris","Simone Connolly","Sienna Mclean"]}},{"slots":{"st":"Sydney Garson","al":"Pippa Ferrier","ar":"Taylor Korte","ml":"Naomi Connolly","mr":"Charlotte Harris","dl":"Simone Connolly","dc":"Nixie Fittler","dr":"Kiera Korte","bench":["Poppy Leyden","Mia Prebble","Ruby Deutsch","Sienna Mclean"]}}]],"config":{"formation":"1-3-2-3"},"gk":"Sienna","linkedFixtureKey":"Round 5|||UQFC Rubies|||Mitchelton Glitter Dragons"},{"id":"g_imp_1749168000000","opponent":"UQFC Sapphires","date":1749168000000,"scoreUs":4,"scoreThem":4,"result":"D","goals":[{"team":"us","scorer":"Pippa Ferrier","secs":0},{"team":"us","scorer":"Pippa Ferrier","secs":0},{"team":"us","scorer":"Mia Prebble","secs":0},{"team":"us","scorer":"Taylor Korte","secs":0}],"potm":["Simone Connolly","Nixie Fittler","Ruby Deutsch"],"formation":"1-3-2-3","khula_round":"Round 6","voiceNotes":"This was a surprisingly tough game against a much-improved Sapphires side. The Rubies spent most of the match either level or holding a one-goal lead, only for the Sapphires to respond and draw level again. While the result felt frustrating at times, there were still plenty of positives to take away.\n\nThe first half was probably not one of the team's strongest performances. Several positional changes were trialled and a number of players looked uncomfortable in unfamiliar roles. The second half was much better — more determination, more attacking opportunities and generally more like themselves.\n\nOne of the biggest themes from the game was the tendency for players to kick the ball forward and then stop rather than following their pass and supporting the next phase of play. Improving this \"pass and move\" mentality will be a major focus at training.\n\nThe official post-match awards went to Simone, Nixie and one other player (not recorded) — selected based on the rotation group rostered for recognition this week.","report":"This was a surprisingly tough game against a much-improved Sapphires side. The Rubies spent most of the match either level or holding a one-goal lead, only for the Sapphires to respond and draw level again. While the result felt frustrating at times, there were still plenty of positives to take away.\n\nThe first half was probably not one of the team's strongest performances. Several positional changes were trialled and a number of players looked uncomfortable in unfamiliar roles. The second half was much better — more determination, more attacking opportunities and generally more like themselves.\n\nOne of the biggest themes from the game was the tendency for players to kick the ball forward and then stop rather than following their pass and supporting the next phase of play. Improving this \"pass and move\" mentality will be a major focus at training.\n\nThe official post-match awards went to Simone, Nixie and one other player (not recorded) — selected based on the rotation group rostered for recognition this week.","matchEvents":[],"quickNotes":[],"halves":[[{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Sydney Garson","mr":"Mia Prebble","dl":"Poppy Leyden","dc":"Kiera Korte","dr":"Naomi Connolly","bench":["Simone Connolly","Charlotte Harris","Ruby Deutsch"]}},{"slots":{"st":"Simone Connolly","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Poppy Leyden","dc":"Kiera Korte","dr":"Naomi Connolly","bench":["Pippa Ferrier","Sydney Garson","Ruby Deutsch"]}},{"slots":{"st":"Simone Connolly","al":"Pippa Ferrier","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Sydney Garson","dl":"Poppy Leyden","dc":"Kiera Korte","dr":"Naomi Connolly","bench":["Sienna Mclean","Mia Prebble","Ruby Deutsch"]}}],[{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Sydney Garson","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Ruby Deutsch","bench":["Mia Prebble","Poppy Leyden","Naomi Connolly"]}},{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Simone Connolly","dc":"Poppy Leyden","dr":"Ruby Deutsch","bench":["Sydney Garson","Kiera Korte","Naomi Connolly"]}},{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Sydney Garson","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Simone Connolly","dc":"Poppy Leyden","dr":"Kiera Korte","bench":["Taylor Korte","Ruby Deutsch","Naomi Connolly"]}}]],"config":{"formation":"1-3-2-3"},"gk":"Sienna","linkedFixtureKey":"Round 6|||UQFC Sapphires|||UQFC Rubies"},{"id":"g_imp_1749772800000","opponent":"UQFC Emeralds","date":1749772800000,"scoreUs":4,"scoreThem":1,"result":"W","goals":[{"team":"us","scorer":"Pippa Ferrier","secs":0},{"team":"us","scorer":"Mia Prebble","secs":0},{"team":"us","scorer":"Taylor Korte","secs":0},{"team":"us","scorer":"Naomi Connolly","secs":0}],"potm":["Sydney Garson"],"formation":"1-3-2-3","khula_round":"Round 7","voiceNotes":"","report":"","matchEvents":[],"quickNotes":[],"halves":[[{"slots":{"st":"Sienna Mclean","al":"Pippa Ferrier","ar":"Ruby Deutsch","ml":"Mia Prebble","mr":"Sydney Garson","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Charlotte Harris","bench":["Taylor Korte","Naomi Connolly","Nixie Fittler","Poppy Leyden"]}},{"slots":{"st":"Sienna Mclean","al":"Pippa Ferrier","ar":"Taylor Korte","ml":"Naomi Connolly","mr":"Sydney Garson","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Nixie Fittler","bench":["Ruby Deutsch","Mia Prebble","Charlotte Harris","Poppy Leyden"]}},{"slots":{"st":"Sienna Mclean","al":"Ruby Deutsch","ar":"Taylor Korte","ml":"Naomi Connolly","mr":"Mia Prebble","dl":"Charlotte Harris","dc":"Kiera Korte","dr":"Nixie Fittler","bench":["Pippa Ferrier","Sydney Garson","Simone Connolly","Poppy Leyden"]}}],[{"slots":{"st":"Pippa Ferrier","al":"Ruby Deutsch","ar":"Taylor Korte","ml":"Mia Prebble","mr":"Sydney Garson","dl":"Charlotte Harris","dc":"Poppy Leyden","dr":"Nixie Fittler","bench":["Sienna Mclean","Naomi Connolly","Kiera Korte","Simone Connolly"]}},{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Mia Prebble","mr":"Naomi Connolly","dl":"Charlotte Harris","dc":"Kiera Korte","dr":"Nixie Fittler","bench":["Ruby Deutsch","Sydney Garson","Poppy Leyden","Simone Connolly"]}},{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Ruby Deutsch","ml":"Sydney Garson","mr":"Naomi Connolly","dl":"Poppy Leyden","dc":"Kiera Korte","dr":"Nixie Fittler","bench":["Taylor Korte","Mia Prebble","Charlotte Harris","Simone Connolly"]}}]],"config":{"formation":"1-3-2-3"},"gk":"Sienna","linkedFixtureKey":"Round 7|||UQFC Rubies|||UQFC Emeralds"},{"id":"g_imp_1750377600000","opponent":"Springfield United Emeralds","date":1750377600000,"scoreUs":6,"scoreThem":3,"result":"W","goals":[{"team":"us","scorer":"Sydney Garson","secs":0},{"team":"us","scorer":"Sydney Garson","secs":0},{"team":"us","scorer":"Pippa Ferrier","secs":0},{"team":"us","scorer":"Taylor Korte","secs":0},{"team":"us","scorer":"Ruby Deutsch","secs":0},{"team":"us","scorer":"Own Goal","secs":0}],"potm":["Simone Connolly","Kiera Korte","Ruby Deutsch"],"formation":"1-3-2-3","khula_round":"Round 8","voiceNotes":"The Rubies produced one of their most impressive performances of the season, defeating previously undefeated Springfield United 6–3 in a high-quality and highly competitive match.\n\nWhile the scoreline reflects an excellent attacking display, the most pleasing aspect of the performance was the team's composure. Springfield applied pressure throughout the match with their pace, physicality and direct style of play, but the Rubies remained organised, trusted their structure and continued to play positive football.\n\nSpringfield's primary threat came from goalkeeper kicks played into space behind our defensive line for their quick forwards (#7 and #13). Despite this, the defensive group recovered repeatedly and worked together effectively for large portions of the match.\n\nThe six goals scored against one of the competition's strongest teams is one of the best attacking returns of the season. The defensive effort, teamwork and attitude shown throughout were equally important reasons for the victory.","report":"The Rubies produced one of their most impressive performances of the season, defeating previously undefeated Springfield United 6–3 in a high-quality and highly competitive match.\n\nWhile the scoreline reflects an excellent attacking display, the most pleasing aspect of the performance was the team's composure. Springfield applied pressure throughout the match with their pace, physicality and direct style of play, but the Rubies remained organised, trusted their structure and continued to play positive football.\n\nSpringfield's primary threat came from goalkeeper kicks played into space behind our defensive line for their quick forwards (#7 and #13). Despite this, the defensive group recovered repeatedly and worked together effectively for large portions of the match.\n\nThe six goals scored against one of the competition's strongest teams is one of the best attacking returns of the season. The defensive effort, teamwork and attitude shown throughout were equally important reasons for the victory.","matchEvents":[],"quickNotes":[],"halves":[[{"slots":{"st":"Sydney Garson","al":"Ruby Deutsch","ar":"Taylor Korte","ml":"Mia Prebble","mr":"Naomi Connolly","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Poppy Leyden","bench":["Pippa Ferrier","Charlotte Harris"],"gk":"Sienna Mclean"}},{"slots":{"st":"Sydney Garson","al":"Pippa Ferrier","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Naomi Connolly","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Poppy Leyden","bench":["Mia Prebble","Ruby Deutsch"],"gk":"Sienna Mclean"}},{"slots":{"st":"Sydney Garson","al":"Pippa Ferrier","ar":"Mia Prebble","ml":"Charlotte Harris","mr":"Naomi Connolly","dl":"Simone Connolly","dc":"Ruby Deutsch","dr":"Poppy Leyden","bench":["Taylor Korte","Kiera Korte"],"gk":"Sienna Mclean"}}],[{"slots":{"st":"Mia Prebble","al":"Pippa Ferrier","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Naomi Connolly","dl":"Poppy Leyden","dc":"Kiera Korte","dr":"Ruby Deutsch","bench":["Sydney Garson","Simone Connolly"],"gk":"Sienna Mclean"}},{"slots":{"st":"Mia Prebble","al":"Pippa Ferrier","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Sydney Garson","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Ruby Deutsch","bench":["Naomi Connolly","Poppy Leyden"],"gk":"Sienna Mclean"}},{"slots":{"st":"Mia Prebble","al":"Pippa Ferrier","ar":"Taylor Korte","ml":"Naomi Connolly","mr":"Sydney Garson","dl":"Simone Connolly","dc":"Poppy Leyden","dr":"Ruby Deutsch","bench":["Kiera Korte"],"gk":"Sienna Mclean"}}]],"config":{"formation":"1-3-2-3"},"gk":"Sienna","linkedFixtureKey":"Round 8|||Springfield United Emeralds|||UQFC Rubies"},{"id":"g_imp_1750982400000","opponent":"Bardon Bandits","date":1750982400000,"scoreUs":3,"scoreThem":2,"result":"W","goals":[{"team":"us","scorer":"Taylor Korte","secs":0},{"team":"us","scorer":"Elsa Neda","secs":0},{"team":"us","scorer":"Pippa Ferrier","secs":0}],"potm":[],"formation":"1-3-2-3","khula_round":"Round 9","voiceNotes":"The Rubies produced another well-earned 3–2 victory over the Bardon Bandits. For much of the game we were in control, building a deserved 3–0 lead through disciplined defending, strong runs from wide areas and some excellent link-up play. Taylor opened the scoring before Elsa added our second after another positive attacking move. Pippa rounded out the scoring with our third.\n\nThe final few minutes became much more frantic. After losing a little of our defensive structure, the Bandits scored twice in quick succession. A reminder that every game lasts until the final whistle — but the girls showed enough resilience to hold on for a deserved win.\n\nNote: Guest players Elsa, Jaeger and Emily slotted seamlessly into the team. Ruby deserves a special mention for stepping into goal during the first half despite it not being her preferred position.\n\nAlthough we scored three goals, the scoreline could easily have been bigger — Taylor, Elsa and others delivered 6–7 dangerous balls across the face of goal that nobody was quite in position to convert. Improving movement into the six-yard box will turn those chances into goals.","report":"The Rubies produced another well-earned 3–2 victory over the Bardon Bandits. For much of the game we were in control, building a deserved 3–0 lead through disciplined defending, strong runs from wide areas and some excellent link-up play. Taylor opened the scoring before Elsa added our second after another positive attacking move. Pippa rounded out the scoring with our third.\n\nThe final few minutes became much more frantic. After losing a little of our defensive structure, the Bandits scored twice in quick succession. A reminder that every game lasts until the final whistle — but the girls showed enough resilience to hold on for a deserved win.\n\nNote: Guest players Elsa, Jaeger and Emily slotted seamlessly into the team. Ruby deserves a special mention for stepping into goal during the first half despite it not being her preferred position.\n\nAlthough we scored three goals, the scoreline could easily have been bigger — Taylor, Elsa and others delivered 6–7 dangerous balls across the face of goal that nobody was quite in position to convert. Improving movement into the six-yard box will turn those chances into goals.","matchEvents":[],"quickNotes":[],"halves":[[{"slots":{"st":"Pippa Ferrier","al":"Ruby Deutsch","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Sydney Garson","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Nixie Fittler","bench":["Naomi Connolly","Mia Prebble","Poppy Leyden","Sienna Mclean"]}},{"slots":{"st":"Pippa Ferrier","al":"Naomi Connolly","ar":"Taylor Korte","ml":"Mia Prebble","mr":"Sydney Garson","dl":"Poppy Leyden","dc":"Kiera Korte","dr":"Nixie Fittler","bench":["Ruby Deutsch","Charlotte Harris","Simone Connolly","Sienna Mclean"]}},{"slots":{"st":"Ruby Deutsch","al":"Naomi Connolly","ar":"Taylor Korte","ml":"Mia Prebble","mr":"Charlotte Harris","dl":"Poppy Leyden","dc":"Kiera Korte","dr":"Simone Connolly","bench":["Pippa Ferrier","Sydney Garson","Nixie Fittler","Sienna Mclean"]}}],[{"slots":{"st":"Ruby Deutsch","al":"Naomi Connolly","ar":"Charlotte Harris","ml":"Mia Prebble","mr":"Sydney Garson","dl":"Simone Connolly","dc":"Nixie Fittler","dr":"Poppy Leyden","bench":["Taylor Korte","Kiera Korte","Sienna Mclean","Pippa Ferrier"]}},{"slots":{"st":"Ruby Deutsch","al":"Naomi Connolly","ar":"Taylor Korte","ml":"Kiera Korte","mr":"Sydney Garson","dl":"Simone Connolly","dc":"Nixie Fittler","dr":"Sienna Mclean","bench":["Charlotte Harris","Mia Prebble","Poppy Leyden","Pippa Ferrier"]}},{"slots":{"st":"Ruby Deutsch","al":"Charlotte Harris","ar":"Taylor Korte","ml":"Kiera Korte","mr":"Mia Prebble","dl":"Simone Connolly","dc":"Poppy Leyden","dr":"Sienna Mclean","bench":["Naomi Connolly","Sydney Garson","Nixie Fittler","Pippa Ferrier"]}}]],"config":{"formation":"1-3-2-3"},"gk":"Ruby / Naomi","linkedFixtureKey":"Round 9|||UQFC Rubies|||Bardon Bandits"},{"id":"g_imp_1751587200000","opponent":"The Gap","date":1752796800000,"scoreUs":4,"scoreThem":1,"result":"W","goals":[{"team":"us","scorer":"Pippa Ferrier","secs":0},{"team":"us","scorer":"Sydney Garson","secs":0},{"team":"us","scorer":"Naomi Connolly","secs":0},{"team":"us","scorer":"Ruby Deutsch","secs":0},{"team":"them","scorer":"","secs":0}],"potm":["Sydney Garson","Pippa Ferrier","Nixie Fittler"],"formation":"1-3-2-3","khula_round":"Round 10","voiceNotes":"What a turnaround from the Rubies! After trailing 1–0 at half-time, the girls showed tremendous resilience, lifted their intensity, and produced a dominant second half to run away with a 4–1 victory.\n\nWhile the scoreline looks comfortable, it certainly didn't feel that way. The Rubies spent long periods camped in The Gap's attacking half, creating chance after chance without converting. There were countless moments where the ball bounced around in front of goal, with what felt like ten genuine opportunities that somehow didn't end up in the back of the net. The girls kept pushing though, and eventually their persistence paid off.\n\nThe first half was frustrating. Despite controlling possession for large periods, the Rubies couldn't find the finishing touch and went into the break trailing 1–0 after a loose ball in the box wasn't cleared, allowing a Gap player to simply poke it home while several defenders hesitated.\n\nThe response after half-time was outstanding. The girls increased the tempo, continued creating opportunities, and finally began converting their dominance into goals. To score four unanswered goals in the second half showed excellent character and belief.\n\nThe final score reflected the Rubies' dominance, but even more impressive was the determination they showed after falling behind. Instead of dropping their heads, the girls stayed patient, trusted their football, and were rewarded with an excellent 4–1 comeback victory.","report":"What a turnaround from the Rubies! After trailing 1–0 at half-time, the girls showed tremendous resilience, lifted their intensity, and produced a dominant second half to run away with a 4–1 victory.\n\nWhile the scoreline looks comfortable, it certainly didn't feel that way. The Rubies spent long periods camped in The Gap's attacking half, creating chance after chance without converting. There were countless moments where the ball bounced around in front of goal, with what felt like ten genuine opportunities that somehow didn't end up in the back of the net. The girls kept pushing though, and eventually their persistence paid off.\n\nThe first half was frustrating. Despite controlling possession for large periods, the Rubies couldn't find the finishing touch and went into the break trailing 1–0 after a loose ball in the box wasn't cleared, allowing a Gap player to simply poke it home while several defenders hesitated.\n\nThe response after half-time was outstanding. The girls increased the tempo, continued creating opportunities, and finally began converting their dominance into goals. To score four unanswered goals in the second half showed excellent character and belief.\n\nThe final score reflected the Rubies' dominance, but even more impressive was the determination they showed after falling behind. Instead of dropping their heads, the girls stayed patient, trusted their football, and were rewarded with an excellent 4–1 comeback victory.","matchEvents":[],"quickNotes":[],"halves":[],"config":{},"gk":"Charlotte","linkedFixtureKey":"Round 10|||The Gap|||UQFC Rubies"}];
+const DEFAULT_GAMES=[{"id":"g_friendly_sapphires_r0","opponent":"UQFC Sapphires","date":1746140400000,"scoreUs":5,"scoreThem":1,"result":"W","goals":[],"potm":[],"formation":"1-3-2-3","khula_round":"Friendly","voiceNotes":"","report":"","matchEvents":[],"quickNotes":[],"halves":[],"config":{},"h1Goalkeeper":"Taylor Korte","h2Goalkeeper":"Kiera Korte","recognitions":[{"category":"playerOfMatch","playerName":"Sienna Mclean"}]},{"id":"g_imp_1746144000000","opponent":"Brisbane Knights","date":1746144000000,"scoreUs":6,"scoreThem":0,"result":"W","goals":[{"team":"us","scorer":"Mia Prebble","secs":0},{"team":"us","scorer":"Mia Prebble","secs":0},{"team":"us","scorer":"Sydney Garson","secs":0},{"team":"us","scorer":"Sydney Garson","secs":0},{"team":"us","scorer":"Sydney Garson","secs":0},{"team":"us","scorer":"Taylor Korte","secs":0}],"potm":["Sydney Garson"],"formation":"1-3-2-3","khula_round":"Round 1","voiceNotes":"A strong team performance resulted in a convincing 6–0 win over the Brisbane Knights, with all players contributing well across the pitch.\n\nSydney had an outstanding game, starting in midfield before moving to striker. She showed excellent determination, working through multiple tackles and converting her efforts into goals.\n\nNaomi played in defence for the full match but kept roaming across the field, leaving gaps. Given her natural movement and ability to get around the field, it may be worth trialling her in midfield.\n\nSienna delivered an excellent all-round performance, playing both goalkeeper and left wing. In goal she handled sustained pressure confidently, making multiple strong saves. Her distribution was also strong.\n\nCharlotte appeared uncomfortable in midfield — worth trialling her back in defence.\n\nThe team showed particularly strong intent when pressing from opposition restarts. On opposition goal kicks and kickoffs, the girls applied immediate pressure, often winning the ball back quickly.\n\nDefensively the first half was solid, but the second half saw a drop in structure — players occasionally out of position, allowing opposition attackers to get in behind. Area to focus on.\n\nThings to work on: defensive positional discipline; Naomi ball control and getting kicks away; throw-in technique and support; corner kicks.","report":"A strong team performance resulted in a convincing 6–0 win over the Brisbane Knights, with all players contributing well across the pitch.\n\nSydney had an outstanding game, starting in midfield before moving to striker. She showed excellent determination, working through multiple tackles and converting her efforts into goals.\n\nNaomi played in defence for the full match but kept roaming across the field, leaving gaps. Given her natural movement and ability to get around the field, it may be worth trialling her in midfield.\n\nSienna delivered an excellent all-round performance, playing both goalkeeper and left wing. In goal she handled sustained pressure confidently, making multiple strong saves. Her distribution was also strong.\n\nCharlotte appeared uncomfortable in midfield — worth trialling her back in defence.\n\nThe team showed particularly strong intent when pressing from opposition restarts. On opposition goal kicks and kickoffs, the girls applied immediate pressure, often winning the ball back quickly.\n\nDefensively the first half was solid, but the second half saw a drop in structure — players occasionally out of position, allowing opposition attackers to get in behind. Area to focus on.\n\nThings to work on: defensive positional discipline; Naomi ball control and getting kicks away; throw-in technique and support; corner kicks.","matchEvents":[],"quickNotes":[],"halves":[[{"slots":{"st":"Grace Quinn","al":"Naomi Connolly","ar":"Poppy Leyden","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Simone Connolly","dc":"Sydney Garson","dr":"Nixie Fittler","bench":[],"gk":"Taylor Korte"}},{"slots":{"st":"Grace Quinn","al":"Sienna Mclean","ar":"Poppy Leyden","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Kiera Korte","dc":"Sydney Garson","dr":"Nixie Fittler","bench":[],"gk":"Taylor Korte"}},{"slots":{"st":"Sydney Garson","al":"Sienna Mclean","ar":"Poppy Leyden","ml":"Naomi Connolly","mr":"Mia Prebble","dl":"Kiera Korte","dc":"Simone Connolly","dr":"Nixie Fittler","bench":[],"gk":"Taylor Korte"}}],[{"slots":{"bench":["Poppy Leyden"],"gk":"Kiera Korte"}},{"slots":{"bench":["Naomi Connolly"],"gk":"Kiera Korte"}},{"slots":{"bench":["Taylor Korte"],"gk":"Kiera Korte"}}]],"config":{"formation":"1-3-2-3"},"linkedFixtureKey":"Round 1|||UQFC Rubies|||Brisbane Knights"},{"id":"g_imp_1746748800000","opponent":"Ipswich Koalas","date":1746748800000,"scoreUs":2,"scoreThem":0,"result":"W","goals":[],"potm":["Taylor Korte"],"formation":"1-3-2-3","khula_round":"Round 2","voiceNotes":"","report":"","matchEvents":[],"quickNotes":[],"halves":[[{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Naomi Connolly","mr":"Mia Prebble","dl":"Nixie Fittler","dc":"Kiera Korte","dr":"Ruby Deutsch","bench":["Poppy Leyden","Charlotte Harris","Simone Connolly","Sydney Garson"]}},{"slots":{"st":"Pippa Ferrier","al":"Poppy Leyden","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Ruby Deutsch","bench":["Sienna Mclean","Naomi Connolly","Nixie Fittler","Sydney Garson"]}},{"slots":{"st":"Sienna Mclean","al":"Poppy Leyden","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Naomi Connolly","dl":"Simone Connolly","dc":"Nixie Fittler","dr":"Ruby Deutsch","bench":["Pippa Ferrier","Mia Prebble","Kiera Korte","Sydney Garson"]}}],[{"slots":{"st":"Sydney Garson","al":"Poppy Leyden","ar":"Pippa Ferrier","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Ruby Deutsch","dc":"Nixie Fittler","dr":"Simone Connolly","bench":["Taylor Korte","Naomi Connolly","Kiera Korte","Sienna Mclean"]}},{"slots":{"st":"Sydney Garson","al":"Poppy Leyden","ar":"Taylor Korte","ml":"Naomi Connolly","mr":"Mia Prebble","dl":"Ruby Deutsch","dc":"Nixie Fittler","dr":"Kiera Korte","bench":["Pippa Ferrier","Charlotte Harris","Simone Connolly","Sienna Mclean"]}},{"slots":{"st":"Sydney Garson","al":"Pippa Ferrier","ar":"Taylor Korte","ml":"Naomi Connolly","mr":"Charlotte Harris","dl":"Simone Connolly","dc":"Nixie Fittler","dr":"Kiera Korte","bench":["Poppy Leyden","Mia Prebble","Ruby Deutsch","Sienna Mclean"]}}]],"config":{"formation":"1-3-2-3"},"linkedFixtureKey":"Round 2|||Ipswich Koalas|||UQFC Rubies"},{"id":"g_imp_1747353600000","opponent":"Bardon Bananas","date":1747353600000,"scoreUs":4,"scoreThem":0,"result":"W","goals":[],"potm":["Charlotte Harris"],"formation":"1-3-2-3","khula_round":"Round 3","voiceNotes":"Nixie was absent for this game.","report":"","matchEvents":[],"quickNotes":[],"halves":[[{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Sydney Garson","mr":"Mia Prebble","dl":"Poppy Leyden","dc":"Kiera Korte","dr":"Naomi Connolly","bench":["Simone Connolly","Charlotte Harris","Ruby Deutsch"]}},{"slots":{"st":"Simone Connolly","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Poppy Leyden","dc":"Kiera Korte","dr":"Naomi Connolly","bench":["Pippa Ferrier","Sydney Garson","Ruby Deutsch"]}},{"slots":{"st":"Simone Connolly","al":"Pippa Ferrier","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Sydney Garson","dl":"Poppy Leyden","dc":"Kiera Korte","dr":"Naomi Connolly","bench":["Sienna Mclean","Mia Prebble","Ruby Deutsch"]}}],[{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Sydney Garson","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Ruby Deutsch","bench":["Mia Prebble","Poppy Leyden","Naomi Connolly"]}},{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Simone Connolly","dc":"Poppy Leyden","dr":"Ruby Deutsch","bench":["Sydney Garson","Kiera Korte","Naomi Connolly"]}},{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Sydney Garson","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Simone Connolly","dc":"Poppy Leyden","dr":"Kiera Korte","bench":["Taylor Korte","Ruby Deutsch","Naomi Connolly"]}}]],"config":{"formation":"1-3-2-3"},"linkedFixtureKey":"Round 3|||UQFC Rubies|||Bardon Bananas"},{"id":"g_imp_1747958400000","opponent":"Toowong White","date":1747958400000,"scoreUs":3,"scoreThem":1,"result":"W","goals":[{"team":"us","scorer":"Taylor Korte","secs":0},{"team":"us","scorer":"Sydney Garson","secs":0},{"team":"us","scorer":"Pippa Ferrier","secs":0}],"potm":["Pippa Ferrier","Kiera Korte"],"formation":"1-3-2-3","khula_round":"Round 4","voiceNotes":"This was a really competitive and close game against Toowong White, with the girls showing strong determination, resilience, and composure throughout. Defensively, this was probably our strongest performance of the season so far — notably the first game we have conceded a goal, which highlights just how strong the team's defensive efforts have been all season.\n\nOne of the major positives was how much time we spent in the opposition half. We controlled large periods of possession and territory, often forcing Toowong White to bunch numbers back defensively. The next major step is learning how to convert that territorial advantage into more clear scoring opportunities.\n\nThe referee spoke to coaching staff at halftime regarding pushing and physical contact during challenges — we need to reinforce competing hard but within the rules. Throw-in technique was also inconsistent and needs to tighten up.\n\nFocus: \"beat one, then distribute\" — players are winning 1v1s well, now need to release the ball earlier.","report":"This was a really competitive and close game against Toowong White, with the girls showing strong determination, resilience, and composure throughout. Defensively, this was probably our strongest performance of the season so far — notably the first game we have conceded a goal, which highlights just how strong the team's defensive efforts have been all season.\n\nOne of the major positives was how much time we spent in the opposition half. We controlled large periods of possession and territory, often forcing Toowong White to bunch numbers back defensively. The next major step is learning how to convert that territorial advantage into more clear scoring opportunities.\n\nThe referee spoke to coaching staff at halftime regarding pushing and physical contact during challenges — we need to reinforce competing hard but within the rules. Throw-in technique was also inconsistent and needs to tighten up.\n\nFocus: \"beat one, then distribute\" — players are winning 1v1s well, now need to release the ball earlier.","matchEvents":[],"quickNotes":[],"halves":[[{"slots":{"st":"Pippa Ferrier","al":"Mia Prebble","ar":"Sienna Mclean","ml":"Sydney Garson","mr":"Taylor Korte","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Ruby Deutsch","bench":["Charlotte Harris","Naomi Connolly","Nixie Fittler"]}},{"slots":{"st":"Pippa Ferrier","al":"Mia Prebble","ar":"Sienna Mclean","ml":"Sydney Garson","mr":"Charlotte Harris","dl":"Naomi Connolly","dc":"Kiera Korte","dr":"Ruby Deutsch","bench":["Taylor Korte","Simone Connolly","Nixie Fittler"]}},{"slots":{"st":"Pippa Ferrier","al":"Mia Prebble","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Sydney Garson","dl":"Naomi Connolly","dc":"Kiera Korte","dr":"Simone Connolly","bench":["Sienna Mclean","Ruby Deutsch","Nixie Fittler"]}}],[{"slots":{"st":"Pippa Ferrier","al":"Mia Prebble","ar":"Ruby Deutsch","ml":"Charlotte Harris","mr":"Taylor Korte","dl":"Naomi Connolly","dc":"Nixie Fittler","dr":"Simone Connolly","bench":["Sydney Garson","Kiera Korte","Sienna Mclean"]}},{"slots":{"st":"Sydney Garson","al":"Kiera Korte","ar":"Ruby Deutsch","ml":"Charlotte Harris","mr":"Taylor Korte","dl":"Naomi Connolly","dc":"Nixie Fittler","dr":"Simone Connolly","bench":["Pippa Ferrier","Mia Prebble","Sienna Mclean"]}},{"slots":{"st":"Sydney Garson","al":"Kiera Korte","ar":"Mia Prebble","ml":"Charlotte Harris","mr":"Taylor Korte","dl":"Pippa Ferrier","dc":"Nixie Fittler","dr":"Simone Connolly","bench":["Naomi Connolly","Sienna Mclean"]}}]],"config":{"formation":"1-3-2-3"},"gk":"Sienna / Simone","linkedFixtureKey":"Round 4|||Toowong White|||UQFC Rubies"},{"id":"g_imp_1748563200000","opponent":"Mitchelton Glitter Dragons","date":1748563200000,"scoreUs":1,"scoreThem":0,"result":"W","goals":[{"team":"us","scorer":"Taylor Korte","secs":0}],"potm":["Mia Prebble","Poppy Leyden","Naomi Connolly"],"formation":"1-3-2-3","khula_round":"Round 5","voiceNotes":"The Rubies came away with another win, but it was one of our toughest and most hard-fought matches of the season. Despite spending much of the game in the opposition half, we struggled to turn our territorial dominance into goals and had to work hard right until the final whistle.\n\nThe conditions didn't help — strong wind and a low sun made the first half difficult. There were quite a few occasions where we mis-hit passes, missed the ball when attempting to clear or shoot, or couldn't quite connect cleanly. While it wasn't our most polished performance, the girls showed great determination and resilience to grind out the result.\n\nOne ongoing challenge: when we dominate territory, opposition teams often retreat almost all of their players into their own penalty area. This creates a crowded box with very little space to play through. Training focus: converting territory into goals, creating space around the box, finishing scrappy chances.","report":"The Rubies came away with another win, but it was one of our toughest and most hard-fought matches of the season. Despite spending much of the game in the opposition half, we struggled to turn our territorial dominance into goals and had to work hard right until the final whistle.\n\nThe conditions didn't help — strong wind and a low sun made the first half difficult. There were quite a few occasions where we mis-hit passes, missed the ball when attempting to clear or shoot, or couldn't quite connect cleanly. While it wasn't our most polished performance, the girls showed great determination and resilience to grind out the result.\n\nOne ongoing challenge: when we dominate territory, opposition teams often retreat almost all of their players into their own penalty area. This creates a crowded box with very little space to play through. Training focus: converting territory into goals, creating space around the box, finishing scrappy chances.","matchEvents":[],"quickNotes":[],"halves":[[{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Naomi Connolly","mr":"Mia Prebble","dl":"Nixie Fittler","dc":"Kiera Korte","dr":"Ruby Deutsch","bench":["Poppy Leyden","Charlotte Harris","Simone Connolly","Sydney Garson"]}},{"slots":{"st":"Pippa Ferrier","al":"Poppy Leyden","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Ruby Deutsch","bench":["Sienna Mclean","Naomi Connolly","Nixie Fittler","Sydney Garson"]}},{"slots":{"st":"Sienna Mclean","al":"Poppy Leyden","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Naomi Connolly","dl":"Simone Connolly","dc":"Nixie Fittler","dr":"Ruby Deutsch","bench":["Pippa Ferrier","Mia Prebble","Kiera Korte","Sydney Garson"]}}],[{"slots":{"st":"Sydney Garson","al":"Poppy Leyden","ar":"Pippa Ferrier","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Ruby Deutsch","dc":"Nixie Fittler","dr":"Simone Connolly","bench":["Taylor Korte","Naomi Connolly","Kiera Korte","Sienna Mclean"]}},{"slots":{"st":"Sydney Garson","al":"Poppy Leyden","ar":"Taylor Korte","ml":"Naomi Connolly","mr":"Mia Prebble","dl":"Ruby Deutsch","dc":"Nixie Fittler","dr":"Kiera Korte","bench":["Pippa Ferrier","Charlotte Harris","Simone Connolly","Sienna Mclean"]}},{"slots":{"st":"Sydney Garson","al":"Pippa Ferrier","ar":"Taylor Korte","ml":"Naomi Connolly","mr":"Charlotte Harris","dl":"Simone Connolly","dc":"Nixie Fittler","dr":"Kiera Korte","bench":["Poppy Leyden","Mia Prebble","Ruby Deutsch","Sienna Mclean"]}}]],"config":{"formation":"1-3-2-3"},"gk":"Sienna","linkedFixtureKey":"Round 5|||UQFC Rubies|||Mitchelton Glitter Dragons"},{"id":"g_imp_1749168000000","opponent":"UQFC Sapphires","date":1749168000000,"scoreUs":4,"scoreThem":4,"result":"D","goals":[{"team":"us","scorer":"Pippa Ferrier","secs":0},{"team":"us","scorer":"Pippa Ferrier","secs":0},{"team":"us","scorer":"Mia Prebble","secs":0},{"team":"us","scorer":"Taylor Korte","secs":0}],"potm":["Simone Connolly","Nixie Fittler","Ruby Deutsch"],"formation":"1-3-2-3","khula_round":"Round 6","voiceNotes":"This was a surprisingly tough game against a much-improved Sapphires side. The Rubies spent most of the match either level or holding a one-goal lead, only for the Sapphires to respond and draw level again. While the result felt frustrating at times, there were still plenty of positives to take away.\n\nThe first half was probably not one of the team's strongest performances. Several positional changes were trialled and a number of players looked uncomfortable in unfamiliar roles. The second half was much better — more determination, more attacking opportunities and generally more like themselves.\n\nOne of the biggest themes from the game was the tendency for players to kick the ball forward and then stop rather than following their pass and supporting the next phase of play. Improving this \"pass and move\" mentality will be a major focus at training.\n\nThe official post-match awards went to Simone, Nixie and one other player (not recorded) — selected based on the rotation group rostered for recognition this week.","report":"This was a surprisingly tough game against a much-improved Sapphires side. The Rubies spent most of the match either level or holding a one-goal lead, only for the Sapphires to respond and draw level again. While the result felt frustrating at times, there were still plenty of positives to take away.\n\nThe first half was probably not one of the team's strongest performances. Several positional changes were trialled and a number of players looked uncomfortable in unfamiliar roles. The second half was much better — more determination, more attacking opportunities and generally more like themselves.\n\nOne of the biggest themes from the game was the tendency for players to kick the ball forward and then stop rather than following their pass and supporting the next phase of play. Improving this \"pass and move\" mentality will be a major focus at training.\n\nThe official post-match awards went to Simone, Nixie and one other player (not recorded) — selected based on the rotation group rostered for recognition this week.","matchEvents":[],"quickNotes":[],"halves":[[{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Sydney Garson","mr":"Mia Prebble","dl":"Poppy Leyden","dc":"Kiera Korte","dr":"Naomi Connolly","bench":["Simone Connolly","Charlotte Harris","Ruby Deutsch"]}},{"slots":{"st":"Simone Connolly","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Poppy Leyden","dc":"Kiera Korte","dr":"Naomi Connolly","bench":["Pippa Ferrier","Sydney Garson","Ruby Deutsch"]}},{"slots":{"st":"Simone Connolly","al":"Pippa Ferrier","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Sydney Garson","dl":"Poppy Leyden","dc":"Kiera Korte","dr":"Naomi Connolly","bench":["Sienna Mclean","Mia Prebble","Ruby Deutsch"]}}],[{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Sydney Garson","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Ruby Deutsch","bench":["Mia Prebble","Poppy Leyden","Naomi Connolly"]}},{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Simone Connolly","dc":"Poppy Leyden","dr":"Ruby Deutsch","bench":["Sydney Garson","Kiera Korte","Naomi Connolly"]}},{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Sydney Garson","ml":"Charlotte Harris","mr":"Mia Prebble","dl":"Simone Connolly","dc":"Poppy Leyden","dr":"Kiera Korte","bench":["Taylor Korte","Ruby Deutsch","Naomi Connolly"]}}]],"config":{"formation":"1-3-2-3"},"gk":"Sienna","linkedFixtureKey":"Round 6|||UQFC Sapphires|||UQFC Rubies"},{"id":"g_imp_1749772800000","opponent":"UQFC Emeralds","date":1749772800000,"scoreUs":4,"scoreThem":1,"result":"W","goals":[{"team":"us","scorer":"Pippa Ferrier","secs":0},{"team":"us","scorer":"Mia Prebble","secs":0},{"team":"us","scorer":"Taylor Korte","secs":0},{"team":"us","scorer":"Naomi Connolly","secs":0}],"potm":["Sydney Garson"],"formation":"1-3-2-3","khula_round":"Round 7","voiceNotes":"","report":"","matchEvents":[],"quickNotes":[],"halves":[[{"slots":{"st":"Sienna Mclean","al":"Pippa Ferrier","ar":"Ruby Deutsch","ml":"Mia Prebble","mr":"Sydney Garson","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Charlotte Harris","bench":["Taylor Korte","Naomi Connolly","Nixie Fittler","Poppy Leyden"]}},{"slots":{"st":"Sienna Mclean","al":"Pippa Ferrier","ar":"Taylor Korte","ml":"Naomi Connolly","mr":"Sydney Garson","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Nixie Fittler","bench":["Ruby Deutsch","Mia Prebble","Charlotte Harris","Poppy Leyden"]}},{"slots":{"st":"Sienna Mclean","al":"Ruby Deutsch","ar":"Taylor Korte","ml":"Naomi Connolly","mr":"Mia Prebble","dl":"Charlotte Harris","dc":"Kiera Korte","dr":"Nixie Fittler","bench":["Pippa Ferrier","Sydney Garson","Simone Connolly","Poppy Leyden"]}}],[{"slots":{"st":"Pippa Ferrier","al":"Ruby Deutsch","ar":"Taylor Korte","ml":"Mia Prebble","mr":"Sydney Garson","dl":"Charlotte Harris","dc":"Poppy Leyden","dr":"Nixie Fittler","bench":["Sienna Mclean","Naomi Connolly","Kiera Korte","Simone Connolly"]}},{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Taylor Korte","ml":"Mia Prebble","mr":"Naomi Connolly","dl":"Charlotte Harris","dc":"Kiera Korte","dr":"Nixie Fittler","bench":["Ruby Deutsch","Sydney Garson","Poppy Leyden","Simone Connolly"]}},{"slots":{"st":"Pippa Ferrier","al":"Sienna Mclean","ar":"Ruby Deutsch","ml":"Sydney Garson","mr":"Naomi Connolly","dl":"Poppy Leyden","dc":"Kiera Korte","dr":"Nixie Fittler","bench":["Taylor Korte","Mia Prebble","Charlotte Harris","Simone Connolly"]}}]],"config":{"formation":"1-3-2-3"},"gk":"Sienna","linkedFixtureKey":"Round 7|||UQFC Rubies|||UQFC Emeralds"},{"id":"g_imp_1750377600000","opponent":"Springfield United Emeralds","date":1750377600000,"scoreUs":6,"scoreThem":3,"result":"W","goals":[{"team":"us","scorer":"Sydney Garson","secs":0},{"team":"us","scorer":"Sydney Garson","secs":0},{"team":"us","scorer":"Pippa Ferrier","secs":0},{"team":"us","scorer":"Taylor Korte","secs":0},{"team":"us","scorer":"Ruby Deutsch","secs":0},{"team":"us","scorer":"Own Goal","secs":0}],"potm":["Simone Connolly","Kiera Korte","Ruby Deutsch"],"formation":"1-3-2-3","khula_round":"Round 8","voiceNotes":"The Rubies produced one of their most impressive performances of the season, defeating previously undefeated Springfield United 6–3 in a high-quality and highly competitive match.\n\nWhile the scoreline reflects an excellent attacking display, the most pleasing aspect of the performance was the team's composure. Springfield applied pressure throughout the match with their pace, physicality and direct style of play, but the Rubies remained organised, trusted their structure and continued to play positive football.\n\nSpringfield's primary threat came from goalkeeper kicks played into space behind our defensive line for their quick forwards (#7 and #13). Despite this, the defensive group recovered repeatedly and worked together effectively for large portions of the match.\n\nThe six goals scored against one of the competition's strongest teams is one of the best attacking returns of the season. The defensive effort, teamwork and attitude shown throughout were equally important reasons for the victory.","report":"The Rubies produced one of their most impressive performances of the season, defeating previously undefeated Springfield United 6–3 in a high-quality and highly competitive match.\n\nWhile the scoreline reflects an excellent attacking display, the most pleasing aspect of the performance was the team's composure. Springfield applied pressure throughout the match with their pace, physicality and direct style of play, but the Rubies remained organised, trusted their structure and continued to play positive football.\n\nSpringfield's primary threat came from goalkeeper kicks played into space behind our defensive line for their quick forwards (#7 and #13). Despite this, the defensive group recovered repeatedly and worked together effectively for large portions of the match.\n\nThe six goals scored against one of the competition's strongest teams is one of the best attacking returns of the season. The defensive effort, teamwork and attitude shown throughout were equally important reasons for the victory.","matchEvents":[],"quickNotes":[],"halves":[[{"slots":{"st":"Sydney Garson","al":"Ruby Deutsch","ar":"Taylor Korte","ml":"Mia Prebble","mr":"Naomi Connolly","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Poppy Leyden","bench":["Pippa Ferrier","Charlotte Harris"],"gk":"Sienna Mclean"}},{"slots":{"st":"Sydney Garson","al":"Pippa Ferrier","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Naomi Connolly","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Poppy Leyden","bench":["Mia Prebble","Ruby Deutsch"],"gk":"Sienna Mclean"}},{"slots":{"st":"Sydney Garson","al":"Pippa Ferrier","ar":"Mia Prebble","ml":"Charlotte Harris","mr":"Naomi Connolly","dl":"Simone Connolly","dc":"Ruby Deutsch","dr":"Poppy Leyden","bench":["Taylor Korte","Kiera Korte"],"gk":"Sienna Mclean"}}],[{"slots":{"st":"Mia Prebble","al":"Pippa Ferrier","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Naomi Connolly","dl":"Poppy Leyden","dc":"Kiera Korte","dr":"Ruby Deutsch","bench":["Sydney Garson","Simone Connolly"],"gk":"Sienna Mclean"}},{"slots":{"st":"Mia Prebble","al":"Pippa Ferrier","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Sydney Garson","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Ruby Deutsch","bench":["Naomi Connolly","Poppy Leyden"],"gk":"Sienna Mclean"}},{"slots":{"st":"Mia Prebble","al":"Pippa Ferrier","ar":"Taylor Korte","ml":"Naomi Connolly","mr":"Sydney Garson","dl":"Simone Connolly","dc":"Poppy Leyden","dr":"Ruby Deutsch","bench":["Kiera Korte"],"gk":"Sienna Mclean"}}]],"config":{"formation":"1-3-2-3"},"gk":"Sienna","linkedFixtureKey":"Round 8|||Springfield United Emeralds|||UQFC Rubies"},{"id":"g_imp_1750982400000","opponent":"Bardon Bandits","date":1750982400000,"scoreUs":3,"scoreThem":2,"result":"W","goals":[{"team":"us","scorer":"Taylor Korte","secs":0},{"team":"us","scorer":"Elsa Neda","secs":0},{"team":"us","scorer":"Pippa Ferrier","secs":0}],"potm":[],"formation":"1-3-2-3","khula_round":"Round 9","voiceNotes":"The Rubies produced another well-earned 3–2 victory over the Bardon Bandits. For much of the game we were in control, building a deserved 3–0 lead through disciplined defending, strong runs from wide areas and some excellent link-up play. Taylor opened the scoring before Elsa added our second after another positive attacking move. Pippa rounded out the scoring with our third.\n\nThe final few minutes became much more frantic. After losing a little of our defensive structure, the Bandits scored twice in quick succession. A reminder that every game lasts until the final whistle — but the girls showed enough resilience to hold on for a deserved win.\n\nNote: Guest players Elsa, Jaeger and Emily slotted seamlessly into the team. Ruby deserves a special mention for stepping into goal during the first half despite it not being her preferred position.\n\nAlthough we scored three goals, the scoreline could easily have been bigger — Taylor, Elsa and others delivered 6–7 dangerous balls across the face of goal that nobody was quite in position to convert. Improving movement into the six-yard box will turn those chances into goals.","report":"The Rubies produced another well-earned 3–2 victory over the Bardon Bandits. For much of the game we were in control, building a deserved 3–0 lead through disciplined defending, strong runs from wide areas and some excellent link-up play. Taylor opened the scoring before Elsa added our second after another positive attacking move. Pippa rounded out the scoring with our third.\n\nThe final few minutes became much more frantic. After losing a little of our defensive structure, the Bandits scored twice in quick succession. A reminder that every game lasts until the final whistle — but the girls showed enough resilience to hold on for a deserved win.\n\nNote: Guest players Elsa, Jaeger and Emily slotted seamlessly into the team. Ruby deserves a special mention for stepping into goal during the first half despite it not being her preferred position.\n\nAlthough we scored three goals, the scoreline could easily have been bigger — Taylor, Elsa and others delivered 6–7 dangerous balls across the face of goal that nobody was quite in position to convert. Improving movement into the six-yard box will turn those chances into goals.","matchEvents":[],"quickNotes":[],"halves":[[{"slots":{"st":"Pippa Ferrier","al":"Ruby Deutsch","ar":"Taylor Korte","ml":"Charlotte Harris","mr":"Sydney Garson","dl":"Simone Connolly","dc":"Kiera Korte","dr":"Nixie Fittler","bench":["Naomi Connolly","Mia Prebble","Poppy Leyden","Sienna Mclean"]}},{"slots":{"st":"Pippa Ferrier","al":"Naomi Connolly","ar":"Taylor Korte","ml":"Mia Prebble","mr":"Sydney Garson","dl":"Poppy Leyden","dc":"Kiera Korte","dr":"Nixie Fittler","bench":["Ruby Deutsch","Charlotte Harris","Simone Connolly","Sienna Mclean"]}},{"slots":{"st":"Ruby Deutsch","al":"Naomi Connolly","ar":"Taylor Korte","ml":"Mia Prebble","mr":"Charlotte Harris","dl":"Poppy Leyden","dc":"Kiera Korte","dr":"Simone Connolly","bench":["Pippa Ferrier","Sydney Garson","Nixie Fittler","Sienna Mclean"]}}],[{"slots":{"st":"Ruby Deutsch","al":"Naomi Connolly","ar":"Charlotte Harris","ml":"Mia Prebble","mr":"Sydney Garson","dl":"Simone Connolly","dc":"Nixie Fittler","dr":"Poppy Leyden","bench":["Taylor Korte","Kiera Korte","Sienna Mclean","Pippa Ferrier"]}},{"slots":{"st":"Ruby Deutsch","al":"Naomi Connolly","ar":"Taylor Korte","ml":"Kiera Korte","mr":"Sydney Garson","dl":"Simone Connolly","dc":"Nixie Fittler","dr":"Sienna Mclean","bench":["Charlotte Harris","Mia Prebble","Poppy Leyden","Pippa Ferrier"]}},{"slots":{"st":"Ruby Deutsch","al":"Charlotte Harris","ar":"Taylor Korte","ml":"Kiera Korte","mr":"Mia Prebble","dl":"Simone Connolly","dc":"Poppy Leyden","dr":"Sienna Mclean","bench":["Naomi Connolly","Sydney Garson","Nixie Fittler","Pippa Ferrier"]}}]],"config":{"formation":"1-3-2-3"},"gk":"Ruby / Naomi","linkedFixtureKey":"Round 9|||UQFC Rubies|||Bardon Bandits"},{"id":"g_imp_1751587200000","opponent":"The Gap","date":1752796800000,"scoreUs":4,"scoreThem":1,"result":"W","goals":[{"team":"us","scorer":"Pippa Ferrier","secs":0},{"team":"us","scorer":"Sydney Garson","secs":0},{"team":"us","scorer":"Naomi Connolly","secs":0},{"team":"us","scorer":"Ruby Deutsch","secs":0},{"team":"them","scorer":"","secs":0}],"potm":["Sydney Garson","Pippa Ferrier","Nixie Fittler"],"formation":"1-3-2-3","khula_round":"Round 10","voiceNotes":"What a turnaround from the Rubies! After trailing 1–0 at half-time, the girls showed tremendous resilience, lifted their intensity, and produced a dominant second half to run away with a 4–1 victory.\n\nWhile the scoreline looks comfortable, it certainly didn't feel that way. The Rubies spent long periods camped in The Gap's attacking half, creating chance after chance without converting. There were countless moments where the ball bounced around in front of goal, with what felt like ten genuine opportunities that somehow didn't end up in the back of the net. The girls kept pushing though, and eventually their persistence paid off.\n\nThe first half was frustrating. Despite controlling possession for large periods, the Rubies couldn't find the finishing touch and went into the break trailing 1–0 after a loose ball in the box wasn't cleared, allowing a Gap player to simply poke it home while several defenders hesitated.\n\nThe response after half-time was outstanding. The girls increased the tempo, continued creating opportunities, and finally began converting their dominance into goals. To score four unanswered goals in the second half showed excellent character and belief.\n\nThe final score reflected the Rubies' dominance, but even more impressive was the determination they showed after falling behind. Instead of dropping their heads, the girls stayed patient, trusted their football, and were rewarded with an excellent 4–1 comeback victory.","report":"What a turnaround from the Rubies! After trailing 1–0 at half-time, the girls showed tremendous resilience, lifted their intensity, and produced a dominant second half to run away with a 4–1 victory.\n\nWhile the scoreline looks comfortable, it certainly didn't feel that way. The Rubies spent long periods camped in The Gap's attacking half, creating chance after chance without converting. There were countless moments where the ball bounced around in front of goal, with what felt like ten genuine opportunities that somehow didn't end up in the back of the net. The girls kept pushing though, and eventually their persistence paid off.\n\nThe first half was frustrating. Despite controlling possession for large periods, the Rubies couldn't find the finishing touch and went into the break trailing 1–0 after a loose ball in the box wasn't cleared, allowing a Gap player to simply poke it home while several defenders hesitated.\n\nThe response after half-time was outstanding. The girls increased the tempo, continued creating opportunities, and finally began converting their dominance into goals. To score four unanswered goals in the second half showed excellent character and belief.\n\nThe final score reflected the Rubies' dominance, but even more impressive was the determination they showed after falling behind. Instead of dropping their heads, the girls stayed patient, trusted their football, and were rewarded with an excellent 4–1 comeback victory.","matchEvents":[],"quickNotes":[],"halves":[],"config":{},"gk":"Charlotte","linkedFixtureKey":"Round 10|||The Gap|||UQFC Rubies"}];
 const DEFAULT_ALLPOSTMATCH=[{"id":"soccerCoach_postMatch_g_imp_1746144000000","gameId":"g_imp_1746144000000","opponent":"Brisbane Knights","date":1746144000000,"oppR":{"overallStrength":2,"attacking":2,"defending":2,"pressing":2},"ourR":{"overallPerformance":5,"attacking":4,"defending":4,"teamShape":4},"notes":{"oppProblems":"","oppAdvice":"","whatPleased":"Convincing 6\u20130 win. Strong team performance across all positions. Excellent high-pressing from opposition restarts \u2014 girls won the ball back quickly from opposition goal kicks and kickoffs. First half defensively solid.","whatImprove":"Second half defensive structure dropped \u2014 players occasionally out of position, allowing attackers to get in behind. Naomi kept roaming from defence. Throw-in technique inconsistent. Corner kicks \u2014 support players need to be closer to the thrower."},"priorities":["Defending","Positioning","Set Pieces"],"mostImproved":"","playerNotes":{"Sydney Garson":"Outstanding game \u2014 started in midfield before moving to striker. Excellent determination, worked through multiple tackles and converted efforts into goals. Her energy and impact were clear throughout.","Naomi Connolly":"Played in defence for the full match but kept roaming across the field, leaving gaps in the defensive line. Worth trialling in midfield where her natural movement and ability to get around the pitch can be a real asset.","Sienna Mclean":"Excellent all-round performance \u2014 played both goalkeeper and left wing. In goal, handled sustained pressure confidently with multiple strong saves. Her distribution from the back was also strong.","Charlotte Harris":"Appeared uncomfortable in midfield \u2014 worth trialling back in defence where she has shown more natural ability and composure."},"aiReview":"","outputs":{}},{"id":"soccerCoach_postMatch_g_imp_1747958400000","gameId":"g_imp_1747958400000","opponent":"Toowong White","date":1747958400000,"oppR":{"overallStrength":3,"attacking":2,"defending":3,"pressing":2},"ourR":{"overallPerformance":4,"attacking":3,"defending":5,"teamShape":4},"notes":{"oppProblems":"Physical contest during challenges. Referee spoke to coaching staff at halftime re: pushing.","oppAdvice":"Keep elbows in, avoid pushing, stay balanced and strong rather than leading with arms. Compete hard but play fair.","whatPleased":"Strongest defensive performance of the season. First game we conceded a goal \u2014 still only 1. Controlled large periods of possession and territory. Multiple goal scorers.","whatImprove":"Converting territory into goals \u2014 we are getting into attacking areas but not finishing. Throw-in technique was inconsistent (straight arm, both feet on line). Decision-making and distribution after beating a defender \u2014 \"beat one, then distribute.\""},"priorities":["1v1 Attacking","Final Third","Passing"],"mostImproved":"","playerNotes":{"Taylor Korte":"Excellent game, most dangerous player going forward. Won ball deep, drove into attack, beat defenders with pace. Key focus: distribution after beating players \u2014 \"beat one, then distribute.\"","Sydney Garson":"Solid, scored a goal, reliable effort and involvement across the field.","Pippa Ferrier":"Good strong game on left wing (not usual position). Scored a goal, worked hard on and off the ball.","Ruby Deutsch":"First time on wing \u2014 handled transition well. Natural instinct to drop back into defence. Next step: distribution after winning space.","Charlotte Harris":"Played in right defence but roamed left. May be more naturally suited to midfield \u2014 use her movement and desire to get involved there.","Kiera Korte":"Outstanding \u2014 critical to team success. Tracked back well, got between attacker and goal, disrupted attacks. Made crucial clearances near goal line. Composed, reliable, intelligent.","Nixie Fittler":"Very strong defensively. Aggressive getting to loose balls, stepped forward to meet ball early and clear it out. Willingness to attack ball defensively was key.","Poppy Leyden":"Strong defensive clearances, good commitment in defensive situations, helped move ball away from danger.","Simone Connolly":"Played goalkeeper in second half. Worked hard.","Sienna Mclean":"Impressive in goal. Showed real commitment and bravery. Willingness to dive for the ball made a big impact."},"aiReview":"","outputs":{}},{"id":"soccerCoach_postMatch_g_imp_1748563200000","gameId":"g_imp_1748563200000","opponent":"Mitchelton Glitter Dragons","date":1748563200000,"oppR":{"overallStrength":2,"attacking":2,"defending":3,"pressing":1},"ourR":{"overallPerformance":3,"attacking":3,"defending":5,"teamShape":3},"notes":{"oppProblems":"Opposition retreated almost all players into their own penalty area \u2014 crowded box with very little space to play through.","oppAdvice":"Use wider positions to stretch defenders. Quick passes rather than dribbling into crowded areas. Support player on ball with multiple options.","whatPleased":"Girls showed plenty of grit and determination to find a way to win on a difficult day. Clean sheet. Taylor scored despite difficult conditions.","whatImprove":"Converting territory into goals \u2014 we dominated possession but only scored once. Second efforts and pressing \u2014 winning the ball is only the first step. Finishing scrappy chances."},"priorities":["Final Third","Finishing","Width"],"mostImproved":"","playerNotes":{"Taylor Korte":"Strong game on right wing. Consistently made ground down the flank, scored a well-earned goal. Unlucky not to add to her tally after two other close chances.","Pippa Ferrier":"Left wing, worked hard and made good forward runs. Occasionally shepherded towards sideline, struggled to bring ball into central areas.","Ruby Deutsch":"Started strongly, showed she can hold her own further up the field. Left wing spell \u2014 has put her hand up for more attacking opportunities.","Sydney Garson":"Not quite at usual level but contributed. Won ball effectively but didn't always follow up with second effort.","Mia Prebble":"Spent time in several positions, adapted well. Another dependable performance. Players of the Match.","Charlotte Harris":"Solid game, contributed well whenever called upon.","Naomi Connolly":"Reliable effort, recognised for strong team performance. Players of the Match.","Poppy Leyden":"Outstanding match in defence. Aggressive in winning the ball, stepped into contests confidently, repeatedly cleared danger. One of her strongest games of the season. Players of the Match.","Kiera Korte":"Rock solid at the back. Consistently tracked back to protect goal, supported goalkeeper, provided important defensive cover.","Sienna Mclean":"Great composure in goal. Excellent save after attacker closed her down quickly. Continued improving distribution and decision-making."},"aiReview":"","outputs":{}},{"id":"soccerCoach_postMatch_g_imp_1749168000000","gameId":"g_imp_1749168000000","opponent":"Sapphires","date":1749168000000,"oppR":{"overallStrength":4,"attacking":4,"defending":3,"pressing":3},"ourR":{"overallPerformance":3,"attacking":4,"defending":2,"teamShape":2},"notes":{"oppProblems":"Much-improved Sapphires side. Rubies spent much of the match either level or holding a one-goal lead, only for Sapphires to respond and draw level again.","oppAdvice":"Set piece defending \u2014 one goal came directly from a corner that rolled through the box without being cleared. Work on defending corners and reacting quickly inside the box.","whatPleased":"Scored 4 goals. Second-half improvement was particularly encouraging. Pippa one of her best games of the season. Mia outstanding.","whatImprove":"Pass and move \u2014 players kick the ball forward and then stop rather than following their pass and supporting the next phase. Positional discipline in trialled positions."},"priorities":["Passing","Communication","Team Shape"],"mostImproved":"","playerNotes":{"Pippa Ferrier":"One of her strongest games of the season. Scored both goals playing striker. Looked dangerous whenever she got forward \u2014 well-earned double.","Mia Prebble":"Outstanding throughout. Consistently won possession, carried ball forward when others struggled. Scored one goal and was heavily involved across the field. Coach's Player of the Match.","Taylor Korte":"Difficult first half \u2014 too deep, not getting involved in attack. Responded strongly after halftime, pushed higher, became more involved and scored an important goal. Second-half performance showed what she can do when she plays aggressively.","Kiera Korte":"Solid in defence as always, providing reliability and composure at the back.","Poppy Leyden":"Strong defensive game, worked hard throughout.","Nixie Fittler":"Strong defensive game, worked hard throughout. Awarded Player of the Match (based on rotation group).","Sienna Mclean":"Very well in goal \u2014 several important saves and gave confidence to team. Learning: one goal came from a corner rolling through the box \u2014 work on defending set pieces.","Sydney Garson":"Grew into the game and became more effective as the match progressed.","Charlotte Harris":"Looked uncomfortable playing on the wing, frequently drifted back into midfield.","Naomi Connolly":"Showed plenty of energy but struggled to maintain positional discipline \u2014 often roaming away from assigned side of the field.","Simone Connolly":"Difficult afternoon in defence, challenged by Sapphires attacking pressure. Continued to work hard and never stopped trying. Awarded Player of the Match (based on rotation group)."},"aiReview":"","outputs":{}},{"id":"soccerCoach_postMatch_g_imp_1750377600000","gameId":"g_imp_1750377600000","opponent":"Springfield United","date":1750377600000,"oppR":{"overallStrength":5,"attacking":4,"defending":3,"pressing":4},"ourR":{"overallPerformance":5,"attacking":5,"defending":4,"teamShape":5},"notes":{"oppProblems":"Springfield's primary threat: goalkeeper kicks deep to #7 or #13 who attack space behind defence at pace. Both forwards had exceptional pace and consistently looked to run in behind defenders. Also played a highly physical style.","oppAdvice":"Track runners into space behind defensive line. Show attackers towards the touchline. Cover far post on wide attacks. Defensive communication when facing pace in behind.","whatPleased":"Composure under pressure \u2014 never panicked despite conceding 3. 6 goals against an undefeated opponent. Multiple goal scorers. Strong team spirit and resilience. Communication and covering runs improved as the game progressed.","whatImprove":"Managing pace in behind \u2014 Springfield's biggest threat came from runners attacking space behind defensive line. Defensive shape against wide players. Recovery runs."},"priorities":["Recovery Runs","1v1 Defending","Communication"],"mostImproved":"","playerNotes":{"Sydney Garson":"Outstanding attacking performance. Scored two goals, remained a constant threat. Used pace well and made intelligent attacking runs.","Pippa Ferrier":"Worked hard up front, contributed an important goal. Continued to pressure defenders and create opportunities.","Taylor Korte":"Scored a goal and provided strong attacking support. Continued to improve movement and positioning in advanced areas.","Ruby Deutsch":"Outstanding contribution at both ends of the field. Defended strongly and was rewarded with a goal. Excellent determination and commitment from start to finish. Players of the Match.","Kiera Korte":"One of her strongest defensive performances of the season. Read the game well, tracked runners consistently, made several important defensive interventions. Particularly effective covering Springfield's pace out wide. Players of the Match.","Simone Connolly":"Played on the left wing despite it not being her preferred position. Worked tirelessly. Excellent work rate and team-first attitude. Had a significant impact on the result. Players of the Match."},"aiReview":"","outputs":{}},{"id":"soccerCoach_postMatch_g_imp_1750982400000","gameId":"g_imp_1750982400000","opponent":"Bardon Bandits","date":1750982400000,"oppR":{"overallStrength":3,"attacking":3,"defending":2,"pressing":2},"ourR":{"overallPerformance":4,"attacking":4,"defending":3,"teamShape":4},"notes":{"oppProblems":"Late pressure after we lost defensive shape for a 5-minute spell. Two quick goals when the team briefly switched off.","oppAdvice":"Maintain defensive concentration until the final whistle. Keep shape even when holding a comfortable lead.","whatPleased":"Another win, 3\u20130 lead built through disciplined defending and strong runs from wide areas. Excellent link-up play. Guest players contributed seamlessly. Ruby volunteered for goalkeeper \u2014 made several good saves and distributed quickly down wings.","whatImprove":"Attack the back post and six-yard box when crosses are delivered \u2014 Taylor and Elsa delivered several dangerous crosses across the face of goal but nobody was in position. Use the width of the field \u2014 it created our best chances. Maintain concentration until the final whistle."},"priorities":["Final Third","Width","Team Shape"],"mostImproved":"","playerNotes":{"Taylor Korte":"Strong performance, especially first half. Excellent runs down the wing, opened the scoring. Delivered several dangerous balls across face of goal. Focus: poachers need to attack the back post to convert those crosses.","Elsa Neda":"(Guest) Excellent contribution. Scored our second goal, played well on wing and in midfield, made strong runs and consistently delivered dangerous crosses.","Pippa Ferrier":"Capped off the game with a well-earned goal. Continues to find dangerous attacking positions. Next step: make decisions a touch earlier \u2014 extra touches allowed defenders to recover.","Charlotte Harris":"Standout performer from regular squad. Excellent work rate, constantly involved around the ball, kept making herself available. Energetic and influential. Players of the Match.","Kiera Korte":"Outstanding in defence. Positioning and ability to get between attacker and goal continues to be exceptional. Timing of the two late goals (shortly after she rotated off) highlighted how important she is to defensive organisation.","Ruby Deutsch":"Terrific team-first performance. Volunteered to play goalkeeper in first half \u2014 made several good saves and distributed quickly down the wings (exactly as coached). Composed in defence for second half.","Naomi Connolly":"Handled second-half goalkeeper duties well. Produced one outstanding diving save. Two late goals knocked her confidence a little \u2014 but they came during a difficult team spell, not a reflection of her overall performance.","Sydney Garson":"Dependable performance through midfield. Linked play well, made strong runs, kept team moving forward.","Simone Connolly":"Quieter game than we have come to expect. Less influence than normal but continued to work hard for the team.","Nixie Fittler":"An off day by her usual high standards. Less engaged than normal. Every player has those days \u2014 she will bounce back.","Jagger Woodall":"(Guest) Very impressive. Powerful runner, used strength well, protected the ball effectively and showed good technical ability throughout.","Emily Wacker":"(Guest) Settled into the defensive unit well and quietly did everything asked of her. Solid and reliable contribution."},"aiReview":"","outputs":{}},{"id":"soccerCoach_postMatch_g_imp_1751587200000","gameId":"g_imp_1751587200000","opponent":"The Gap","date":1751587200000,"oppR":{"overallStrength":3,"attacking":3,"defending":3,"pressing":3},"ourR":{"overallPerformance":4,"attacking":3,"defending":4,"teamShape":4},"notes":{"oppProblems":"Scored from a loose ball in the box in the first half \u2014 defenders hesitated and allowed a simple tap-in.","oppAdvice":"Clear loose balls decisively inside the penalty area. React quicker to second balls.","whatPleased":"Outstanding resilience after going 1\u20130 down at half-time. Four unanswered second-half goals. Four different scorers. Strong defensive second half \u2014 no further goals conceded.","whatImprove":"Finishing \u2014 taking earlier shots instead of extra touches in front of goal. Decision-making from wingers \u2014 recognise when to pass after beating the first defender. Composure in the box \u2014 convert sustained pressure into goals more efficiently. Defensive awareness \u2014 react quicker to loose balls inside the penalty area."},"priorities":["Finishing","Decision Making","Composure in Box"],"mostImproved":"Ruby Deutsch","playerNotes":{"Sydney Garson":"Worked tirelessly and produced several strong runs down the wing. Her pace regularly gained valuable territory. Next step: look up earlier and release the ball after beating the first defender \u2014 several promising runs ended with possession lost instead of a scoring chance. Scored a goal.","Taylor Korte":"A stop-start game. Made good progress down the right wing on several occasions but was often shepherded towards the touchline. Attempted a number of crosses showing good intent, although they didn't quite find their target this week.","Pippa Ferrier":"An unusually difficult game at striker despite scoring. Had several clear opportunities where fewer touches and an earlier shot would likely have resulted in additional goals. Something to work on, but encouraging that she still managed to get on the scoresheet.","Simone Connolly":"One of her stronger performances. Worked hard throughout and made a positive contribution. Looked dangerous from the left side and managed a couple of shots on goal, showing increasing confidence getting forward.","Naomi Connolly":"Another solid performance. Worked hard, contributed well in general play and was rewarded with a well-earned goal.","Nixie Fittler":"Played well in defence, making a number of important contributions and helping keep The Gap's attack under control. Player Recognition.","Kiera Korte":"Another dependable performance in defence. Calm, composed and reliable throughout.","Charlotte Harris":"Played the second half in goal and handled her opportunities well. Another solid goalkeeping performance.","Ruby Deutsch":"Excellent game. Calm in defence, controlled possession well and helped settle the team whenever the ball came her way. Finished the match up front and capped off her performance with a goal. Moved from defence into striker for the final stint \u2014 showed great adaptability."},"aiReview":"","outputs":{}}];
+
+// Per-game GK and recognition seed data (keyed by game ID).
+// h1Goalkeeper / h2Goalkeeper derived from post-match notes and halves lineup data.
+// recognitions map the three award categories per game.
+const DEFAULT_GAME_GK_RECOG = {
+  'g_friendly_sapphires_r0': { // Round 0 — Sapphires (pre-season friendly, not in Khula)
+    h1Goalkeeper: 'Taylor Korte', h2Goalkeeper: 'Kiera Korte',
+    recognitions: [{ category:'playerOfMatch', playerName:'Sienna Mclean' }],
+  },
+  'g_imp_1746144000000': { // Khula Round 1 — Brisbane Knights
+    h1Goalkeeper: 'Nixie Fittler', h2Goalkeeper: 'Sienna Mclean',
+    recognitions: [{ category:'playerOfMatch', playerName:'Sydney Garson' }],
+  },
+  'g_imp_1746748800000': { // Khula Round 2 — Ipswich Koalas
+    h1Goalkeeper: 'Sydney Garson', h2Goalkeeper: 'Sienna Mclean',
+    recognitions: [{ category:'playerOfMatch', playerName:'Taylor Korte' }],
+  },
+  'g_imp_1747353600000': { // Khula Round 3 — Bardon Bananas
+    h1Goalkeeper: 'Ruby Deutsch', h2Goalkeeper: 'Naomi Connolly',
+    recognitions: [{ category:'playerOfMatch', playerName:'Charlotte Harris' }],
+  },
+  'g_imp_1747958400000': { // Khula Round 4 — Toowong White (SS: Poppy, Simone, Sienna across 3 periods — half split unconfirmed)
+    h1Goalkeeper: 'Poppy Leyden', h2Goalkeeper: 'Simone Connolly',
+    recognitions: [
+      { category:'playerOfMatch', playerName:'Pippa Ferrier' },
+      { category:'teamPlayer',    playerName:'Kiera Korte' },
+    ],
+  },
+  'g_imp_1748563200000': { // Khula Round 5 — Mitchelton Glitter Dragons
+    h1Goalkeeper: 'Sienna Mclean', h2Goalkeeper: 'Sienna Mclean',
+    recognitions: [
+      { category:'playerOfMatch', playerName:'Mia Prebble' },
+      { category:'teamPlayer',    playerName:'Poppy Leyden' },
+      { category:'effortAward',   playerName:'Naomi Connolly' },
+    ],
+  },
+  'g_imp_1749168000000': { // Khula Round 6 — UQFC Sapphires (2nd meeting)
+    h1Goalkeeper: 'Sienna Mclean', h2Goalkeeper: 'Pippa Ferrier',
+    recognitions: [
+      { category:'playerOfMatch', playerName:'Simone Connolly' },
+      { category:'teamPlayer',    playerName:'Nixie Fittler' },
+    ],
+  },
+  'g_imp_1749772800000': { // Khula Round 7 — UQFC Emeralds
+    h1Goalkeeper: 'Sienna Mclean', h2Goalkeeper: 'Mia Prebble',
+    recognitions: [{ category:'playerOfMatch', playerName:'Sydney Garson' }],
+  },
+  'g_imp_1750377600000': { // Khula Round 8 — Springfield United
+    h1Goalkeeper: 'Sienna Mclean', h2Goalkeeper: 'Sienna Mclean',
+    recognitions: [
+      { category:'playerOfMatch', playerName:'Ruby Deutsch' },
+      { category:'teamPlayer',    playerName:'Kiera Korte' },
+      { category:'effortAward',   playerName:'Simone Connolly' },
+    ],
+  },
+  'g_imp_1750982400000': { // Khula Round 9
+    h1Goalkeeper: 'Ruby Deutsch', h2Goalkeeper: 'Naomi Connolly',
+    recognitions: [{ category:'playerOfMatch', playerName:'Charlotte Harris' }],
+  },
+  'g_imp_1751587200000': { // Khula Round 10
+    h1Goalkeeper: 'Kiera Korte', h2Goalkeeper: 'Charlotte Harris',
+    recognitions: [
+      { category:'playerOfMatch', playerName:'Sydney Garson' },
+      { category:'teamPlayer',    playerName:'Pippa Ferrier' },
+      { category:'effortAward',   playerName:'Nixie Fittler' },
+    ],
+  },
+};
 
 function seedSquadForTeam(team) {
   const existing = localStorage.getItem('soccerCoach_squad');
@@ -164,6 +232,13 @@ function seedHardcodedData() {
           if (!ep || (Array.isArray(ep) && ep.length === 0) || ep === '') {
             patched.potm = def.potm; changed = true;
           }
+        }
+        // Always overwrite GK and recognitions from seed data so corrections propagate
+        const gkSeed = DEFAULT_GAME_GK_RECOG[g.id];
+        if (gkSeed) {
+          if (gkSeed.h1Goalkeeper !== undefined && g.h1Goalkeeper !== gkSeed.h1Goalkeeper) { patched.h1Goalkeeper = gkSeed.h1Goalkeeper; changed = true; }
+          if (gkSeed.h2Goalkeeper !== undefined && g.h2Goalkeeper !== gkSeed.h2Goalkeeper) { patched.h2Goalkeeper = gkSeed.h2Goalkeeper; changed = true; }
+          if (Array.isArray(gkSeed.recognitions)) { patched.recognitions = gkSeed.recognitions; changed = true; }
         }
         // Always overwrite fixture-linking fields so stale localStorage is corrected
         if (def.linkedFixtureKey && g.linkedFixtureKey !== def.linkedFixtureKey) { patched.linkedFixtureKey = def.linkedFixtureKey; changed = true; }
@@ -1471,6 +1546,92 @@ function computeSeasonStats() {
   const gf      = results.reduce((s,r) => s + r.us, 0);
   const ga      = results.reduce((s,r) => s + r.them, 0);
   return { played, wins, draws, losses, gf, ga, gd: gf-ga };
+}
+
+// ── Goalkeeper helpers ────────────────────────────────────────────────────────
+/**
+ * Derive H1 and H2 goalkeepers from a game record.
+ * Reads the 'gk' slot from each sub-period of game.halves[0] (H1) and game.halves[1] (H2).
+ * Returns the most common keeper per half (mode). Falls back to explicit
+ * h1Goalkeeper / h2Goalkeeper fields if no period data has a gk slot set.
+ */
+function resolveHalfGoalkeepers(game) {
+  function modeGk(periods) {
+    if (!periods?.length) return null;
+    const names = periods.map(p => p?.slots?.gk).filter(Boolean);
+    if (!names.length) return null;
+    const counts = {};
+    names.forEach(n => { counts[n] = (counts[n] || 0) + 1; });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+  }
+  const h1 = modeGk(game.halves?.[0]) ?? (game.h1Goalkeeper !== undefined ? (game.h1Goalkeeper ?? null) : null);
+  const h2 = modeGk(game.halves?.[1]) ?? (game.h2Goalkeeper !== undefined ? (game.h2Goalkeeper ?? null) : null);
+  return { h1, h2 };
+}
+
+/**
+ * Compute per-player goalkeeper stats across all games.
+ * GK per half is derived from lineup period data via resolveHalfGoalkeepers.
+ */
+function computeGoalkeeperStats(games) {
+  const map = {};
+  (games || []).forEach((game, idx) => {
+    const round = game.khula_round || String(idx + 1);
+    const opp = game.opponent || '';
+    const gameDate = game.date || 0;
+    const { h1, h2 } = resolveHalfGoalkeepers(game);
+    function record(name, half) {
+      if (!name) return;
+      if (!map[name]) map[name] = { playerName: name, totalHalves: 0, entries: [], lastRound: null, lastGameDate: null };
+      const s = map[name];
+      s.totalHalves++;
+      s.entries.push({ round, opponent: opp, half });
+      if (s.lastGameDate === null || gameDate > s.lastGameDate) {
+        s.lastRound = round;
+        s.lastGameDate = gameDate;
+      }
+    }
+    record(h1, 1);
+    record(h2, 2);
+  });
+  return Object.values(map);
+}
+
+/**
+ * Sort squad by GK fairness — fewest halves first, tiebreak by oldest last turn.
+ * Players with no GK history sort to the very front.
+ */
+function computeGoalkeeperFairness(games, squad) {
+  const statsMap = {};
+  computeGoalkeeperStats(games).forEach(s => { statsMap[s.playerName] = s; });
+  const rows = (squad || []).map(p => {
+    const s = statsMap[p.name];
+    return { playerName: p.name, totalHalves: s?.totalHalves ?? 0, lastRound: s?.lastRound ?? null, lastGameDate: s?.lastGameDate ?? null };
+  });
+  rows.sort((a, b) => {
+    if (a.totalHalves !== b.totalHalves) return a.totalHalves - b.totalHalves;
+    if (a.lastGameDate === null && b.lastGameDate === null) return 0;
+    if (a.lastGameDate === null) return -1;
+    if (b.lastGameDate === null) return 1;
+    return a.lastGameDate - b.lastGameDate;
+  });
+  return rows;
+}
+
+// ── Recognition helpers ───────────────────────────────────────────────────────
+const RECOGNITION_CATS = [
+  { id: 'playerOfMatch', label: 'Player of the Match', emoji: '⭐' },
+  { id: 'teamPlayer',    label: 'Best Team Player',    emoji: '🤝' },
+  { id: 'effortAward',   label: 'Effort Award',        emoji: '💪' },
+];
+/**
+ * Get recognitions for a game — reads from game.recognitions if present,
+ * falls back to reading game.potm as playerOfMatch entries.
+ */
+function getGameRecognitions(game) {
+  if (Array.isArray(game.recognitions) && game.recognitions.length > 0) return game.recognitions;
+  const potm = Array.isArray(game.potm) ? game.potm : (game.potm ? [game.potm] : []);
+  return potm.map(name => ({ category: 'playerOfMatch', playerName: name }));
 }
 
 // ── Alarm ─────────────────────────────────────────────────────────────────────
@@ -4001,6 +4162,103 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout, onM
     />
   );
 
+  // ── Goalies ─────────────────────────────────────────────────────────────────
+  if (subScreen === 'goalies') {
+    const gkStats = computeGoalkeeperStats(games).sort((a,b) => b.totalHalves - a.totalHalves);
+    const matchRows = [...games].sort((a,b) => (a.date||0) - (b.date||0)).map((g, idx) => {
+      const { h1, h2 } = resolveHalfGoalkeepers(g);
+      return { round: g.khula_round || String(idx+1), opponent: g.opponent, h1: h1||'—', h2: h2||'—' };
+    }).filter(r => r.h1 !== '—' || r.h2 !== '—');
+    return subPage('Goalies', (
+      <div style={{ overflowY:'auto', flex:1, padding:'0 16px 20px' }}>
+        {/* Leaderboard */}
+        <div style={{ fontSize:9, fontWeight:700, color:'#555', letterSpacing:1.5, textTransform:'uppercase', margin:'16px 0 10px' }}>Season Leaderboard</div>
+        {gkStats.length === 0
+          ? <div style={{ textAlign:'center', color:'#555', fontSize:13, padding:'24px 0' }}>No goalkeeper data yet — assign keepers in lineups or via the GK & Awards tab.</div>
+          : <div style={{ background:'#111111', borderRadius:14, border:'1px solid #1E1E1E', overflow:'hidden', marginBottom:16 }}>
+              {gkStats.map((s, i) => (
+                <div key={s.playerName} style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 14px', borderBottom: i<gkStats.length-1?'1px solid #1A1A1A':'none' }}>
+                  <div style={{ fontSize:13, fontWeight:700, color:'#555', width:18 }}>#{i+1}</div>
+                  <div style={{ flex:1, fontSize:14, fontWeight:600, color:'#FFF' }}>{s.playerName}</div>
+                  <div style={{ fontSize:13, color:'#F5C04A', fontWeight:700 }}>{s.totalHalves} {s.totalHalves!==1?'halves':'half'}</div>
+                  <div style={{ fontSize:11, color:'#555' }}>{s.lastRound ? `Last: ${s.lastRound}` : ''}</div>
+                </div>
+              ))}
+            </div>
+        }
+        {/* Match-by-match log */}
+        {matchRows.length > 0 && <>
+          <div style={{ fontSize:9, fontWeight:700, color:'#555', letterSpacing:1.5, textTransform:'uppercase', marginBottom:10 }}>Match Log</div>
+          <div style={{ background:'#111111', borderRadius:14, border:'1px solid #1E1E1E', overflow:'hidden' }}>
+            <div style={{ display:'grid', gridTemplateColumns:'auto 1fr 1fr 1fr', gap:0, borderBottom:'1px solid #1E1E1E', padding:'8px 14px' }}>
+              {['Rnd','Opponent','1H GK','2H GK'].map(h => (
+                <div key={h} style={{ fontSize:9, fontWeight:700, color:'#555', letterSpacing:1, textTransform:'uppercase' }}>{h}</div>
+              ))}
+            </div>
+            {matchRows.map((r, i) => (
+              <div key={i} style={{ display:'grid', gridTemplateColumns:'auto 1fr 1fr 1fr', gap:0, padding:'9px 14px', borderBottom: i<matchRows.length-1?'1px solid #1A1A1A':'none' }}>
+                <div style={{ fontSize:11, color:'#666', paddingRight:10 }}>{r.round}</div>
+                <div style={{ fontSize:12, color:'#A1A1A1', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.opponent}</div>
+                <div style={{ fontSize:12, color:'#FFF', fontWeight:500 }}>{r.h1}</div>
+                <div style={{ fontSize:12, color:'#FFF', fontWeight:500 }}>{r.h2}</div>
+              </div>
+            ))}
+          </div>
+        </>}
+      </div>
+    ));
+  }
+
+  // ── Awards ──────────────────────────────────────────────────────────────────
+  if (subScreen === 'awards') {
+    const squad = (() => { try { return JSON.parse(localStorage.getItem('soccerCoach_squad')||'[]'); } catch { return []; } })();
+    const counts = {}; // { playerName: { playerOfMatch:n, teamPlayer:n, effortAward:n } }
+    games.forEach(g => {
+      getGameRecognitions(g).forEach(r => {
+        if (!counts[r.playerName]) counts[r.playerName] = { playerOfMatch:0, teamPlayer:0, effortAward:0 };
+        if (counts[r.playerName][r.category] !== undefined) counts[r.playerName][r.category]++;
+      });
+    });
+    const squadNames = squad.map(p => p.name);
+    const zeroWin = squadNames.filter(n => !counts[n] || Object.values(counts[n]).every(v=>v===0));
+    return subPage('Awards', (
+      <div style={{ overflowY:'auto', flex:1, padding:'0 16px 20px' }}>
+        {RECOGNITION_CATS.map(cat => {
+          const sorted = Object.entries(counts)
+            .filter(([,c]) => c[cat.id] > 0)
+            .sort((a,b) => b[1][cat.id] - a[1][cat.id]);
+          return (
+            <div key={cat.id} style={{ marginTop:16 }}>
+              <div style={{ fontSize:9, fontWeight:700, color:'#555', letterSpacing:1.5, textTransform:'uppercase', marginBottom:10 }}>{cat.emoji} {cat.label}</div>
+              {sorted.length === 0
+                ? <div style={{ color:'#444', fontSize:13, padding:'8px 0' }}>Not yet awarded</div>
+                : <div style={{ background:'#111111', borderRadius:14, border:'1px solid #1E1E1E', overflow:'hidden' }}>
+                    {sorted.map(([name, c], i) => (
+                      <div key={name} style={{ display:'flex', alignItems:'center', padding:'10px 14px', borderBottom:i<sorted.length-1?'1px solid #1A1A1A':'none', gap:10 }}>
+                        <div style={{ fontSize:13, fontWeight:700, color:'#555', width:18 }}>#{i+1}</div>
+                        <div style={{ flex:1, fontSize:14, fontWeight:600, color:'#FFF' }}>{name}</div>
+                        <div style={{ fontSize:13, color:'#F5C04A', fontWeight:700 }}>×{c[cat.id]}</div>
+                      </div>
+                    ))}
+                  </div>
+              }
+            </div>
+          );
+        })}
+        {zeroWin.length > 0 && (
+          <div style={{ marginTop:20, background:'#111111', borderRadius:14, border:'1px solid #1E1E1E', padding:'14px' }}>
+            <div style={{ fontSize:9, fontWeight:700, color:'#555', letterSpacing:1.5, textTransform:'uppercase', marginBottom:10 }}>Yet to win an award</div>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+              {zeroWin.map(n => (
+                <div key={n} style={{ background:'#1A1A1A', borderRadius:20, padding:'4px 10px', fontSize:12, color:'#666' }}>{n.split(' ')[0]}</div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    ));
+  }
+
   // ── Hub (Overview) ──────────────────────────────────────────────────────────
   const allR    = getAllResults();
   const lastRes = allR.length > 0 ? allR[allR.length - 1] : null;
@@ -4012,6 +4270,8 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout, onM
     { id:'ladder',   label:'Ladder',   emoji:'🏆' },
     { id:'scout',    label:'Scout',    emoji:'🔍' },
     { id:'log',      label:'Game Log', emoji:'📋' },
+    { id:'goalies',  label:'Goalies',  emoji:'🧤' },
+    { id:'awards',   label:'Awards',   emoji:'⭐' },
   ];
 
   const ordinal = n => { if(!n) return '—'; const s=['th','st','nd','rd']; const v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); };
@@ -4829,11 +5089,50 @@ function GameDetailScreen({ game, onBack, onUpdateGame }) {
   const [editReport, setEditReport] = useState(false);
   const [editedReport, setEditedReport] = useState('');
 
+  // GK & Awards tab state
+  const _derivedGk = resolveHalfGoalkeepers(game);
+  const [gkH1, setGkH1] = useState(_derivedGk.h1 || '');
+  const [gkH2, setGkH2] = useState(_derivedGk.h2 || '');
+  const [recognitions, setRecognitions] = useState(() => getGameRecognitions(game));
+  const [gkAwardsSaved, setGkAwardsSaved] = useState(false);
+
   const formation = safeGame.config?.formation || DEFAULT_FORMATION;
   const positions = getPositions(formation);
   const halves = safeGame.halves;
   const startingSlots = halves?.[0]?.[0]?.slots;
-  const gk = startingSlots?.gk || safeGame.gk || null;
+  const gk = _derivedGk.h1 || _derivedGk.h2 || startingSlots?.gk || safeGame.gk || null;
+
+  // All players who appeared in any period across either half
+  const allPeriodPlayers = React.useMemo(() => {
+    const names = new Set();
+    (safeGame.halves || []).forEach(half => {
+      (half || []).forEach(period => {
+        const s = period?.slots || {};
+        Object.values(s).forEach(v => { if (typeof v === 'string' && v) names.add(v); });
+        (s.bench || []).forEach(n => { if (n) names.add(n); });
+      });
+    });
+    // Fall back to squad if no period data
+    if (names.size === 0) {
+      try { JSON.parse(localStorage.getItem('soccerCoach_squad')||'[]').forEach(p=>names.add(p.name)); } catch {}
+    }
+    return [...names].sort();
+  }, [safeGame.halves]);
+
+  function setRecognitionForCat(cat, playerName) {
+    setRecognitions(prev => {
+      const filtered = prev.filter(r => r.category !== cat);
+      return playerName ? [...filtered, { category: cat, playerName }] : filtered;
+    });
+    setGkAwardsSaved(false);
+  }
+
+  function handleSaveGkAwards() {
+    if (!onUpdateGame) return;
+    onUpdateGame({ ...safeGame, h1Goalkeeper: gkH1 || null, h2Goalkeeper: gkH2 || null, recognitions });
+    setGkAwardsSaved(true);
+    setTimeout(() => setGkAwardsSaved(false), 2000);
+  }
 
   const usGoals  = safeGame.goals.filter(g=>g.team==="us");
   const themGoals= safeGame.goals.filter(g=>g.team==="them");
@@ -4885,7 +5184,7 @@ function GameDetailScreen({ game, onBack, onUpdateGame }) {
 
       {/* Tabs */}
       <SectionTabs
-        tabs={['Summary','Lineup','Events']}
+        tabs={['Summary','Lineup','GK & Awards','Events']}
         activeTab={view}
         onTabChange={setView}
       />
@@ -5047,6 +5346,50 @@ function GameDetailScreen({ game, onBack, onUpdateGame }) {
             </div>
           )}
         </>}
+
+        {view==="GK & Awards" && (
+          <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+            {/* GK per half */}
+            <div style={{ background:'#111111', borderRadius:14, border:'1px solid #1E1E1E', padding:'16px' }}>
+              <div style={{ fontSize:9, fontWeight:700, color:'#A1A1A1', letterSpacing:1.5, textTransform:'uppercase', marginBottom:12 }}>Goalkeeper</div>
+              {[['1st Half', gkH1, setGkH1], ['2nd Half', gkH2, setGkH2]].map(([label, val, setter]) => (
+                <div key={label} style={{ marginBottom:12 }}>
+                  <div style={{ fontSize:11, color:'#666', fontWeight:600, marginBottom:6 }}>{label}</div>
+                  <select value={val} onChange={e => { setter(e.target.value); setGkAwardsSaved(false); }}
+                    style={{ width:'100%', background:'#0D0D0D', border:'1px solid #2A2A2A', borderRadius:9, padding:'10px 12px', color: val ? '#FFF' : '#555', fontSize:13, outline:'none' }}>
+                    <option value="">Not set</option>
+                    {allPeriodPlayers.map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+              ))}
+            </div>
+
+            {/* Recognition categories */}
+            <div style={{ background:'#111111', borderRadius:14, border:'1px solid #1E1E1E', padding:'16px' }}>
+              <div style={{ fontSize:9, fontWeight:700, color:'#A1A1A1', letterSpacing:1.5, textTransform:'uppercase', marginBottom:12 }}>Awards</div>
+              {RECOGNITION_CATS.map(cat => {
+                const cur = recognitions.find(r => r.category === cat.id)?.playerName || '';
+                return (
+                  <div key={cat.id} style={{ marginBottom:12 }}>
+                    <div style={{ fontSize:11, color:'#666', fontWeight:600, marginBottom:6 }}>{cat.emoji} {cat.label}</div>
+                    <select value={cur} onChange={e => setRecognitionForCat(cat.id, e.target.value)}
+                      style={{ width:'100%', background:'#0D0D0D', border:'1px solid #2A2A2A', borderRadius:9, padding:'10px 12px', color: cur ? '#FFF' : '#555', fontSize:13, outline:'none' }}>
+                      <option value="">Not awarded</option>
+                      {allPeriodPlayers.map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+
+            {onUpdateGame && (
+              <button onClick={handleSaveGkAwards}
+                style={{ width:'100%', padding:'13px 0', background: gkAwardsSaved ? '#22c55e22' : '#F5C04A22', border:`1px solid ${gkAwardsSaved?'#22c55e':'#F5C04A'}44`, borderRadius:12, color: gkAwardsSaved ? '#22c55e' : '#F5C04A', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+                {gkAwardsSaved ? '✓ Saved' : 'Save GK & Awards'}
+              </button>
+            )}
+          </div>
+        )}
 
         {view==="Events" && (() => {
           const evts = game.matchEvents||[];
@@ -6410,7 +6753,7 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
   const [lineupMode,      setLineupMode]      = useState('manual');
   const [optimizeSummary, setOptimizeSummary] = useState(null);
   const [showGKSetup,     setShowGKSetup]     = useState(false);
-  const [gkSetupConfig,   setGKSetupConfig]   = useState({ splitGK: true,  h1GK: '', h2GK: '' });
+  const [gkSetupConfig,   setGKSetupConfig]   = useState(() => { const pick = (loadContextData(contextKey)||{}).gkPick || {}; return { splitGK: true, h1GK: pick.h1 || '', h2GK: pick.h2 || '' }; });
   const [saveConfirm,     setSaveConfirm]     = useState(false);
   const [printModalOpen,  setPrintModalOpen]  = useState(false);
   const [printContent,    setPrintContent]    = useState({ styleContent: '', bodyContent: '' });
@@ -6701,6 +7044,14 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
       );
     }
 
+    // GK fairness — sorted by fewest halves, using all loaded games
+    const _gkFairness = React.useMemo(() => {
+      try {
+        const allGames = JSON.parse(localStorage.getItem('soccerCoach_games') || '[]');
+        return computeGoalkeeperFairness(allGames, allActive);
+      } catch { return []; }
+    }, []);
+
     return (
       <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:9999, display:'flex', alignItems:'flex-end' }}
            onClick={e => { if (e.target === e.currentTarget) onCancel(); }}>
@@ -6709,7 +7060,29 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
           <div style={{ width:36, height:4, background:'#444', borderRadius:2, margin:'0 auto 18px' }} />
 
           <div style={{ fontSize:16, fontWeight:600, color:'#fff', marginBottom:4 }}>Goalkeeper setup</div>
-          <div style={{ fontSize:13, color:'#888', marginBottom:16 }}>Your choices lock in before optimising</div>
+          <div style={{ fontSize:13, color:'#888', marginBottom:12 }}>Your choices lock in before optimising</div>
+
+          {/* Fairness recommendation */}
+          {_gkFairness.length > 0 && (
+            <div style={{ background:'#0D0D0D', borderRadius:10, border:'1px solid #1E1E1E', padding:'10px 12px', marginBottom:16 }}>
+              <div style={{ fontSize:9, fontWeight:700, color:'#F5C04A', letterSpacing:0.8, textTransform:'uppercase', marginBottom:8 }}>🧤 Due for GK</div>
+              <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                {_gkFairness.slice(0, 4).map((r, i) => (
+                  <div key={r.playerName} style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}
+                       onClick={() => splitGK ? handleSplitTap(r.playerName) : setH1GK(r.playerName)}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <div style={{ fontSize:10, color: i===0?'#F5C04A':'#444', fontWeight:700, width:14 }}>{i+1}</div>
+                      <div style={{ fontSize:13, color: i===0?'#FFF':'#888', fontWeight: i===0?600:400, cursor:'pointer' }}>{r.playerName.split(' ')[0]}</div>
+                    </div>
+                    <div style={{ fontSize:10, color:'#555' }}>
+                      {r.totalHalves === 0 ? 'none yet' : `${r.totalHalves} ${r.totalHalves!==1?'halves':'half'}`}
+                      {r.lastRound ? ` · last ${r.lastRound}` : ''}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Split toggle */}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', background:'#242424', borderRadius:12, padding:'12px 14px', marginBottom:16 }}>
@@ -12512,82 +12885,92 @@ function PreMatchBriefScreen({ opponent, ctxKey, onBack }) {
   const squad = React.useMemo(() => { try { return JSON.parse(localStorage.getItem('soccerCoach_squad') || '[]'); } catch { return []; } }, []);
   const games = React.useMemo(() => { try { return JSON.parse(localStorage.getItem('soccerCoach_games') || '[]'); } catch { return []; } }, []);
   const scout = React.useMemo(() => loadScoutReport(opponent || ''), [opponent]);
+  const activeSquad = React.useMemo(() => squad.filter(p => !p.archived), [squad]);
+
+  // ── Find most recent completed game vs this opponent ──────────────────────
+  const completedGame = React.useMemo(() => {
+    if (!opponent) return null;
+    const matches = games.filter(g =>
+      g.opponent?.toLowerCase() === opponent.toLowerCase() &&
+      g.scoreUs !== undefined && g.scoreThem !== undefined
+    );
+    if (!matches.length) return null;
+    return matches.sort((a, b) => (b.date || 0) - (a.date || 0))[0];
+  }, [games, opponent]);
+  const isPostMatch = !!completedGame;
+
+  // ── Post-match editable state ─────────────────────────────────────────────
+  const [postH1Gk, setPostH1Gk] = React.useState(() => {
+    if (!completedGame) return '';
+    return resolveHalfGoalkeepers(completedGame).h1 || '';
+  });
+  const [postH2Gk, setPostH2Gk] = React.useState(() => {
+    if (!completedGame) return '';
+    return resolveHalfGoalkeepers(completedGame).h2 || '';
+  });
+  const [postRecogs, setPostRecogs] = React.useState(() => {
+    if (!completedGame) return {};
+    const map = {};
+    getGameRecognitions(completedGame).forEach(r => { map[r.category] = r.playerName; });
+    return map;
+  });
+  const [postSaved, setPostSaved] = React.useState(false);
+
+  function handleSavePostMatch() {
+    if (!completedGame) return;
+    try {
+      const allGames = JSON.parse(localStorage.getItem('soccerCoach_games') || '[]');
+      const idx = allGames.findIndex(g => g.id === completedGame.id);
+      if (idx === -1) return;
+      const recognitions = Object.entries(postRecogs)
+        .filter(([, name]) => name)
+        .map(([category, playerName]) => ({ category, playerName }));
+      allGames[idx] = { ...allGames[idx], h1Goalkeeper: postH1Gk || null, h2Goalkeeper: postH2Gk || null, recognitions };
+      localStorage.setItem('soccerCoach_games', JSON.stringify(allGames));
+      setPostSaved(true);
+      setTimeout(() => setPostSaved(false), 2000);
+    } catch {}
+  }
+
+  // ── Pre-match GK picks (written to contextData so PickerScreen can read) ──
+  const [gkPick, setGkPick] = React.useState(() => {
+    const cx = loadContextData(ctxKey);
+    return cx.gkPick || { h1: '', h2: '' };
+  });
+  function handleGkPick(name, half) {
+    const next = { ...gkPick, [half]: gkPick[half] === name ? '' : name };
+    setGkPick(next);
+    if (ctxKey) saveContextData(ctxKey, { gkPick: next });
+  }
 
   // ── GK rotation analysis ──────────────────────────────────────────────────
   const gkHistory = React.useMemo(() => {
-    const counts = {};
-    const lastRound = {};
-    squad.forEach(p => { counts[p.name] = 0; lastRound[p.name] = null; });
-
-    games.forEach((g, idx) => {
-      // Try halves first (live tracked), then fall back to gk string
-      const halvesGK = g.halves?.[0]?.[0]?.slots?.gk;
-      const gkStr = halvesGK || g.gk || '';
-      if (!gkStr) return;
-      // gk string may be "Ruby / Naomi" — split on / or ,
-      const names = gkStr.split(/[/,]/).map(n => n.trim()).filter(Boolean);
-      names.forEach(name => {
-        // Fuzzy match to squad
-        const matched = squad.find(p => p.name.toLowerCase() === name.toLowerCase() || p.name.toLowerCase().includes(name.toLowerCase()) || name.toLowerCase().includes(p.name.toLowerCase()));
-        if (matched) {
-          counts[matched.name] = (counts[matched.name] || 0) + 1;
-          if (!lastRound[matched.name] || idx > (lastRound[matched.name] || 0)) {
-            lastRound[matched.name] = idx;
-          }
-        }
-      });
-    });
-
-    return squad.map(p => ({
-      name: p.name,
-      count: counts[p.name] || 0,
-      lastRoundIdx: lastRound[p.name],
-    })).sort((a, b) => {
-      if (a.count !== b.count) return a.count - b.count;
-      // If same count, prefer whoever did it longest ago
-      const aLast = a.lastRoundIdx ?? -1;
-      const bLast = b.lastRoundIdx ?? -1;
-      return aLast - bLast;
-    });
-  }, [squad, games]);
+    const fairness = computeGoalkeeperFairness(games, activeSquad);
+    return fairness.map(f => ({ name: f.playerName, count: f.totalHalves, lastRound: f.lastRound }));
+  }, [activeSquad, games]);
 
   // ── Recognition analysis ──────────────────────────────────────────────────
   const recognitionHistory = React.useMemo(() => {
     const counts = {};
     const lastRound = {};
     squad.forEach(p => { counts[p.name] = 0; lastRound[p.name] = null; });
-
     games.forEach((g, idx) => {
-      const potm = Array.isArray(g.potm) ? g.potm : (g.potm ? [g.potm] : []);
-      potm.forEach(name => {
+      getGameRecognitions(g).forEach(({ playerName: name }) => {
         const matched = squad.find(p => p.name === name);
-        if (matched) {
-          counts[matched.name] = (counts[matched.name] || 0) + 1;
-          lastRound[matched.name] = idx;
-        }
+        if (matched) { counts[matched.name] = (counts[matched.name] || 0) + 1; lastRound[matched.name] = idx; }
       });
     });
-
-    return squad.map(p => ({
-      name: p.name,
-      count: counts[p.name] || 0,
-      lastRoundIdx: lastRound[p.name],
-    })).sort((a, b) => {
-      if (a.count !== b.count) return a.count - b.count;
-      const aLast = a.lastRoundIdx ?? -1;
-      const bLast = b.lastRoundIdx ?? -1;
-      return aLast - bLast;
-    });
+    return squad.map(p => ({ name: p.name, count: counts[p.name] || 0, lastRoundIdx: lastRound[p.name] }))
+      .sort((a, b) => { if (a.count !== b.count) return a.count - b.count; return (a.lastRoundIdx ?? -1) - (b.lastRoundIdx ?? -1); });
   }, [squad, games]);
 
-  const gkTopPicks = gkHistory.slice(0, 3);
-  const recTopPicks = recognitionHistory.slice(0, 3);
   const hasScout = !!(scout.strengths || scout.weaknesses || scout.dangerPlayers || scout.suggestedTactics || scout.coachNotes);
 
   const rowStyle = { display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 0', borderBottom:'1px solid #1A1A1A' };
   const rankBadge = (n, color='#F5C04A') => (
     <div style={{ width:22, height:22, borderRadius:'50%', background:`${color}22`, border:`1px solid ${color}44`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color, flexShrink:0 }}>{n}</div>
   );
+  const selectStyle = { background:'#0D0D0D', border:'1px solid #2A2A2A', borderRadius:8, color:'#FFF', fontSize:13, padding:'8px 10px', width:'100%', appearance:'none' };
 
   return (
     <div style={{ display:'flex', flexDirection:'column', minHeight:'100vh', background:'#0D0D0D' }}>
@@ -12600,85 +12983,164 @@ function PreMatchBriefScreen({ opponent, ctxKey, onBack }) {
         </button>
         <div style={{ fontSize:24, fontWeight:800, color:'#FFF', lineHeight:1.1 }}>Match Brief</div>
         <div style={{ fontSize:13, color:'#666', marginTop:4 }}>
-          {opponent ? `vs ${opponent} · Advisory only` : 'Advisory only — coach decides'}
+          {opponent
+            ? isPostMatch
+              ? `vs ${opponent} · Post-match summary`
+              : `vs ${opponent} · Pre-match advisory`
+            : 'Advisory only — coach decides'}
         </div>
       </div>
 
       <div style={{ flex:1, overflowY:'auto', padding:'8px 16px 32px', display:'flex', flexDirection:'column', gap:14 }}>
 
-        {/* Advisory disclaimer */}
-        <div style={{ background:'#1A1A0A', border:'1px solid #F5C04A33', borderRadius:12, padding:'10px 14px', display:'flex', gap:10, alignItems:'flex-start' }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2" style={{ flexShrink:0, marginTop:1 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <div style={{ fontSize:12, color:'#A1A1A1', lineHeight:1.5 }}>These are <span style={{ color:'#F5C04A', fontWeight:700 }}>recommendations only</span>. They do not affect your line-up or squad settings — you decide what to do with them.</div>
-        </div>
+        {isPostMatch ? (
+          /* ── POST-MATCH MODE ─────────────────────────────────────────────── */
+          <>
+            {/* Match result banner */}
+            <div style={{ background:'#111', borderRadius:16, border:'1px solid #1A1A1A', padding:'14px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <div>
+                <div style={{ fontSize:9, fontWeight:800, color:'#F5C04A', letterSpacing:1.5, textTransform:'uppercase', marginBottom:4 }}>Result</div>
+                <div style={{ fontSize:28, fontWeight:900, color:'#FFF' }}>{completedGame.scoreUs} – {completedGame.scoreThem}</div>
+                <div style={{ fontSize:12, color:'#555', marginTop:2 }}>{completedGame.khula_round || ''}</div>
+              </div>
+              <div style={{ fontSize:40 }}>
+                {completedGame.scoreUs > completedGame.scoreThem ? '🏆' : completedGame.scoreUs < completedGame.scoreThem ? '💪' : '🤝'}
+              </div>
+            </div>
 
-        {/* GK Rotation */}
-        <div style={{ background:'#111111', borderRadius:16, border:'1px solid #1A1A1A', overflow:'hidden' }}>
-          <div style={{ padding:'14px 16px 10px', borderBottom:'1px solid #1A1A1A' }}>
-            <div style={{ fontSize:9, fontWeight:800, color:'#F5C04A', letterSpacing:1.5, textTransform:'uppercase', marginBottom:2 }}>GK Rotation</div>
-            <div style={{ fontSize:12, color:'#555' }}>Sorted by fewest turns · overdue players first</div>
-          </div>
-          <div style={{ padding:'0 16px' }}>
-            {gkTopPicks.length === 0 ? (
-              <div style={{ padding:'16px 0', color:'#555', fontSize:12 }}>No squad data yet.</div>
-            ) : gkTopPicks.map((p, i) => (
-              <div key={p.name} style={{ ...rowStyle, borderBottom: i < gkTopPicks.length - 1 ? '1px solid #1A1A1A' : 'none' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                  {rankBadge(i + 1, i === 0 ? '#22c55e' : '#F5C04A')}
-                  <div style={{ fontSize:14, fontWeight:600, color:'#FFF' }}>{p.name}</div>
-                </div>
-                <div style={{ textAlign:'right' }}>
-                  <div style={{ fontSize:12, fontWeight:700, color: p.count === 0 ? '#22c55e' : '#A1A1A1' }}>
-                    {p.count === 0 ? 'Never done GK' : `${p.count}× as GK`}
+            {/* GK per half — editable */}
+            <div style={{ background:'#111111', borderRadius:16, border:'1px solid #1A1A1A', overflow:'hidden' }}>
+              <div style={{ padding:'14px 16px 10px', borderBottom:'1px solid #1A1A1A' }}>
+                <div style={{ fontSize:9, fontWeight:800, color:'#F5C04A', letterSpacing:1.5, textTransform:'uppercase', marginBottom:2 }}>🧤 Goalkeeper</div>
+                <div style={{ fontSize:12, color:'#555' }}>Who actually played in goal each half</div>
+              </div>
+              <div style={{ padding:'12px 16px', display:'flex', flexDirection:'column', gap:10 }}>
+                {[['h1', postH1Gk, setPostH1Gk, '1st Half'], ['h2', postH2Gk, setPostH2Gk, '2nd Half']].map(([half, val, setter, label]) => (
+                  <div key={half}>
+                    <div style={{ fontSize:11, color:'#666', marginBottom:4 }}>{label}</div>
+                    <select value={val} onChange={e => setter(e.target.value)} style={selectStyle}>
+                      <option value=''>— none —</option>
+                      {activeSquad.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                    </select>
                   </div>
-                  {p.lastRoundIdx !== null && (
-                    <div style={{ fontSize:10, color:'#555', marginTop:1 }}>
-                      Last: game {p.lastRoundIdx + 1}
+                ))}
+              </div>
+            </div>
+
+            {/* Recognition — editable */}
+            <div style={{ background:'#111111', borderRadius:16, border:'1px solid #1A1A1A', overflow:'hidden' }}>
+              <div style={{ padding:'14px 16px 10px', borderBottom:'1px solid #1A1A1A' }}>
+                <div style={{ fontSize:9, fontWeight:800, color:'#F5C04A', letterSpacing:1.5, textTransform:'uppercase', marginBottom:2 }}>⭐ Player Recognition</div>
+                <div style={{ fontSize:12, color:'#555' }}>Award one player per category</div>
+              </div>
+              <div style={{ padding:'12px 16px', display:'flex', flexDirection:'column', gap:10 }}>
+                {RECOGNITION_CATS.map(cat => (
+                  <div key={cat.id}>
+                    <div style={{ fontSize:11, color:'#666', marginBottom:4 }}>{cat.emoji} {cat.label}</div>
+                    <select
+                      value={postRecogs[cat.id] || ''}
+                      onChange={e => setPostRecogs(prev => ({ ...prev, [cat.id]: e.target.value }))}
+                      style={selectStyle}>
+                      <option value=''>— none —</option>
+                      {activeSquad.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Save button */}
+            <button onClick={handleSavePostMatch} style={{ background: postSaved ? '#22c55e' : '#F5C04A', color:'#000', fontWeight:800, fontSize:15, border:'none', borderRadius:12, padding:'14px', cursor:'pointer', transition:'background 0.2s' }}>
+              {postSaved ? '✓ Saved' : 'Save GK & Awards'}
+            </button>
+          </>
+        ) : (
+          /* ── PRE-MATCH MODE ──────────────────────────────────────────────── */
+          <>
+            {/* Advisory disclaimer */}
+            <div style={{ background:'#1A1A0A', border:'1px solid #F5C04A33', borderRadius:12, padding:'10px 14px', display:'flex', gap:10, alignItems:'flex-start' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2" style={{ flexShrink:0, marginTop:1 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <div style={{ fontSize:12, color:'#A1A1A1', lineHeight:1.5 }}>These are <span style={{ color:'#F5C04A', fontWeight:700 }}>recommendations only</span>. Tap <strong style={{color:'#ccc'}}>H1</strong> or <strong style={{color:'#ccc'}}>H2</strong> next to a name to pre-assign GK before opening the lineup.</div>
+            </div>
+
+            {/* Pre-assigned GK summary chips */}
+            {(gkPick.h1 || gkPick.h2) && (
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                {gkPick.h1 && <div style={{ background:'#22c55e22', border:'1px solid #22c55e44', borderRadius:20, padding:'4px 12px', fontSize:12, color:'#22c55e' }}>🧤 H1: {gkPick.h1}</div>}
+                {gkPick.h2 && <div style={{ background:'#3b82f622', border:'1px solid #3b82f644', borderRadius:20, padding:'4px 12px', fontSize:12, color:'#3b82f6' }}>🧤 H2: {gkPick.h2}</div>}
+              </div>
+            )}
+
+            {/* GK Rotation — full squad */}
+            <div style={{ background:'#111111', borderRadius:16, border:'1px solid #1A1A1A', overflow:'hidden' }}>
+              <div style={{ padding:'14px 16px 10px', borderBottom:'1px solid #1A1A1A' }}>
+                <div style={{ fontSize:9, fontWeight:800, color:'#F5C04A', letterSpacing:1.5, textTransform:'uppercase', marginBottom:2 }}>🧤 GK Rotation — Full Squad</div>
+                <div style={{ fontSize:12, color:'#555' }}>Fewest halves first · tap H1 or H2 to pre-assign</div>
+              </div>
+              <div style={{ padding:'0 16px' }}>
+                {gkHistory.length === 0 ? (
+                  <div style={{ padding:'16px 0', color:'#555', fontSize:12 }}>No squad data yet.</div>
+                ) : gkHistory.map((p, i) => {
+                  const isH1 = gkPick.h1 === p.name;
+                  const isH2 = gkPick.h2 === p.name;
+                  return (
+                    <div key={p.name} style={{ ...rowStyle, borderBottom: i < gkHistory.length - 1 ? '1px solid #1A1A1A' : 'none' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                        {rankBadge(i + 1, i === 0 ? '#22c55e' : i < 3 ? '#F5C04A' : '#333')}
+                        <div>
+                          <div style={{ fontSize:14, fontWeight:600, color: i === 0 ? '#FFF' : '#AAA' }}>{p.name}</div>
+                          <div style={{ fontSize:10, color:'#555' }}>
+                            {p.count === 0 ? 'Never done GK' : `${p.count} half${p.count !== 1 ? 'ves' : ''}`}
+                            {p.lastRound ? ` · last ${p.lastRound}` : ''}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display:'flex', gap:6 }}>
+                        {['h1','h2'].map(half => {
+                          const active = half === 'h1' ? isH1 : isH2;
+                          return (
+                            <button key={half} onClick={() => handleGkPick(p.name, half)}
+                              style={{ background: active ? (half==='h1'?'#22c55e':'#3b82f6') : '#1A1A1A', color: active ? '#000' : '#555', border:`1px solid ${active?(half==='h1'?'#22c55e':'#3b82f6'):'#2A2A2A'}`, borderRadius:6, padding:'3px 8px', fontSize:11, fontWeight:700, cursor:'pointer' }}>
+                              {half.toUpperCase()}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  )}
-                </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
-          {gkHistory.length > 3 && (
-            <div style={{ padding:'10px 16px', borderTop:'1px solid #1A1A1A', fontSize:11, color:'#555' }}>
-              + {gkHistory.length - 3} more players — see Recommendations tab in Team
             </div>
-          )}
-        </div>
 
-        {/* Player Recognition */}
-        <div style={{ background:'#111111', borderRadius:16, border:'1px solid #1A1A1A', overflow:'hidden' }}>
-          <div style={{ padding:'14px 16px 10px', borderBottom:'1px solid #1A1A1A' }}>
-            <div style={{ fontSize:9, fontWeight:800, color:'#F5C04A', letterSpacing:1.5, textTransform:'uppercase', marginBottom:2 }}>Player Recognition</div>
-            <div style={{ fontSize:12, color:'#555' }}>Sorted by fewest recognitions · overdue players first</div>
-          </div>
-          <div style={{ padding:'0 16px' }}>
-            {recTopPicks.length === 0 ? (
-              <div style={{ padding:'16px 0', color:'#555', fontSize:12 }}>No squad data yet.</div>
-            ) : recTopPicks.map((p, i) => (
-              <div key={p.name} style={{ ...rowStyle, borderBottom: i < recTopPicks.length - 1 ? '1px solid #1A1A1A' : 'none' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                  {rankBadge(i + 1, i === 0 ? '#a855f7' : '#F5C04A')}
-                  <div style={{ fontSize:14, fontWeight:600, color:'#FFF' }}>{p.name}</div>
-                </div>
-                <div style={{ textAlign:'right' }}>
-                  <div style={{ fontSize:12, fontWeight:700, color: p.count === 0 ? '#a855f7' : '#A1A1A1' }}>
-                    {p.count === 0 ? 'Never recognised' : `${p.count}× recognised`}
-                  </div>
-                  {p.lastRoundIdx !== null && (
-                    <div style={{ fontSize:10, color:'#555', marginTop:1 }}>Last: game {p.lastRoundIdx + 1}</div>
-                  )}
-                </div>
+            {/* Player Recognition — full squad */}
+            <div style={{ background:'#111111', borderRadius:16, border:'1px solid #1A1A1A', overflow:'hidden' }}>
+              <div style={{ padding:'14px 16px 10px', borderBottom:'1px solid #1A1A1A' }}>
+                <div style={{ fontSize:9, fontWeight:800, color:'#F5C04A', letterSpacing:1.5, textTransform:'uppercase', marginBottom:2 }}>⭐ Player Recognition</div>
+                <div style={{ fontSize:12, color:'#555' }}>Fewest recognitions first · overdue players first</div>
               </div>
-            ))}
-          </div>
-          {recognitionHistory.length > 3 && (
-            <div style={{ padding:'10px 16px', borderTop:'1px solid #1A1A1A', fontSize:11, color:'#555' }}>
-              + {recognitionHistory.length - 3} more players — see Recommendations tab in Team
+              <div style={{ padding:'0 16px' }}>
+                {recognitionHistory.length === 0 ? (
+                  <div style={{ padding:'16px 0', color:'#555', fontSize:12 }}>No squad data yet.</div>
+                ) : recognitionHistory.map((p, i) => (
+                  <div key={p.name} style={{ ...rowStyle, borderBottom: i < recognitionHistory.length - 1 ? '1px solid #1A1A1A' : 'none' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                      {rankBadge(i + 1, i === 0 ? '#a855f7' : i < 3 ? '#F5C04A' : '#333')}
+                      <div style={{ fontSize:14, fontWeight:600, color: i === 0 ? '#FFF' : '#AAA' }}>{p.name}</div>
+                    </div>
+                    <div style={{ textAlign:'right' }}>
+                      <div style={{ fontSize:12, fontWeight:700, color: p.count === 0 ? '#a855f7' : '#A1A1A1' }}>
+                        {p.count === 0 ? 'Never recognised' : `${p.count}× recognised`}
+                      </div>
+                      {p.lastRoundIdx !== null && (
+                        <div style={{ fontSize:10, color:'#555', marginTop:1 }}>Last: game {p.lastRoundIdx + 1}</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          )}
-        </div>
+          </>
+        )}
 
         {/* Opponent Scout Notes */}
         <div style={{ background:'#111111', borderRadius:16, border:'1px solid #1A1A1A', overflow:'hidden' }}>
