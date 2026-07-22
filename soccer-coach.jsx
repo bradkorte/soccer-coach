@@ -13684,7 +13684,6 @@ function PostMatchReviewScreen({ game, squad, opponent, config, onDone }) {
 
   // Goal confirmation state
   const [showGoalConfirm,    setShowGoalConfirm]    = React.useState(false);
-  const [pendingAiData,      setPendingAiData]       = React.useState(null);
   const [confirmedGoals,     setConfirmedGoals]      = React.useState([]);
   const [confirmedScoreUs,   setConfirmedScoreUs]    = React.useState(0);
   const [confirmedScoreThem, setConfirmedScoreThem]  = React.useState(0);
@@ -13727,15 +13726,16 @@ function PostMatchReviewScreen({ game, squad, opponent, config, onDone }) {
   }
 
   // ── Build AI prompt ───────────────────────────────────────────────────────────
-  function buildAIPrompt() {
-    const us   = goals.filter(g=>g.team==='us').length;
-    const them = goals.filter(g=>g.team==='them').length;
-    const goalSummary = goals.length
-      ? goals.map(g => g.team==='us'
-          ? `⚽ ${g.scorer||'Unknown'} (us) — H${g.half} ${g.timeStr}`
-          : `⚽ ${opponent} (them) — H${g.half} ${g.timeStr}`
+  // Called with confirmed data AFTER goal confirmation screen
+  function buildAIPrompt({ confirmedGoals: cGoals = [], confirmedScoreUs: cUs = 0, confirmedScoreThem: cThem = 0 } = {}) {
+    const us   = cUs;
+    const them = cThem;
+    const goalSummary = cGoals.length
+      ? cGoals.map(g => g.team==='us'
+          ? `⚽ ${g.scorer||'Unknown'} (us)${g.timeStr ? ' — ' + g.timeStr : ''}`
+          : `⚽ ${opponent} (them)${g.timeStr ? ' — ' + g.timeStr : ''}`
         ).join('\n')
-      : 'No goals logged';
+      : `Score was ${us}–${them}. Individual goal scorers were not logged — see voice notes.`;
     const evtSummary = matchEvents.length ? fmtEvents(matchEvents) : 'No match events recorded';
     const squadDevFocus = (() => {
       try {
@@ -13771,124 +13771,75 @@ Then on a new line write exactly "PLAYER NOTES:" followed by individual observat
 Be specific and grounded. Do not invent observations not supported by the notes.`;
   }
 
-  // ── Generate ──────────────────────────────────────────────────────────────────
-  async function handleGenerate() {
-    setGenerating(true);
-    let localOut;
-    try { localOut = generatePostMatchOutputs({ game, opponent, teamName, priorities, mostImproved }); }
-    catch { localOut = { parentSummary: '', trainingRec: '' }; }
-
-    let ai = '';
-    try {
-      ai = await openAIChat([{ role: 'user', content: buildAIPrompt() }], { model: 'gpt-4o', max_tokens: 1500 });
-    } catch {}
-
-    // Split AI response: review | PLAYER NOTES: | GOALS:
-    let aiMatchReview = ai;
-    let aiPlayerNotes = '';
-    let aiGoalsRaw = '[]';
-
-    const goalsSplit = ai.indexOf('GOALS:');
-    if (goalsSplit !== -1) {
-      aiGoalsRaw = ai.slice(goalsSplit + 'GOALS:'.length).trim();
-      ai = ai.slice(0, goalsSplit).trim();
-    }
-    const pnSplit = ai.indexOf('PLAYER NOTES:');
-    if (pnSplit !== -1) {
-      aiMatchReview = ai.slice(0, pnSplit).trim();
-      aiPlayerNotes = ai.slice(pnSplit + 'PLAYER NOTES:'.length).trim();
-    } else {
-      aiMatchReview = ai.trim();
-    }
-
-    // ── Parse AI-extracted goals and build deduped proposed list ─────────────
-    const sq = (() => { try { return JSON.parse(localStorage.getItem('soccerCoach_squad')||'[]'); } catch { return []; } })();
-    let aiGoals = [];
-    try { aiGoals = JSON.parse(aiGoalsRaw); } catch {}
-
-    // Normalize AI scorer names to full squad names
-    aiGoals = aiGoals.map(g => ({
-      ...g,
-      scorer: g.team === 'us' ? normalizePlayerName(g.scorer || 'Unknown', sq) : undefined,
-      source: 'voice'
-    }));
-
-    // Manual goals already logged via button taps
+  // ── Generate: just show goal confirm with manual goals (AI runs after confirm) ─
+  function handleGenerate() {
     const manualGoals = (game.goals || []).map(g => ({ ...g, source: 'tap' }));
-
-    // Deduplicate: for each scorer, take max(manual count, ai count)
-    const proposedGoals = [...manualGoals];
-    const manualUsTally = {};
-    manualGoals.filter(g => g.team === 'us').forEach(g => {
-      const name = g.scorer || 'Unknown';
-      manualUsTally[name] = (manualUsTally[name] || 0) + 1;
-    });
-    const aiUsTally = {};
-    aiGoals.filter(g => g.team === 'us').forEach(g => {
-      const name = g.scorer || 'Unknown';
-      aiUsTally[name] = (aiUsTally[name] || 0) + 1;
-    });
-
-    // Add extra us-goals from voice (where AI count exceeds manual count)
-    Object.entries(aiUsTally).forEach(([name, aiCount]) => {
-      const manualCount = manualUsTally[name] || 0;
-      const extra = aiCount - manualCount;
-      for (let i = 0; i < extra; i++) {
-        proposedGoals.push({ team: 'us', scorer: name, secs: 0, source: 'voice' });
-      }
-    });
-
-    // Handle them-goals: take max(manual them count, ai them count)
-    const manualThemCount = manualGoals.filter(g => g.team === 'them').length;
-    const aiThemCount     = aiGoals.filter(g => g.team === 'them').length;
-    const extraThem = Math.max(0, aiThemCount - manualThemCount);
-    for (let i = 0; i < extraThem; i++) {
-      proposedGoals.push({ team: 'them', secs: 0, source: 'voice' });
-    }
-
-    const proposedUs   = proposedGoals.filter(g => g.team === 'us').length;
-    const proposedThem = proposedGoals.filter(g => g.team === 'them').length;
-
-    // Store pending ai data and show goal confirmation screen
-    setPendingAiData({ aiMatchReview, aiPlayerNotes, localOut });
-    setConfirmedGoals(proposedGoals);
-    setConfirmedScoreUs(Math.max(game.scoreUs || 0, proposedUs));
-    setConfirmedScoreThem(Math.max(game.scoreThem || 0, proposedThem));
-    setGenerating(false);
+    setConfirmedGoals(manualGoals);
+    setConfirmedScoreUs(game.scoreUs || 0);
+    setConfirmedScoreThem(game.scoreThem || 0);
     setShowGoalConfirm(true);
   }
 
-  // ── Save after coach confirms goals/score ─────────────────────────────────
-  function confirmAndSave() {
-    // Fallback if pendingAiData was never set (e.g. error during generate)
-    const { aiMatchReview = '', aiPlayerNotes = '', localOut = generatePostMatchOutputs({ game, opponent, teamName, priorities, mostImproved }) } = pendingAiData || {};
+  // ── Save after coach confirms goals/score, then generate AI report ────────
+  async function confirmAndSave() {
+    const cleanGoals  = confirmedGoals.map(({ source, ...rest }) => rest);
+    const finalUs     = confirmedScoreUs;
+    const finalThem   = confirmedScoreThem;
 
-    // Build clean goals array (strip source tag)
-    const cleanGoals = confirmedGoals.map(({ source, ...rest }) => rest);
-
-    // Update game in storage with confirmed goals + score
+    // 1. Save confirmed goals + score to localStorage immediately
     try {
       const stored = JSON.parse(localStorage.getItem('soccerCoach_games') || '[]');
       const updated = stored.map(g => g.id === game.id
-        ? { ...g, goals: cleanGoals, scoreUs: confirmedScoreUs, scoreThem: confirmedScoreThem }
+        ? { ...g, goals: cleanGoals, scoreUs: finalUs, scoreThem: finalThem }
         : g
       );
       localStorage.setItem('soccerCoach_games', JSON.stringify(updated));
     } catch {}
 
-    // Save post-match record
-    try {
-      const stored = JSON.parse(localStorage.getItem('soccerCoach_allPostMatch') || '[]');
-      stored.unshift({
-        id: 'soccerCoach_postMatch_' + (game.id || Date.now()),
-        gameId: game.id, opponent, date: Date.now(),
-        priorities, mostImproved, extraNotes,
-        aiReview: aiMatchReview, outputs: localOut
-      });
-      localStorage.setItem('soccerCoach_allPostMatch', JSON.stringify(stored.slice(0, 50)));
-    } catch {}
+    // 2. Hide goal confirm, show generating spinner
+    setShowGoalConfirm(false);
+    setGenerating(true);
 
-    // Write AI player notes to squad coachNotes
+    // 3. Build template outputs with confirmed score
+    const confirmedGame = { ...game, scoreUs: finalUs, scoreThem: finalThem };
+    const localOut = (() => {
+      try { return generatePostMatchOutputs({ game: confirmedGame, opponent, teamName, priorities, mostImproved }); }
+      catch { return { parentSummary: '', trainingRec: '' }; }
+    })();
+
+    // 4. Generate AI report using confirmed goals + all voice/event data
+    let aiMatchReview = '';
+    let aiPlayerNotes = '';
+
+    const apiKey = loadOpenAIKey();
+    if (!apiKey) {
+      aiMatchReview = '⚠️ No OpenAI key set.\n\nGo to Settings → API Keys to add your key, then you can come back and edit this card with your own notes — or regenerate.\n\nTap Edit to write your match notes manually now.';
+    } else {
+      try {
+        const prompt = buildAIPrompt({ confirmedGoals: cleanGoals, confirmedScoreUs: finalUs, confirmedScoreThem: finalThem });
+        const ai = await openAIChat([{ role: 'user', content: prompt }], { model: 'gpt-4o', max_tokens: 1500 });
+
+        const pnSplit = ai.indexOf('PLAYER NOTES:');
+        if (pnSplit !== -1) {
+          aiMatchReview = ai.slice(0, pnSplit).trim();
+          aiPlayerNotes = ai.slice(pnSplit + 'PLAYER NOTES:'.length).trim();
+        } else {
+          aiMatchReview = ai.trim();
+        }
+
+        // Save generated report back to game record
+        try {
+          const stored = JSON.parse(localStorage.getItem('soccerCoach_games') || '[]');
+          const updated = stored.map(g => g.id === game.id ? { ...g, report: aiMatchReview } : g);
+          localStorage.setItem('soccerCoach_games', JSON.stringify(updated));
+        } catch {}
+
+      } catch (e) {
+        aiMatchReview = `⚠️ Report generation failed: ${e.message}\n\nTap Edit to write your match notes manually.`;
+      }
+    }
+
+    // 5. Write AI player notes to squad coachNotes
     try {
       if (aiPlayerNotes) {
         const sq = JSON.parse(localStorage.getItem('soccerCoach_squad') || '[]');
@@ -13905,7 +13856,19 @@ Be specific and grounded. Do not invent observations not supported by the notes.
       }
     } catch {}
 
-    setShowGoalConfirm(false);
+    // 6. Save post-match record
+    try {
+      const stored = JSON.parse(localStorage.getItem('soccerCoach_allPostMatch') || '[]');
+      stored.unshift({
+        id: 'soccerCoach_postMatch_' + (game.id || Date.now()),
+        gameId: game.id, opponent, date: Date.now(),
+        priorities, mostImproved, extraNotes,
+        aiReview: aiMatchReview, outputs: localOut
+      });
+      localStorage.setItem('soccerCoach_allPostMatch', JSON.stringify(stored.slice(0, 50)));
+    } catch {}
+
+    setGenerating(false);
     setOutputs({ ...localOut, aiMatchReview, aiPlayerNotes });
   }
 
@@ -14049,8 +14012,8 @@ Be specific and grounded. Do not invent observations not supported by the notes.
         {/* Sticky confirm button */}
         <div style={{position:'fixed', bottom:0, left:0, right:0, padding:'14px 16px', paddingBottom:'calc(env(safe-area-inset-bottom) + 14px)', background:'#0D0D0D', borderTop:'1px solid #1E1E1E', display:'flex', flexDirection:'column', gap:8}}>
           <button onClick={confirmAndSave}
-            style={{width:'100%', padding:'16px', border:'none', borderRadius:14, fontSize:15, fontWeight:800, cursor:'pointer', background:'#22c55e', color:'#000'}}>
-            Confirm & Save ✓
+            style={{width:'100%', padding:'16px', border:'none', borderRadius:14, fontSize:15, fontWeight:800, cursor:'pointer', background:'#a78bfa', color:'#000'}}>
+            Confirm & Generate Report ✨
           </button>
           <button onClick={onDone}
             style={{width:'100%', padding:'10px', border:'1px solid #2A2A2A', borderRadius:14, fontSize:13, fontWeight:600, cursor:'pointer', background:'transparent', color:'#555'}}>
@@ -14232,8 +14195,8 @@ Be specific and grounded. Do not invent observations not supported by the notes.
   if (generating) return (
     <div style={{minHeight:'100dvh',background:'#0D0D0D',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:20,padding:32}}>
       <div style={{fontSize:40}}>✨</div>
-      <div style={{fontSize:18,fontWeight:800,color:'#FFF',textAlign:'center'}}>Generating Match Notes…</div>
-      <div style={{fontSize:13,color:'#555',textAlign:'center',maxWidth:280}}>Analysing voice notes, events and generating AI review</div>
+      <div style={{fontSize:18,fontWeight:800,color:'#FFF',textAlign:'center'}}>Generating Match Report…</div>
+      <div style={{fontSize:13,color:'#555',textAlign:'center',maxWidth:280}}>AI is reading your voice notes and writing the full match summary</div>
       <div style={{display:'flex',gap:6,marginTop:4}}>
         {[0,1,2].map(i=>(
           <div key={i} style={{width:8,height:8,borderRadius:4,background:'#22c55e',opacity:0.4,animation:'pulse 1.2s ease-in-out infinite',animationDelay:`${i*0.3}s`}}/>
@@ -14245,12 +14208,20 @@ Be specific and grounded. Do not invent observations not supported by the notes.
 
   // ── Outputs ───────────────────────────────────────────────────────────────────
   if (outputs) {
+    const [editingKey, setEditingKey] = React.useState(null);
+    const [editTexts,  setEditTexts]  = React.useState({
+      parentSummary: outputs.parentSummary || '',
+      aiMatchReview: outputs.aiMatchReview || '',
+      trainingRec:   outputs.trainingRec   || '',
+      playerNotes:   outputs.aiPlayerNotes || '',
+    });
+
     const OUT_CARDS = [
-      { key:'parentSummary', title:'📱 Parent Summary',   subtitle:'WhatsApp-ready',      color:'#22c55e', text:outputs.parentSummary },
-      { key:'aiMatchReview', title:'✨ AI Match Review',  subtitle:'Detailed analysis',    color:'#a78bfa', text:outputs.aiMatchReview },
-      { key:'trainingRec',   title:'🏋️ Training Focus',   subtitle:'Next session',         color:'#F5C04A', text:outputs.trainingRec   },
-      ...(outputs.aiPlayerNotes ? [{ key:'playerNotes', title:'⭐ Player Notes', subtitle:'From voice notes', color:'#fb923c', text:outputs.aiPlayerNotes }] : []),
-    ].filter(c => c.text && c.text.trim());
+      { key:'parentSummary', title:'📱 Parent Summary',   subtitle:'WhatsApp-ready',      color:'#22c55e' },
+      { key:'aiMatchReview', title:'✨ AI Match Review',  subtitle:'Full match summary',   color:'#a78bfa', alwaysShow: true },
+      { key:'trainingRec',   title:'🏋️ Training Focus',   subtitle:'Next session',         color:'#F5C04A' },
+      ...(editTexts.playerNotes ? [{ key:'playerNotes', title:'⭐ Player Notes', subtitle:'From voice notes', color:'#fb923c' }] : []),
+    ].filter(c => c.alwaysShow || (editTexts[c.key] && editTexts[c.key].trim()));
 
     return (
       <div style={{display:'flex',flexDirection:'column',minHeight:'100dvh',background:'#0D0D0D'}}>
@@ -14264,26 +14235,54 @@ Be specific and grounded. Do not invent observations not supported by the notes.
           <span style={{fontSize:11,color:'#22c55e',fontWeight:600,zIndex:1}}>✓ Done</span>
         </div>
         <div style={{flex:1,padding:'16px',paddingBottom:120,display:'flex',flexDirection:'column',gap:10}}>
-          {OUT_CARDS.map(card=>(
-            <div key={card.key} style={{background:'#111111',borderRadius:14,border:`1px solid ${card.color}33`,overflow:'hidden'}}>
-              <div style={{padding:'12px 16px',borderBottom:`1px solid ${card.color}22`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                <div>
-                  <div style={{fontSize:14,fontWeight:600,color:card.color}}>{card.title}</div>
-                  <div style={{fontSize:11,color:'#555',marginTop:1}}>{card.subtitle}</div>
+          {OUT_CARDS.map(card => {
+            const text = editTexts[card.key];
+            const isEditing = editingKey === card.key;
+            return (
+              <div key={card.key} style={{background:'#111111',borderRadius:14,border:`1px solid ${card.color}33`,overflow:'hidden'}}>
+                <div style={{padding:'12px 16px',borderBottom:`1px solid ${card.color}22`,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:14,fontWeight:600,color:card.color}}>{card.title}</div>
+                    <div style={{fontSize:11,color:'#555',marginTop:1}}>{card.subtitle}</div>
+                  </div>
+                  <div style={{display:'flex',gap:6,flexShrink:0}}>
+                    <button onClick={()=>setEditingKey(isEditing ? null : card.key)}
+                      style={{background:isEditing?card.color+'22':'#1A1A1A',border:`1px solid ${isEditing?card.color:'#2A2A2A'}`,
+                        borderRadius:8,padding:'6px 10px',cursor:'pointer',color:isEditing?card.color:'#A1A1A1',fontSize:11,fontWeight:700}}>
+                      {isEditing ? 'Done' : 'Edit'}
+                    </button>
+                    <button onClick={()=>copyOutput(card.key, editTexts[card.key])}
+                      style={{background:copiedKey===card.key?card.color+'22':'#1A1A1A',
+                        border:`1px solid ${copiedKey===card.key?card.color:'#2A2A2A'}`,
+                        borderRadius:8,padding:'6px 10px',cursor:'pointer',
+                        color:copiedKey===card.key?card.color:'#A1A1A1',fontSize:11,fontWeight:700}}>
+                      {copiedKey===card.key?'✓':'Copy'}
+                    </button>
+                  </div>
                 </div>
-                <button onClick={()=>copyOutput(card.key,card.text)}
-                  style={{background:copiedKey===card.key?card.color+'22':'#1A1A1A',
-                    border:`1px solid ${copiedKey===card.key?card.color:'#2A2A2A'}`,
-                    borderRadius:8,padding:'6px 12px',cursor:'pointer',
-                    color:copiedKey===card.key?card.color:'#A1A1A1',fontSize:11,fontWeight:700}}>
-                  {copiedKey===card.key?'✓ Copied':'Copy'}
-                </button>
+                <div style={{padding:'12px 16px'}}>
+                  {isEditing ? (
+                    <textarea
+                      value={text}
+                      onChange={e => setEditTexts(prev => ({...prev, [card.key]: e.target.value}))}
+                      rows={10}
+                      style={{width:'100%',background:'#0D0D0D',border:'1px solid #333',borderRadius:9,
+                        color:'#E0E0E0',fontSize:12,padding:'10px 12px',lineHeight:1.6,
+                        resize:'vertical',outline:'none',fontFamily:'inherit',boxSizing:'border-box'}}
+                      autoFocus
+                    />
+                  ) : text && text.trim() ? (
+                    <pre style={{margin:0,fontFamily:'inherit',fontSize:12,color:text.startsWith('⚠️')?'#fbbf24':'#A1A1A1',whiteSpace:'pre-wrap',lineHeight:1.6}}>{text}</pre>
+                  ) : (
+                    <div style={{padding:'12px 0',textAlign:'center'}}>
+                      <div style={{fontSize:28,marginBottom:8}}>✨</div>
+                      <div style={{fontSize:13,color:'#555',lineHeight:1.5}}>No report generated yet.<br/>Tap <strong style={{color:'#a78bfa'}}>Edit</strong> to write your own match notes.</div>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div style={{padding:'12px 16px'}}>
-                <pre style={{margin:0,fontFamily:'inherit',fontSize:12,color:'#A1A1A1',whiteSpace:'pre-wrap',lineHeight:1.6}}>{card.text}</pre>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         <div style={{position:'fixed',bottom:80,left:0,right:0,padding:'12px 16px',background:'#0D0D0D',borderTop:'1px solid #1E1E1E'}}>
           <button onClick={onDone} style={{width:'100%',padding:'15px',border:'none',borderRadius:14,fontSize:15,fontWeight:700,cursor:'pointer',background:'#22c55e',color:'#000'}}>
