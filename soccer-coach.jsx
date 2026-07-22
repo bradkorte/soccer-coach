@@ -394,6 +394,19 @@ async function aiChat(messages, { model = null, max_tokens = 1000 } = {}) {
 // Alias so existing callers still work unchanged
 const openAIChat = aiChat;
 
+// ── Shared system message applied to ALL AI calls in this app ─────────────────
+// Keeps responses grounded, concise, and honest about missing data.
+const AI_SYSTEM = {
+  role: 'system',
+  content: `You are a concise youth soccer coaching assistant.
+Rules you must follow in every response:
+1. Only report or mention what is explicitly present in the data you are given.
+2. Never invent player names, events, scores, tactics, or observations.
+3. If the data is sparse, say so briefly — do not pad the response.
+4. Use first names only when referring to players.
+5. Keep responses short. Prefer one focused sentence over two vague ones.`
+};
+
 async function whisperTranscribe(audioBlob, promptHint = '') {
   const key = loadOpenAIKey();
   if (!key) throw new Error('No OpenAI API key — add it in App Settings → AI Settings.');
@@ -1838,8 +1851,20 @@ async function generateAIReport(game) {
   const potmLine=potmArr.length?`\nPlayer Recognition: ${potmArr.join(", ")}`:"";
   const oppLine=game.oppNotes&&game.oppNotes.trim()?`\n\nOpposition notes:\n${game.oppNotes.trim()}`:"";
   const voiceLine = game.voiceNotes && game.voiceNotes.trim() ? `\n\nVoice note transcription:\n${game.voiceNotes.trim()}` : "";
-  const prompt=`Generate a detailed match review for a U11 girls soccer match. Be direct and factual. Do not embellish with fluff.\n\nOpponent: ${game.opponent||"Opposition"}\nFormation: ${game.config?.formation||"1-3-2-3"}\nFinal score: Us ${us} – Them ${them}${potmLine}\n\nGoals:\n${goalSummary}\n\nMatch events:\n${noteSummary}${voiceLine}${oppLine}\n\nWrite 3-4 focused paragraphs: result and key moments, what worked well (with specific player names), 1-2 clear development areas, brief next steps. Keep it grounded and specific.`;
-  return await openAIChat([{ role: 'user', content: prompt }], { model: 'gpt-4o', max_tokens: 1000 });
+  const prompt=`Write a brief match summary for a U11 girls soccer match. Use only the data below — do not invent events, player moments, or tactical observations not present in the notes.
+
+Opponent: ${game.opponent||"Opposition"}
+Formation: ${game.config?.formation||"1-3-2-3"}
+Final score: Us ${us} – Them ${them}${potmLine}
+
+Goals:
+${goalSummary}
+
+Match events:
+${noteSummary}${voiceLine}${oppLine}
+
+Write 2–3 short paragraphs covering: result, any notable moments from the data above, one development area if supported by the notes. If voice notes or events are sparse, keep it brief and say so — do not fill gaps with invented detail. Total response under 200 words.`;
+  return await aiChat([AI_SYSTEM, { role: 'user', content: prompt }], { model: 'gpt-4o', max_tokens: 600 });
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -3867,9 +3892,9 @@ function StatsScreen({ games, onBack, onViewPlayer }) {
     if (gkEligible.length === 0) return;
     setAiGkLoading(true); setAiGkText('');
     const lines = gkEligible.map(p=>`- ${p.firstName}: ${p.gkGames} game${p.gkGames!==1?'s':''} as GK`).join('\n');
-    const prompt = `You are a youth soccer coach assistant helping decide goalkeeper rotation.\n\nEligible players and GK games played this season:\n${lines}\n\nTotal season games: ${games.length}\n\nIn 1-2 sentences, recommend who should be in goal next and briefly explain why (fairness of rotation). Be specific and use first names only. Be direct — no preamble.`;
+    const prompt = `Eligible GK players and games played in goal this season:\n${lines}\n\nTotal season games: ${games.length}\n\nIn 1 sentence, name who should be GK next and why (fairness only — use the numbers above). Use first names. No preamble.`;
     try {
-      setAiGkText(await openAIChat([{ role: 'user', content: prompt }], { model: 'gpt-4o-mini', max_tokens: 120 }));
+      setAiGkText(await aiChat([AI_SYSTEM, { role: 'user', content: prompt }], { model: 'gpt-4o-mini', max_tokens: 80 }));
     } catch (e) { setAiGkText(e.message || 'Unable to generate suggestion right now.'); }
     setAiGkLoading(false);
   }
@@ -6257,25 +6282,25 @@ function PlayerProfileScreen({ playerName, isNew, onBack, onSave, games }) {
                       const sq = loadSquad();
                       const p  = sq.find(x=>x.name===displayName)||draft;
                       const skills = p.skills||{};
-                      const prompt = `You are an expert youth football coach. Analyse this player and provide structured coaching insights.
+                      const coachNotes = (draft.coachNotes||'').replace(/\[.*?\]/g,'').trim();
+                      const prompt = `Analyse this youth soccer player using ONLY the data provided. Do not invent stats, observations, or traits not supported by the notes.
 
 Player: ${displayName}
 Position: ${[draft.pos,draft.pos2,draft.pos3].filter(Boolean).map(pid=>{const pg=ALL_POSITIONS.find(x=>x.id===pid);return pg?pg.label:pid;}).join(', ')||'Unknown'}
-Season appearances: ${appearances}
-Goals: ${playerGoals}, Assists: ${assists}
-Season stats: ${appearances} appearances, ${playerGoals} goals, ${assists} assists, ${potmList.length} POTM awards
-Coach notes: ${(draft.coachNotes||'').replace(/\[.*?\]/g,'').trim()||'none'}
-Coach focus: ${draft.devFocus||'none'}
+Appearances: ${appearances} | Goals: ${playerGoals} | Assists: ${assists} | POTM awards: ${potmList.length}
+Coach notes: ${coachNotes||'none'}
+Coach development focus: ${draft.devFocus||'none'}
 
-Respond in this exact JSON format:
+Respond in this exact JSON format — use null for arrays when there is insufficient data to support honest observations:
 {
-  "summary": "2-3 sentence player summary",
-  "strengths": ["strength 1","strength 2","strength 3","strength 4"],
-  "improvements": ["area 1","area 2","area 3"],
-  "trends": [{"label":"Skill","direction":"up","value":"X%"},{"label":"Skill","direction":"up","value":"X%"},{"label":"Skill","direction":"up","value":"X%"},{"label":"Skill","direction":"up","value":"X%"}],
-  "training": [{"title":"Drill name","desc":"Short description"},{"title":"Drill name","desc":"Short description"},{"title":"Drill name","desc":"Short description"}]
-}`;
-                      const rawText = await openAIChat([{ role: 'user', content: prompt }], { model: 'gpt-4o', max_tokens: 800 });
+  "summary": "1-2 sentences based only on the stats and notes above",
+  "strengths": ["only include if directly supported by coach notes or stats — omit array items if unsupported"],
+  "improvements": ["only include if directly supported by coach notes or dev focus — omit if unsupported"],
+  "trends": [],
+  "training": [{"title":"Drill name","desc":"One sentence — relevant to position and any noted dev focus"}]
+}
+Do not add strengths, improvements or trends that aren't grounded in the data. Fewer honest items beats more invented ones.`;
+                      const rawText = await aiChat([AI_SYSTEM, { role: 'user', content: prompt }], { model: 'gpt-4o', max_tokens: 500 });
                       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
                       if (jsonMatch) {
                         setAiContent(JSON.parse(jsonMatch[0]));
@@ -13753,7 +13778,8 @@ function PostMatchReviewScreen({ game, squad, opponent, config, onDone }) {
       } catch { return ''; }
     })();
 
-    return `Generate a detailed match review for a U11 girls soccer match. Be direct and factual.
+    const hasNotes = voiceNotes.trim() || extraNotes.trim() || matchEvents.length > 0;
+    return `Write a match summary for a U11 girls soccer match using ONLY the data below. Do not invent player moments, tactical observations, or events not present in the notes.
 
 Opponent: ${opponent || 'Opposition'}
 Formation: ${game.config?.formation || '1-3-2-3'}
@@ -13765,18 +13791,19 @@ ${goalSummary}
 
 Match events:
 ${evtSummary}
-${voiceNotes.trim() ? `\nCoach voice notes (captured during match):\n${voiceNotes.trim()}` : ''}
-${extraNotes.trim() ? `\nCoach post-match notes:\n${extraNotes.trim()}` : ''}
-${priorities.length ? `\nTraining priorities identified: ${priorities.join(', ')}` : ''}
-${mostImproved ? `\nMost improved player: ${mostImproved}` : ''}
+${voiceNotes.trim() ? `\nCoach voice notes:\n${voiceNotes.trim()}` : '\nCoach voice notes: none'}
+${extraNotes.trim() ? `\nPost-match notes:\n${extraNotes.trim()}` : ''}
+${priorities.length ? `\nTraining priorities: ${priorities.join(', ')}` : ''}
+${mostImproved ? `\nMost improved: ${mostImproved}` : ''}
 ${squadDevFocus}
 
-Write 3–4 focused paragraphs: result and key moments, what worked well (with specific player names from voice notes and events), 1–2 clear development areas, brief next steps.
+${hasNotes
+  ? 'Write 2–3 short paragraphs: result and key moments from the notes, one development area supported by the data, brief next steps. Total under 200 words.'
+  : 'Voice notes and match events are minimal. Write 1 short paragraph summarising the result and score only. Do not add tactical or player observations — there is no data to support them. Under 80 words.'}
 
-Then on a new line write exactly "PLAYER NOTES:" followed by individual observations for any player specifically mentioned in the voice notes or events. Format each as:
-[Name]: [strength/development] — [one sentence observation]
-
-Be specific and grounded. Do not invent observations not supported by the notes.`;
+Only include a "PLAYER NOTES:" section if specific players are mentioned BY NAME in the voice notes or events. If no players are named, omit this section entirely. Format when present:
+PLAYER NOTES:
+[First name]: [one sentence — strength or development point directly from the notes]`;
   }
 
   // ── Generate: just show goal confirm with manual goals (AI runs after confirm) ─
@@ -13821,7 +13848,7 @@ Be specific and grounded. Do not invent observations not supported by the notes.
 
     try {
       const prompt = buildAIPrompt({ confirmedGoals: cleanGoals, confirmedScoreUs: finalUs, confirmedScoreThem: finalThem });
-      const ai = await aiChat([{ role: 'user', content: prompt }], { model: 'gpt-4o', max_tokens: 1500 });
+      const ai = await aiChat([AI_SYSTEM, { role: 'user', content: prompt }], { model: 'gpt-4o', max_tokens: 800 });
 
       const pnSplit = ai.indexOf('PLAYER NOTES:');
       if (pnSplit !== -1) {
