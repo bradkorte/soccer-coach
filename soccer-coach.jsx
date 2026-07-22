@@ -342,6 +342,78 @@ function saveGames(g)   { try{localStorage.setItem(GAMES_KEY,JSON.stringify(g));
 function loadSettings() { try{return {...{teamName:"",coachName:"",managerName:"",ageGroup:"",season:"",venue:"",formation:DEFAULT_FORMATION,halfMins:24,numPeriods:3,keepScreenOn:true},...(JSON.parse(localStorage.getItem(SETTINGS_KEY))||{})};}catch{return{teamName:"",coachName:"",managerName:"",keepScreenOn:true};} }
 function saveSettings(s){ try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(s));}catch{} }
 
+// ── OpenAI key storage ────────────────────────────────────────────────────────
+const OPENAI_KEY_STORAGE = 'soccerCoach_openaiKey';
+function loadOpenAIKey() { return localStorage.getItem(OPENAI_KEY_STORAGE) || ''; }
+function saveOpenAIKey(k) { try { localStorage.setItem(OPENAI_KEY_STORAGE, k); } catch {} }
+
+// ── OpenAI API helpers ────────────────────────────────────────────────────────
+async function openAIChat(messages, { model = 'gpt-4o', max_tokens = 1000 } = {}) {
+  const key = loadOpenAIKey();
+  if (!key) throw new Error('No OpenAI API key — add it in Settings → API Keys.');
+  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+    body: JSON.stringify({ model, max_tokens, messages })
+  });
+  const data = await resp.json();
+  const text = data?.choices?.[0]?.message?.content;
+  if (!text) throw new Error(data?.error?.message || 'No response from OpenAI');
+  return text;
+}
+
+async function whisperTranscribe(audioBlob, promptHint = '') {
+  const key = loadOpenAIKey();
+  if (!key) throw new Error('No OpenAI API key — add it in Settings → API Keys.');
+  const fd = new FormData();
+  fd.append('file', audioBlob, 'audio.webm');
+  fd.append('model', 'whisper-1');
+  fd.append('language', 'en');
+  if (promptHint) fd.append('prompt', promptHint);
+  const resp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${key}` },
+    body: fd
+  });
+  const data = await resp.json();
+  if (!data.text) throw new Error(data?.error?.message || 'No transcription returned');
+  return data.text;
+}
+
+// Build a Whisper prompt hint from the current squad player names + soccer terms
+function buildWhisperHint() {
+  try {
+    const squad = JSON.parse(localStorage.getItem('soccerCoach_squad') || '[]');
+    const names = squad.map(p => p.name).join(', ');
+    return `Soccer coaching notes. Player names: ${names}. Terms: goalkeeper, striker, midfielder, formation, half, possession, pressing, transition.`;
+  } catch { return 'Soccer coaching notes.'; }
+}
+
+// Shared Whisper dictation handler — used by all voice buttons in the app.
+// Call with (isRecording, setIsRecording, mediaRecorderRef, chunksRef, setIsTranscribing, onTranscript)
+async function whisperToggle(isRec, setIsRec, mrRef, chunksRef, setTranscribing, onTranscript) {
+  if (isRec) { mrRef.current && mrRef.current.stop(); return; }
+  if (!loadOpenAIKey()) { alert('Add your OpenAI API key in Settings → API Keys first.'); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    chunksRef.current = [];
+    const mr = new MediaRecorder(stream);
+    mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+    mr.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      setIsRec(false);
+      const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+      setTranscribing(true);
+      try {
+        const text = await whisperTranscribe(blob, buildWhisperHint());
+        if (text) onTranscript(text);
+      } catch (e) { alert('Transcription failed: ' + e.message); }
+      setTranscribing(false);
+    };
+    mr.start(); mrRef.current = mr; setIsRec(true);
+  } catch (e) { alert('Microphone access denied: ' + e.message); }
+}
+
 const FX_SCORES_KEY   = "soccerCoach_fixtureScores";
 const TEAM_NOTES_KEY  = "soccerCoach_teamNotes";
 function fixtureKey(f){ return f.round+'|||'+f.home+'|||'+f.away; }
@@ -1379,6 +1451,41 @@ const DEFAULT_TRAINING_LIBRARY = {
 function loadContextData(key) { if(!key) return {}; try { return (JSON.parse(localStorage.getItem(CONTEXTS_KEY)||'{}')||{})[key]||{}; } catch { return {}; } }
 function saveContextData(key, patch) { if(!key) return; try { const all=JSON.parse(localStorage.getItem(CONTEXTS_KEY)||'{}')||{}; all[key]={...(all[key]||{}),...patch}; localStorage.setItem(CONTEXTS_KEY,JSON.stringify(all)); } catch {} }
 function makeContextKey(fixOrNull, opponent) { return fixOrNull ? fixtureKey(fixOrNull) : (opponent ? 'friendly_'+opponent : ''); }
+
+// ── Snooze helpers ────────────────────────────────────────────────────────────
+const SNOOZE_KEY = 'soccerCoach_snooze';
+function loadSnooze() { try { return JSON.parse(localStorage.getItem(SNOOZE_KEY) || '{}'); } catch { return {}; } }
+function saveSnooze(s) { try { localStorage.setItem(SNOOZE_KEY, JSON.stringify(s)); } catch {} }
+function isSnoozeActive(category, playerName) {
+  const expiry = loadSnooze()?.[category]?.[playerName];
+  return !!expiry && expiry > Date.now();
+}
+function snoozePlayer(category, playerName, weeks) {
+  const s = loadSnooze();
+  if (!s[category]) s[category] = {};
+  s[category][playerName] = Date.now() + weeks * 7 * 24 * 60 * 60 * 1000;
+  saveSnooze(s);
+}
+function unsnoozePlayer(category, playerName) {
+  const s = loadSnooze();
+  if (s[category]) { delete s[category][playerName]; saveSnooze(s); }
+}
+function snoozeExpiryLabel(category, playerName) {
+  const expiry = loadSnooze()?.[category]?.[playerName];
+  if (!expiry || expiry <= Date.now()) return null;
+  return new Date(expiry).toLocaleDateString('en-AU', { day:'numeric', month:'short' });
+}
+// Partition a sorted array: active players first, snoozed last
+function applySnoozeSplit(rows, category, nameKey = 'playerName') {
+  const snooze = loadSnooze();
+  const active = [], snoozed = [];
+  rows.forEach(r => {
+    const expiry = snooze?.[category]?.[r[nameKey]];
+    if (expiry && expiry > Date.now()) snoozed.push({ ...r, _snoozedUntil: expiry });
+    else active.push(r);
+  });
+  return [...active, ...snoozed];
+}
 function loadFixtures() {
   try { const v=JSON.parse(localStorage.getItem(FIXTURES_KEY)); if(Array.isArray(v)&&v.length>0) return v; } catch{}
   return null; // falls back to HARDCODED_FIXTURES
@@ -1700,8 +1807,7 @@ async function generateAIReport(game) {
   const oppLine=game.oppNotes&&game.oppNotes.trim()?`\n\nOpposition notes:\n${game.oppNotes.trim()}`:"";
   const voiceLine = game.voiceNotes && game.voiceNotes.trim() ? `\n\nVoice note transcription:\n${game.voiceNotes.trim()}` : "";
   const prompt=`Generate a detailed match review for a U11 girls soccer match. Be direct and factual. Do not embellish with fluff.\n\nOpponent: ${game.opponent||"Opposition"}\nFormation: ${game.config?.formation||"1-3-2-3"}\nFinal score: Us ${us} – Them ${them}${potmLine}\n\nGoals:\n${goalSummary}\n\nMatch events:\n${noteSummary}${voiceLine}${oppLine}\n\nWrite 3-4 focused paragraphs: result and key moments, what worked well (with specific player names), 1-2 clear development areas, brief next steps. Keep it grounded and specific.`;
-  const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,messages:[{role:"user",content:prompt}]})});
-  const data=await resp.json();const text=data?.content?.[0]?.text;if(!text)throw new Error("no text");return text;
+  return await openAIChat([{ role: 'user', content: prompt }], { model: 'gpt-4o', max_tokens: 1000 });
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -2156,7 +2262,9 @@ function EditMatchModal({ fixture, onClose, onSaved }) {
   const [report, setReport] = React.useState(existingReport?.report || '');
   const [activeSection, setActiveSection] = React.useState('score');
   const [isRec, setIsRec] = React.useState(false);
-  const recRef = React.useRef(null);
+  const [isTranscribing, setIsTranscribing] = React.useState(false);
+  const recRef = React.useRef(null);   // MediaRecorder instance
+  const chunksRef = React.useRef([]);
 
   function handleSave() {
     // Save score
@@ -2200,17 +2308,32 @@ function EditMatchModal({ fixture, onClose, onSaved }) {
     onClose();
   }
 
-  function toggleVoice() {
-    if (isRec) { try { recRef.current && recRef.current.stop(); } catch {} setIsRec(false); return; }
-    if (!SpeechRec) return;
-    const r = new SpeechRec();
-    r.continuous = true; r.interimResults = false; r.lang = 'en-AU';
-    r.onresult = e => {
-      const t = Array.from(e.results).slice(e.resultIndex).map(x => x[0].transcript).join(' ').trim();
-      if (t) setNotes(n => (n ? n + ' ' : '') + t);
-    };
-    r.onend = () => setIsRec(false);
-    r.start(); recRef.current = r; setIsRec(true);
+  async function toggleVoice() {
+    if (isRec) {
+      recRef.current && recRef.current.stop();
+      return;
+    }
+    if (!loadOpenAIKey()) { alert('Add your OpenAI API key in Settings → API Keys first.'); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunksRef.current = [];
+      const mr = new MediaRecorder(stream);
+      mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        setIsRec(false);
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        setIsTranscribing(true);
+        try {
+          const text = await whisperTranscribe(blob, buildWhisperHint());
+          if (text) setNotes(n => (n ? n + ' ' : '') + text);
+        } catch (e) { alert('Transcription failed: ' + e.message); }
+        setIsTranscribing(false);
+      };
+      mr.start();
+      recRef.current = mr;
+      setIsRec(true);
+    } catch (e) { alert('Microphone access denied: ' + e.message); }
   }
 
   const numInp = { width: 58, padding: '10px 0', textAlign: 'center', fontSize: 26, fontWeight: 700, borderRadius: 8, border: '1px solid #2A2A2A', background: '#0D0D0D', color: '#FFF', outline: 'none' };
@@ -2251,12 +2374,10 @@ function EditMatchModal({ fixture, onClose, onSaved }) {
           {/* Notes */}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
             <div style={{ fontSize:10, fontWeight:700, color:'#F5C04A', letterSpacing:1.2, textTransform:'uppercase' }}>Match Notes</div>
-            {SpeechRec && (
-              <button onClick={toggleVoice} style={{ background:isRec?'#ef444418':'#1A1A1A', border:`1px solid ${isRec?'#ef4444':'#2A2A2A'}`, borderRadius:6, padding:'4px 10px', cursor:'pointer', display:'flex', alignItems:'center', gap:5, color:isRec?'#ef4444':'#A1A1A1', fontSize:11, fontWeight:700 }}>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill={isRec?'#ef4444':'none'} stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-                {isRec ? 'Stop' : 'Dictate'}
-              </button>
-            )}
+            <button onClick={toggleVoice} disabled={isTranscribing} style={{ background:isRec?'#ef444418':isTranscribing?'#1A1A1A':'#1A1A1A', border:`1px solid ${isRec?'#ef4444':'#2A2A2A'}`, borderRadius:6, padding:'4px 10px', cursor:isTranscribing?'default':'pointer', display:'flex', alignItems:'center', gap:5, color:isRec?'#ef4444':isTranscribing?'#F5C04A':'#A1A1A1', fontSize:11, fontWeight:700 }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill={isRec?'#ef4444':'none'} stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+              {isTranscribing ? '...' : isRec ? 'Stop' : 'Dictate'}
+            </button>
           </div>
           <textarea
             value={notes}
@@ -2762,8 +2883,10 @@ function OpponentStatsScreen({ opponent, onBack, onChangeOpponent, embedded }) {
   const [scoutTab, setScoutTab]       = React.useState('Overview');
   const [editMatch, setEditMatch]     = React.useState(null); // fixture open in EditMatchModal
   const [isScoutRec, setIsScoutRec]   = React.useState(false);
+  const [scoutTranscribing, setScoutTranscribing] = React.useState(false);
   const [scoutRecField, setScoutRecField] = React.useState(null); // which field is being dictated into
   const scoutRecogRef                 = React.useRef(null);
+  const scoutChunksRef                = React.useRef([]);
 
   function startEdit() { setDraft({...scout}); setEditing(true); }
   function saveDraft() {
@@ -2775,21 +2898,14 @@ function OpponentStatsScreen({ opponent, onBack, onChangeOpponent, embedded }) {
   function cancelEdit() { stopScoutDictation(); setEditing(false); }
 
   function toggleScoutDictation(fieldKey) {
-    if (isScoutRec && scoutRecField === fieldKey) { stopScoutDictation(); return; }
-    stopScoutDictation();
-    if (!SpeechRec) { alert('Voice dictation is not supported in this browser.'); return; }
-    const r = new SpeechRec();
-    r.continuous = true; r.interimResults = false; r.lang = 'en-AU';
-    r.onresult = e => {
-      const text = Array.from(e.results).slice(e.resultIndex).map(x => x[0].transcript).join(' ').trim();
-      if (text) setDraft(dd => ({ ...dd, [fieldKey]: (dd[fieldKey] ? dd[fieldKey] + ' ' : '') + text }));
-    };
-    r.onend = () => setIsScoutRec(false);
-    r.onerror = () => setIsScoutRec(false);
-    r.start();
-    scoutRecogRef.current = r;
-    setIsScoutRec(true);
+    if (isScoutRec && scoutRecField === fieldKey) {
+      scoutRecogRef.current && scoutRecogRef.current.stop();
+      return;
+    }
+    if (isScoutRec) scoutRecogRef.current && scoutRecogRef.current.stop();
     setScoutRecField(fieldKey);
+    whisperToggle(false, setIsScoutRec, scoutRecogRef, scoutChunksRef, setScoutTranscribing,
+      text => setDraft(dd => ({ ...dd, [fieldKey]: (dd[fieldKey] ? dd[fieldKey] + ' ' : '') + text })));
   }
 
   function stopScoutDictation() {
@@ -3099,8 +3215,11 @@ function OpponentStatsScreen({ opponent, onBack, onChangeOpponent, embedded }) {
                 {isScoutRec && scoutRecField===key && (
                   <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:4, fontSize:11, color:'#ef4444', fontWeight:600 }}>
                     <span style={{ width:6, height:6, borderRadius:'50%', background:'#ef4444', display:'inline-block' }}/>
-                    Listening…
+                    Recording…
                   </div>
+                )}
+                {scoutTranscribing && scoutRecField===key && (
+                  <div style={{ fontSize:11, color:'#F5C04A', marginTop:4, fontWeight:600 }}>✦ Transcribing…</div>
                 )}
               </div>
             </div>
@@ -3157,6 +3276,7 @@ function OpponentStatsScreen({ opponent, onBack, onChangeOpponent, embedded }) {
               style={{ width:'100%', background:'#0D0D0D', border: isScoutRec && scoutRecField==='coachNotes' ? '1px solid #ef4444' : '1px solid #2A2A2A', borderRadius:9, color:'#FFF', fontSize:13, padding:'9px 40px 9px 11px', resize:'vertical', outline:'none', fontFamily:'inherit', boxSizing:'border-box' }}/>
             <button
               onPointerDown={e=>{e.preventDefault();toggleScoutDictation('coachNotes');}}
+              disabled={scoutTranscribing && scoutRecField!=='coachNotes'}
               title={isScoutRec && scoutRecField==='coachNotes' ? 'Stop dictation' : 'Dictate notes'}
               style={{ position:'absolute', top:8, right:8, width:28, height:28, borderRadius:7, border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', background: isScoutRec && scoutRecField==='coachNotes' ? '#ef4444' : '#1E1E1E', flexShrink:0 }}>
               {isScoutRec && scoutRecField==='coachNotes'
@@ -3168,8 +3288,11 @@ function OpponentStatsScreen({ opponent, onBack, onChangeOpponent, embedded }) {
           {isScoutRec && scoutRecField==='coachNotes' && (
             <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:5, fontSize:12, color:'#ef4444', fontWeight:600 }}>
               <span style={{ width:7, height:7, borderRadius:'50%', background:'#ef4444', display:'inline-block', animation:'pulse 1s infinite' }}/>
-              Listening… tap the mic to stop
+              Recording… tap to stop
             </div>
+          )}
+          {scoutTranscribing && scoutRecField==='coachNotes' && (
+            <div style={{ fontSize:12, color:'#F5C04A', marginTop:5, fontWeight:600 }}>✦ Transcribing…</div>
           )}
         </div>
       ) : (
@@ -3572,8 +3695,16 @@ function SettingsScreen({ settings, onSave, onBack, onViewImportExport }) {
   const [form, setForm] = useState({ ...settings, teamName: savedIsCustom ? '__custom__' : (settings.teamName || '') });
   const [customTeam, setCustomTeam] = useState(savedIsCustom ? settings.teamName : '');
   const [settingsTab, setSettingsTab] = useState('General');
+  const [openAIKey, setOpenAIKey] = useState(() => loadOpenAIKey());
+  const [keySaved, setKeySaved] = useState(false);
 
   function upd(key, val) { setForm(f=>({...f,[key]:val})); }
+
+  function saveKey() {
+    saveOpenAIKey(openAIKey.trim());
+    setKeySaved(true);
+    setTimeout(() => setKeySaved(false), 2000);
+  }
 
   function save() {
     const effectiveName = form.teamName === '__custom__' ? customTeam.trim() : form.teamName;
@@ -3587,7 +3718,7 @@ function SettingsScreen({ settings, onSave, onBack, onViewImportExport }) {
     <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, display:'flex', flexDirection:'column' }}>
       <KhulaHeader showBack={true} onBack={onBack} title="Settings" />
       <SectionTabs
-        tabs={['General','Formation','Defaults']}
+        tabs={['General','Formation','Defaults','API Keys']}
         activeTab={settingsTab}
         onTabChange={setSettingsTab}
       />
@@ -3653,6 +3784,39 @@ function SettingsScreen({ settings, onSave, onBack, onViewImportExport }) {
           <button style={{...S.btnGreen, width:'100%'}} onClick={save}>Save Settings</button>
         </>}
 
+        {/* ── API KEYS TAB ── */}
+        {settingsTab === 'API Keys' && <>
+          <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'16px' }}>
+            <div style={{ fontSize:13, fontWeight:700, color:'#FFF', marginBottom:4 }}>OpenAI API Key</div>
+            <div style={{ fontSize:11, color:'#666', marginBottom:12, lineHeight:1.5 }}>
+              Used for speech-to-text (Whisper) and AI report generation (GPT-4o). Your key is stored only in this browser — it never goes to GitHub or any server.
+            </div>
+            <input
+              type="password"
+              value={openAIKey}
+              onChange={e => setOpenAIKey(e.target.value)}
+              placeholder="sk-..."
+              style={{ ...S.inp, width:'100%', fontFamily:'monospace', letterSpacing:1 }}
+            />
+            <div style={{ fontSize:10, color:'#444', marginTop:6, marginBottom:14 }}>
+              Get your key at <span style={{ color:'#F5C04A' }}>platform.openai.com/api-keys</span>
+            </div>
+            <button onClick={saveKey} style={{ ...S.btnGreen, width:'100%' }}>
+              {keySaved ? '✓ Saved' : 'Save Key'}
+            </button>
+            {openAIKey && (
+              <button onClick={() => { setOpenAIKey(''); saveOpenAIKey(''); }} style={{ ...S.btnDark, width:'100%', marginTop:8, fontSize:13 }}>
+                Remove Key
+              </button>
+            )}
+          </div>
+          <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'14px 16px', marginTop:12 }}>
+            <div style={{ fontSize:11, color:'#666', lineHeight:1.6 }}>
+              <strong style={{ color:'#A1A1A1' }}>How it works:</strong> When you dictate, audio is recorded in the app and sent directly to OpenAI's Whisper API. When you generate a match report or AI analysis, the text prompt goes to GPT-4o. No data passes through any third-party server — it's your browser talking directly to OpenAI.
+            </div>
+          </div>
+        </>}
+
       </div>
     </div>
   );
@@ -3713,10 +3877,8 @@ function StatsScreen({ games, onBack, onViewPlayer }) {
     const lines = gkEligible.map(p=>`- ${p.firstName}: ${p.gkGames} game${p.gkGames!==1?'s':''} as GK`).join('\n');
     const prompt = `You are a youth soccer coach assistant helping decide goalkeeper rotation.\n\nEligible players and GK games played this season:\n${lines}\n\nTotal season games: ${games.length}\n\nIn 1-2 sentences, recommend who should be in goal next and briefly explain why (fairness of rotation). Be specific and use first names only. Be direct — no preamble.`;
     try {
-      const resp = await fetch('https://api.anthropic.com/v1/messages', { method:'POST', headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01'}, body:JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:120, messages:[{role:'user',content:prompt}] }) });
-      const data = await resp.json();
-      setAiGkText(data?.content?.[0]?.text || '');
-    } catch { setAiGkText('Unable to generate suggestion right now.'); }
+      setAiGkText(await openAIChat([{ role: 'user', content: prompt }], { model: 'gpt-4o-mini', max_tokens: 120 }));
+    } catch (e) { setAiGkText(e.message || 'Unable to generate suggestion right now.'); }
     setAiGkLoading(false);
   }
 
@@ -4171,7 +4333,12 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout, onM
 
   // ── Goalies ─────────────────────────────────────────────────────────────────
   if (subScreen === 'goalies') {
-    const gkStats = computeGoalkeeperStats(games).sort((a,b) => b.totalHalves - a.totalHalves);
+    const gkStatsRaw = computeGoalkeeperStats(games).sort((a,b) => b.totalHalves - a.totalHalves);
+    const gkStatsList = applySnoozeSplit(gkStatsRaw, 'gk');
+    const [goaliesSnoozeOpen, setGoaliesSnoozeOpen] = React.useState(null);
+    const [goaliesSnoozeVer, setGoaliesSnoozeVer] = React.useState(0);
+    function doGoaliesSnooze(name, weeks) { snoozePlayer('gk', name, weeks); setGoaliesSnoozeOpen(null); setGoaliesSnoozeVer(v=>v+1); }
+    function doGoaliesUnsnooze(name) { unsnoozePlayer('gk', name); setGoaliesSnoozeVer(v=>v+1); }
     const matchRows = [...games].sort((a,b) => (a.date||0) - (b.date||0)).map((g, idx) => {
       const { h1, h2 } = resolveHalfGoalkeepers(g);
       return { round: g.khula_round || String(idx+1), opponent: g.opponent, h1: h1||'—', h2: h2||'—' };
@@ -4180,19 +4347,45 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout, onM
       <div style={{ overflowY:'auto', flex:1, padding:'0 16px 20px' }}>
         {/* Leaderboard */}
         <div style={{ fontSize:9, fontWeight:700, color:'#555', letterSpacing:1.5, textTransform:'uppercase', margin:'16px 0 10px' }}>Season Leaderboard</div>
-        {gkStats.length === 0
+        {gkStatsList.length === 0
           ? <div style={{ textAlign:'center', color:'#555', fontSize:13, padding:'24px 0' }}>No goalkeeper data yet — assign keepers in lineups or via the GK & Awards tab.</div>
           : <div style={{ background:'#111111', borderRadius:14, border:'1px solid #1E1E1E', overflow:'hidden', marginBottom:16 }}>
-              {gkStats.map((s, i) => (
-                <div key={s.playerName} style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 14px', borderBottom: i<gkStats.length-1?'1px solid #1A1A1A':'none' }}>
-                  <div style={{ fontSize:13, fontWeight:700, color:'#555', width:18 }}>#{i+1}</div>
-                  <div style={{ flex:1, fontSize:14, fontWeight:600, color:'#FFF' }}>{s.playerName}</div>
-                  <div style={{ fontSize:13, color:'#F5C04A', fontWeight:700 }}>{s.totalHalves} {s.totalHalves!==1?'halves':'half'}</div>
-                  <div style={{ fontSize:11, color:'#555' }}>{s.lastRound ? `Last: ${s.lastRound}` : ''}</div>
-                </div>
-              ))}
+              {gkStatsList.map((s, i) => {
+                const snoozed = !!s._snoozedUntil;
+                return (
+                  <div key={s.playerName} style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 14px', borderBottom: i<gkStatsList.length-1?'1px solid #1A1A1A':'none', opacity: snoozed ? 0.5 : 1 }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:'#555', width:18 }}>{snoozed ? '😴' : `#${i+1}`}</div>
+                    <div style={{ flex:1, fontSize:14, fontWeight:600, color:'#FFF' }}>{s.playerName}</div>
+                    <div style={{ fontSize:11, color: snoozed?'#555':'#F5C04A', fontWeight:700 }}>
+                      {snoozed ? `until ${new Date(s._snoozedUntil).toLocaleDateString('en-AU',{day:'numeric',month:'short'})}` : `${s.totalHalves} ${s.totalHalves!==1?'halves':'half'}`}
+                    </div>
+                    <div style={{ fontSize:11, color:'#555' }}>{!snoozed && s.lastRound ? `Last: ${s.lastRound}` : ''}</div>
+                    {snoozed
+                      ? <button onClick={() => doGoaliesUnsnooze(s.playerName)} style={{ background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:6, padding:'2px 8px', fontSize:11, color:'#F5C04A', cursor:'pointer' }}>↩</button>
+                      : <button onClick={() => setGoaliesSnoozeOpen(s.playerName)} style={{ background:'none', border:'none', fontSize:13, cursor:'pointer', padding:0 }}>😴</button>
+                    }
+                  </div>
+                );
+              })}
             </div>
         }
+        {goaliesSnoozeOpen && (
+          <div style={{ position:'fixed', inset:0, zIndex:9999, display:'flex', alignItems:'flex-end' }} onClick={() => setGoaliesSnoozeOpen(null)}>
+            <div style={{ background:'#1A1A1A', borderRadius:'20px 20px 0 0', padding:'20px 16px 32px', width:'100%' }} onClick={e=>e.stopPropagation()}>
+              <div style={{ width:36, height:4, background:'#444', borderRadius:2, margin:'0 auto 16px' }} />
+              <div style={{ fontSize:14, fontWeight:700, color:'#FFF', marginBottom:4 }}>Snooze {goaliesSnoozeOpen.split(' ')[0]}</div>
+              <div style={{ fontSize:12, color:'#666', marginBottom:16 }}>Hide from GK recommendations for…</div>
+              {[1,2,4].map(w => (
+                <button key={w} onClick={() => doGoaliesSnooze(goaliesSnoozeOpen, w)}
+                  style={{ display:'block', width:'100%', background:'#111', border:'1px solid #2A2A2A', borderRadius:10, padding:'12px 16px', color:'#FFF', fontSize:14, fontWeight:600, cursor:'pointer', textAlign:'left', marginBottom:8 }}>
+                  {w} {w===1?'week':'weeks'}
+                  <span style={{ float:'right', color:'#555', fontWeight:400, fontSize:12 }}>until {new Date(Date.now()+w*7*24*60*60*1000).toLocaleDateString('en-AU',{day:'numeric',month:'short'})}</span>
+                </button>
+              ))}
+              <button onClick={() => setGoaliesSnoozeOpen(null)} style={{ width:'100%', background:'none', border:'none', color:'#555', fontSize:13, cursor:'pointer', padding:'8px', marginTop:4 }}>Cancel</button>
+            </div>
+          </div>
+        )}
         {/* Match-by-match log */}
         {matchRows.length > 0 && <>
           <div style={{ fontSize:9, fontWeight:700, color:'#555', letterSpacing:1.5, textTransform:'uppercase', marginBottom:10 }}>Match Log</div>
@@ -4226,10 +4419,43 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout, onM
         if (counts[r.playerName][r.category] !== undefined) counts[r.playerName][r.category]++;
       });
     });
-    const squadNames = squad.map(p => p.name);
+    const squadNames = squad.filter(p => !p.injured && !p.archived).map(p => p.name);
     const zeroWin = squadNames.filter(n => !counts[n] || Object.values(counts[n]).every(v=>v===0));
+    const [awardsSnoozeOpen, setAwardsSnoozeOpen] = React.useState(null);
+    const [awardsSnoozeVer, setAwardsSnoozeVer] = React.useState(0);
+    function doAwardsSnooze(name, weeks) { snoozePlayer('recognition', name, weeks); setAwardsSnoozeOpen(null); setAwardsSnoozeVer(v=>v+1); }
+    function doAwardsUnsnooze(name) { unsnoozePlayer('recognition', name); setAwardsSnoozeVer(v=>v+1); }
+    // Build fairness list: squad sorted by fewest total recognitions, with snooze split
+    const recFairness = applySnoozeSplit(
+      squadNames.map(n => ({ playerName: n, total: Object.values(counts[n]||{}).reduce((a,b)=>a+b,0) }))
+        .sort((a,b) => a.total - b.total),
+      'recognition'
+    );
     return subPage('Awards', (
       <div style={{ overflowY:'auto', flex:1, padding:'0 16px 20px' }}>
+        {/* Fairness recommendation */}
+        <div style={{ marginTop:16 }}>
+          <div style={{ fontSize:9, fontWeight:700, color:'#555', letterSpacing:1.5, textTransform:'uppercase', marginBottom:10 }}>🔄 Recognition Fairness</div>
+          <div style={{ background:'#111111', borderRadius:14, border:'1px solid #1E1E1E', overflow:'hidden', marginBottom:4 }}>
+            {recFairness.map((r, i) => {
+              const snoozed = !!r._snoozedUntil;
+              return (
+                <div key={r.playerName} style={{ display:'flex', alignItems:'center', padding:'10px 14px', borderBottom:i<recFairness.length-1?'1px solid #1A1A1A':'none', gap:10, opacity: snoozed?0.5:1 }}>
+                  <div style={{ fontSize:13, fontWeight:700, color:'#555', width:18 }}>{snoozed?'😴':`#${i+1}`}</div>
+                  <div style={{ flex:1, fontSize:14, fontWeight:600, color:'#FFF' }}>{r.playerName}</div>
+                  <div style={{ fontSize:11, color: snoozed?'#555':'#F5C04A', fontWeight:700 }}>
+                    {snoozed ? `until ${new Date(r._snoozedUntil).toLocaleDateString('en-AU',{day:'numeric',month:'short'})}` : (r.total === 0 ? 'none yet' : `×${r.total}`)}
+                  </div>
+                  {snoozed
+                    ? <button onClick={() => doAwardsUnsnooze(r.playerName)} style={{ background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:6, padding:'2px 8px', fontSize:11, color:'#F5C04A', cursor:'pointer' }}>↩</button>
+                    : <button onClick={() => setAwardsSnoozeOpen(r.playerName)} style={{ background:'none', border:'none', fontSize:13, cursor:'pointer', padding:0 }}>😴</button>
+                  }
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        {/* Per-category breakdown */}
         {RECOGNITION_CATS.map(cat => {
           const sorted = Object.entries(counts)
             .filter(([,c]) => c[cat.id] > 0)
@@ -4252,13 +4478,20 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout, onM
             </div>
           );
         })}
-        {zeroWin.length > 0 && (
-          <div style={{ marginTop:20, background:'#111111', borderRadius:14, border:'1px solid #1E1E1E', padding:'14px' }}>
-            <div style={{ fontSize:9, fontWeight:700, color:'#555', letterSpacing:1.5, textTransform:'uppercase', marginBottom:10 }}>Yet to win an award</div>
-            <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-              {zeroWin.map(n => (
-                <div key={n} style={{ background:'#1A1A1A', borderRadius:20, padding:'4px 10px', fontSize:12, color:'#666' }}>{n.split(' ')[0]}</div>
+        {awardsSnoozeOpen && (
+          <div style={{ position:'fixed', inset:0, zIndex:9999, display:'flex', alignItems:'flex-end' }} onClick={() => setAwardsSnoozeOpen(null)}>
+            <div style={{ background:'#1A1A1A', borderRadius:'20px 20px 0 0', padding:'20px 16px 32px', width:'100%' }} onClick={e=>e.stopPropagation()}>
+              <div style={{ width:36, height:4, background:'#444', borderRadius:2, margin:'0 auto 16px' }} />
+              <div style={{ fontSize:14, fontWeight:700, color:'#FFF', marginBottom:4 }}>Snooze {awardsSnoozeOpen.split(' ')[0]}</div>
+              <div style={{ fontSize:12, color:'#666', marginBottom:16 }}>Hide from recognition recommendations for…</div>
+              {[1,2,4].map(w => (
+                <button key={w} onClick={() => doAwardsSnooze(awardsSnoozeOpen, w)}
+                  style={{ display:'block', width:'100%', background:'#111', border:'1px solid #2A2A2A', borderRadius:10, padding:'12px 16px', color:'#FFF', fontSize:14, fontWeight:600, cursor:'pointer', textAlign:'left', marginBottom:8 }}>
+                  {w} {w===1?'week':'weeks'}
+                  <span style={{ float:'right', color:'#555', fontWeight:400, fontSize:12 }}>until {new Date(Date.now()+w*7*24*60*60*1000).toLocaleDateString('en-AU',{day:'numeric',month:'short'})}</span>
+                </button>
               ))}
+              <button onClick={() => setAwardsSnoozeOpen(null)} style={{ width:'100%', background:'none', border:'none', color:'#555', fontSize:13, cursor:'pointer', padding:'8px', marginTop:4 }}>Cancel</button>
             </div>
           </div>
         )}
@@ -6050,13 +6283,7 @@ Respond in this exact JSON format:
   "trends": [{"label":"Skill","direction":"up","value":"X%"},{"label":"Skill","direction":"up","value":"X%"},{"label":"Skill","direction":"up","value":"X%"},{"label":"Skill","direction":"up","value":"X%"}],
   "training": [{"title":"Drill name","desc":"Short description"},{"title":"Drill name","desc":"Short description"},{"title":"Drill name","desc":"Short description"}]
 }`;
-                      const resp = await fetch('https://api.anthropic.com/v1/messages', {
-                        method: 'POST',
-                        headers: { 'Content-Type':'application/json', 'anthropic-version':'2023-06-01' },
-                        body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:800, messages:[{role:'user',content:prompt}] })
-                      });
-                      const data = await resp.json();
-                      const rawText = data?.content?.[0]?.text || '';
+                      const rawText = await openAIChat([{ role: 'user', content: prompt }], { model: 'gpt-4o', max_tokens: 800 });
                       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
                       if (jsonMatch) {
                         setAiContent(JSON.parse(jsonMatch[0]));
@@ -9325,10 +9552,12 @@ function EventsPage({ halfElapsed, goals, matchEvents, setMatchEvents, opponentN
   const [player, setPlayer]           = React.useState('');
   const [noteText, setNoteText]       = React.useState('');
   const [listening, setListening]     = React.useState(false);
+  const [transcribingNote, setTranscribingNote] = React.useState(false);
   const [showInfo, setShowInfo]       = React.useState(false);
   const [qnEditId, setQnEditId]       = React.useState(null);
   const [qnEditText, setQnEditText]   = React.useState('');
   const recogRef = React.useRef(null);
+  const noteChunksRef = React.useRef([]);
 
   const matchMinute = Math.floor(halfElapsed / 60);
   const playerNames = (squad||[]).map(p => p.name).filter(Boolean);
@@ -9345,13 +9574,8 @@ function EventsPage({ halfElapsed, goals, matchEvents, setMatchEvents, opponentN
   function stopRec(ref, setter) { try { ref.current && ref.current.stop(); } catch(e){} setter(false); }
 
   function toggleVoice() {
-    if (listening) { stopRec(recogRef, setListening); return; }
-    if (!SpeechRec) return;
-    const r = new SpeechRec();
-    r.continuous = true; r.interimResults = false; r.lang = 'en-AU';
-    r.onresult = e => { const t = Array.from(e.results).map(x=>x[0].transcript).join(' '); setNoteText(p=>(p?p+' ':'')+t); };
-    r.onend = () => setListening(false);
-    recogRef.current = r; r.start(); setListening(true);
+    whisperToggle(listening, setListening, recogRef, noteChunksRef, setTranscribingNote,
+      text => setNoteText(p => (p ? p + ' ' : '') + text));
   }
 
   function openModal(rule) {
@@ -9428,10 +9652,10 @@ function EventsPage({ halfElapsed, goals, matchEvents, setMatchEvents, opponentN
           <div style={{fontSize:11,fontWeight:700,color:'#A1A1A1',letterSpacing:1.5,textTransform:'uppercase'}}>
             {rule.capture==='note' ? 'Note' : 'Additional Notes'}
           </div>
-          {SpeechRec&&<button onClick={toggleVoice} style={{background:listening?'rgba(239,68,68,0.1)':'#1A1A1A',border:`1px solid ${listening?'#ef4444':'#2A2A2A'}`,borderRadius:8,padding:'6px 12px',cursor:'pointer',display:'flex',alignItems:'center',gap:6,color:listening?'#ef4444':'#A1A1A1',fontSize:11,fontWeight:700}}>
+          <button onClick={toggleVoice} disabled={transcribingNote} style={{background:listening?'rgba(239,68,68,0.1)':'#1A1A1A',border:`1px solid ${listening?'#ef4444':'#2A2A2A'}`,borderRadius:8,padding:'6px 12px',cursor:transcribingNote?'default':'pointer',display:'flex',alignItems:'center',gap:6,color:listening?'#ef4444':transcribingNote?'#F5C04A':'#A1A1A1',fontSize:11,fontWeight:700}}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-            {listening?'Stop':'Dictate'}
-          </button>}
+            {transcribingNote?'…':listening?'Stop':'Dictate'}
+          </button>
         </div>
         <textarea value={noteText} onChange={e=>setNoteText(e.target.value)}
           placeholder={notePlaceholders[rule.type]||'Add a note…'}
@@ -11619,16 +11843,13 @@ function QuickPlayScreen({ opponent, linkedFixKey, fixIsHome, settings, onBack, 
   const [potm,      setPotm]      = React.useState([]);  // player recognition (array)
   const [notes,     setNotes]     = React.useState('');
   const [listening, setListening] = React.useState(false);
+  const [transcribingNotes, setTranscribingNotes] = React.useState(false);
   const recogRef = React.useRef(null);
+  const notesChunksRef = React.useRef([]);
 
   function toggleVoice() {
-    if (listening) { recogRef.current && recogRef.current.stop(); setListening(false); return; }
-    if (!SpeechRec) return;
-    const r = new SpeechRec();
-    r.continuous = true; r.interimResults = false; r.lang = 'en-AU';
-    r.onresult = e => { const t = Array.from(e.results).map(x=>x[0].transcript).join(' '); setNotes(prev=>(prev?prev+' ':'')+t); };
-    r.onend = () => setListening(false);
-    recogRef.current = r; r.start(); setListening(true);
+    whisperToggle(listening, setListening, recogRef, notesChunksRef, setTranscribingNotes,
+      text => setNotes(prev => (prev ? prev + ' ' : '') + text));
   }
 
   function adjUs(d)   { setScoreUs(s=>Math.max(0,s+d)); }
@@ -11826,19 +12047,18 @@ function QuickPlayScreen({ opponent, linkedFixKey, fixIsHome, settings, onBack, 
         <div style={{background:'#111111',borderRadius:14,border:'1px solid #1E1E1E',padding:'16px'}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
             <SectionTitle label="Coach Notes"/>
-            {SpeechRec && (
-              <button onClick={toggleVoice}
-                style={{background:listening?'#ef444418':'#1A1A1A',border:`1px solid ${listening?'#ef4444':'#2A2A2A'}`,borderRadius:8,padding:'6px 12px',cursor:'pointer',display:'flex',alignItems:'center',gap:6,color:listening?'#ef4444':'#A1A1A1',fontSize:11,fontWeight:700,marginTop:-12}}>
+            <button onClick={toggleVoice} disabled={transcribingNotes}
+                style={{background:listening?'#ef444418':'#1A1A1A',border:`1px solid ${listening?'#ef4444':'#2A2A2A'}`,borderRadius:8,padding:'6px 12px',cursor:transcribingNotes?'default':'pointer',display:'flex',alignItems:'center',gap:6,color:listening?'#ef4444':transcribingNotes?'#F5C04A':'#A1A1A1',fontSize:11,fontWeight:700,marginTop:-12}}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-                {listening ? 'Stop' : 'Dictate'}
+                {transcribingNotes ? '…' : listening ? 'Stop' : 'Dictate'}
               </button>
-            )}
           </div>
           <textarea value={notes} onChange={e=>setNotes(e.target.value)}
             placeholder="Key moments, tactical notes, things to work on… or use Dictate to speak your notes"
             rows={5}
             style={{width:'100%',background:'#0D0D0D',border:`1px solid ${listening?'#ef4444':'#2A2A2A'}`,borderRadius:9,padding:'10px 12px',color:'#FFF',fontSize:13,fontFamily:'inherit',lineHeight:1.6,resize:'vertical',outline:'none',boxSizing:'border-box'}}/>
-          {listening && <div style={{fontSize:11,color:'#ef4444',marginTop:6,fontWeight:600}}>🎙️ Recording… speak your notes</div>}
+          {listening && <div style={{fontSize:11,color:'#ef4444',marginTop:6,fontWeight:600}}>🎙️ Recording…</div>}
+          {transcribingNotes && <div style={{fontSize:11,color:'#F5C04A',marginTop:6,fontWeight:600}}>✦ Transcribing…</div>}
         </div>
       </div>
 
@@ -12958,26 +13178,75 @@ function PreMatchBriefScreen({ opponent, ctxKey, onBack }) {
 
   // ── Recognition analysis ──────────────────────────────────────────────────
   const recognitionHistory = React.useMemo(() => {
+    // Only suggest available players: not injured, not archived, not marked unavailable for this game
+    const gameStatuses = (loadContextData(ctxKey).matchPlayers || {}).statuses || {};
+    const availSquad = squad.filter(p => !p.injured && !p.archived && gameStatuses[p.name] !== 'unavailable');
     const counts = {};
     const lastRound = {};
-    squad.forEach(p => { counts[p.name] = 0; lastRound[p.name] = null; });
+    availSquad.forEach(p => { counts[p.name] = 0; lastRound[p.name] = null; });
     games.forEach((g, idx) => {
       getGameRecognitions(g).forEach(({ playerName: name }) => {
-        const matched = squad.find(p => p.name === name);
+        const matched = availSquad.find(p => p.name === name);
         if (matched) { counts[matched.name] = (counts[matched.name] || 0) + 1; lastRound[matched.name] = idx; }
       });
     });
-    return squad.map(p => ({ name: p.name, count: counts[p.name] || 0, lastRoundIdx: lastRound[p.name] }))
+    return availSquad.map(p => ({ name: p.name, count: counts[p.name] || 0, lastRoundIdx: lastRound[p.name] }))
       .sort((a, b) => { if (a.count !== b.count) return a.count - b.count; return (a.lastRoundIdx ?? -1) - (b.lastRoundIdx ?? -1); });
-  }, [squad, games]);
+  }, [squad, games, ctxKey]);
 
   const hasScout = !!(scout.strengths || scout.weaknesses || scout.dangerPlayers || scout.suggestedTactics || scout.coachNotes);
+
+  // ── Snooze state (re-render when snooze changes) ──────────────────────────
+  const [snoozeVer, setSnoozeVer] = React.useState(0);
+  const [snoozePickerOpen, setSnoozePickerOpen] = React.useState(null); // { category, name }
+  function doSnooze(category, name, weeks) {
+    snoozePlayer(category, name, weeks);
+    setSnoozePickerOpen(null);
+    setSnoozeVer(v => v + 1);
+  }
+  function doUnsnooze(category, name) {
+    unsnoozePlayer(category, name);
+    setSnoozeVer(v => v + 1);
+  }
+
+  const gkListRaw    = React.useMemo(() => applySnoozeSplit(gkHistory,           'gk',          'name'), [gkHistory,           snoozeVer]); // eslint-disable-line
+  const recListRaw   = React.useMemo(() => applySnoozeSplit(recognitionHistory,  'recognition', 'name'), [recognitionHistory,  snoozeVer]); // eslint-disable-line
 
   const rowStyle = { display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 0', borderBottom:'1px solid #1A1A1A' };
   const rankBadge = (n, color='#F5C04A') => (
     <div style={{ width:22, height:22, borderRadius:'50%', background:`${color}22`, border:`1px solid ${color}44`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color, flexShrink:0 }}>{n}</div>
   );
   const selectStyle = { background:'#0D0D0D', border:'1px solid #2A2A2A', borderRadius:8, color:'#FFF', fontSize:13, padding:'8px 10px', width:'100%', appearance:'none' };
+
+  // Inline snooze picker overlay
+  function SnoozePicker({ category, name }) {
+    return (
+      <div style={{ position:'fixed', inset:0, zIndex:9999, display:'flex', alignItems:'flex-end' }}
+           onClick={() => setSnoozePickerOpen(null)}>
+        <div style={{ background:'#1A1A1A', borderRadius:'20px 20px 0 0', padding:'20px 16px 32px', width:'100%' }}
+             onClick={e => e.stopPropagation()}>
+          <div style={{ width:36, height:4, background:'#444', borderRadius:2, margin:'0 auto 16px' }} />
+          <div style={{ fontSize:14, fontWeight:700, color:'#FFF', marginBottom:4 }}>Snooze {name.split(' ')[0]}</div>
+          <div style={{ fontSize:12, color:'#666', marginBottom:16 }}>Hide from recommendations for…</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {[1, 2, 4].map(w => (
+              <button key={w} onClick={() => doSnooze(category, name, w)}
+                style={{ background:'#111', border:'1px solid #2A2A2A', borderRadius:10, padding:'12px 16px', color:'#FFF', fontSize:14, fontWeight:600, cursor:'pointer', textAlign:'left' }}>
+                {w} {w === 1 ? 'week' : 'weeks'}
+                <span style={{ float:'right', color:'#555', fontWeight:400, fontSize:12 }}>
+                  until {new Date(Date.now() + w*7*24*60*60*1000).toLocaleDateString('en-AU',{day:'numeric',month:'short'})}
+                </span>
+              </button>
+            ))}
+          </div>
+          <button onClick={() => setSnoozePickerOpen(null)}
+            style={{ marginTop:12, width:'100%', background:'none', border:'none', color:'#555', fontSize:13, cursor:'pointer', padding:'8px' }}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display:'flex', flexDirection:'column', minHeight:'100vh', background:'#0D0D0D' }}>
@@ -13082,28 +13351,34 @@ function PreMatchBriefScreen({ opponent, ctxKey, onBack }) {
             <div style={{ background:'#111111', borderRadius:16, border:'1px solid #1A1A1A', overflow:'hidden' }}>
               <div style={{ padding:'14px 16px 10px', borderBottom:'1px solid #1A1A1A' }}>
                 <div style={{ fontSize:9, fontWeight:800, color:'#F5C04A', letterSpacing:1.5, textTransform:'uppercase', marginBottom:2 }}>🧤 GK Rotation — Full Squad</div>
-                <div style={{ fontSize:12, color:'#555' }}>Fewest halves first · tap H1 or H2 to pre-assign</div>
+                <div style={{ fontSize:12, color:'#555' }}>Fewest halves first · tap H1/H2 to assign · 😴 to snooze</div>
               </div>
               <div style={{ padding:'0 16px' }}>
-                {gkHistory.length === 0 ? (
+                {gkListRaw.length === 0 ? (
                   <div style={{ padding:'16px 0', color:'#555', fontSize:12 }}>No squad data yet.</div>
-                ) : gkHistory.map((p, i) => {
+                ) : gkListRaw.map((p, i) => {
+                  const snoozed = !!p._snoozedUntil;
                   const isH1 = gkPick.h1 === p.name;
                   const isH2 = gkPick.h2 === p.name;
+                  const activeCount = gkListRaw.filter(r => !r._snoozedUntil).length;
+                  const dispRank = snoozed ? null : i + 1;
                   return (
-                    <div key={p.name} style={{ ...rowStyle, borderBottom: i < gkHistory.length - 1 ? '1px solid #1A1A1A' : 'none' }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                        {rankBadge(i + 1, i === 0 ? '#22c55e' : i < 3 ? '#F5C04A' : '#333')}
-                        <div>
-                          <div style={{ fontSize:14, fontWeight:600, color: i === 0 ? '#FFF' : '#AAA' }}>{p.name}</div>
+                    <div key={p.name} style={{ ...rowStyle, borderBottom: i < gkListRaw.length - 1 ? '1px solid #1A1A1A' : 'none', opacity: snoozed ? 0.5 : 1 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:10, flex:1, minWidth:0 }}>
+                        {snoozed
+                          ? <div style={{ width:22, height:22, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, flexShrink:0 }}>😴</div>
+                          : rankBadge(dispRank, dispRank === 1 ? '#22c55e' : dispRank <= 3 ? '#F5C04A' : '#333')}
+                        <div style={{ minWidth:0 }}>
+                          <div style={{ fontSize:14, fontWeight:600, color: !snoozed && dispRank === 1 ? '#FFF' : '#AAA', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{p.name}</div>
                           <div style={{ fontSize:10, color:'#555' }}>
-                            {p.count === 0 ? 'Never done GK' : `${p.count} half${p.count !== 1 ? 'ves' : ''}`}
-                            {p.lastRound ? ` · last ${p.lastRound}` : ''}
+                            {snoozed
+                              ? `Snoozed until ${new Date(p._snoozedUntil).toLocaleDateString('en-AU',{day:'numeric',month:'short'})}`
+                              : `${p.count === 0 ? 'Never done GK' : `${p.count} ${p.count !== 1 ? 'halves' : 'half'}`}${p.lastRound ? ` · last ${p.lastRound}` : ''}`}
                           </div>
                         </div>
                       </div>
-                      <div style={{ display:'flex', gap:6 }}>
-                        {['h1','h2'].map(half => {
+                      <div style={{ display:'flex', gap:5, flexShrink:0 }}>
+                        {!snoozed && ['h1','h2'].map(half => {
                           const active = half === 'h1' ? isH1 : isH2;
                           return (
                             <button key={half} onClick={() => handleGkPick(p.name, half)}
@@ -13112,6 +13387,10 @@ function PreMatchBriefScreen({ opponent, ctxKey, onBack }) {
                             </button>
                           );
                         })}
+                        {snoozed
+                          ? <button onClick={() => doUnsnooze('gk', p.name)} style={{ background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:6, padding:'3px 8px', fontSize:11, color:'#F5C04A', cursor:'pointer', fontWeight:700 }}>↩</button>
+                          : <button onClick={() => setSnoozePickerOpen({ category:'gk', name:p.name })} style={{ background:'none', border:'none', fontSize:14, cursor:'pointer', padding:'0 2px', lineHeight:1 }}>😴</button>
+                        }
                       </div>
                     </div>
                   );
@@ -13123,27 +13402,42 @@ function PreMatchBriefScreen({ opponent, ctxKey, onBack }) {
             <div style={{ background:'#111111', borderRadius:16, border:'1px solid #1A1A1A', overflow:'hidden' }}>
               <div style={{ padding:'14px 16px 10px', borderBottom:'1px solid #1A1A1A' }}>
                 <div style={{ fontSize:9, fontWeight:800, color:'#F5C04A', letterSpacing:1.5, textTransform:'uppercase', marginBottom:2 }}>⭐ Player Recognition</div>
-                <div style={{ fontSize:12, color:'#555' }}>Fewest recognitions first · overdue players first</div>
+                <div style={{ fontSize:12, color:'#555' }}>Fewest recognitions first · 😴 to snooze</div>
               </div>
               <div style={{ padding:'0 16px' }}>
-                {recognitionHistory.length === 0 ? (
+                {recListRaw.length === 0 ? (
                   <div style={{ padding:'16px 0', color:'#555', fontSize:12 }}>No squad data yet.</div>
-                ) : recognitionHistory.map((p, i) => (
-                  <div key={p.name} style={{ ...rowStyle, borderBottom: i < recognitionHistory.length - 1 ? '1px solid #1A1A1A' : 'none' }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                      {rankBadge(i + 1, i === 0 ? '#a855f7' : i < 3 ? '#F5C04A' : '#333')}
-                      <div style={{ fontSize:14, fontWeight:600, color: i === 0 ? '#FFF' : '#AAA' }}>{p.name}</div>
-                    </div>
-                    <div style={{ textAlign:'right' }}>
-                      <div style={{ fontSize:12, fontWeight:700, color: p.count === 0 ? '#a855f7' : '#A1A1A1' }}>
-                        {p.count === 0 ? 'Never recognised' : `${p.count}× recognised`}
+                ) : recListRaw.map((p, i) => {
+                  const snoozed = !!p._snoozedUntil;
+                  const dispRank = snoozed ? null : i + 1;
+                  return (
+                    <div key={p.name} style={{ ...rowStyle, borderBottom: i < recListRaw.length - 1 ? '1px solid #1A1A1A' : 'none', opacity: snoozed ? 0.5 : 1 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:10, flex:1, minWidth:0 }}>
+                        {snoozed
+                          ? <div style={{ width:22, height:22, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, flexShrink:0 }}>😴</div>
+                          : rankBadge(dispRank, dispRank === 1 ? '#a855f7' : dispRank <= 3 ? '#F5C04A' : '#333')}
+                        <div style={{ minWidth:0 }}>
+                          <div style={{ fontSize:14, fontWeight:600, color: !snoozed && dispRank === 1 ? '#FFF' : '#AAA' }}>{p.name}</div>
+                          {snoozed && <div style={{ fontSize:10, color:'#555' }}>Snoozed until {new Date(p._snoozedUntil).toLocaleDateString('en-AU',{day:'numeric',month:'short'})}</div>}
+                        </div>
                       </div>
-                      {p.lastRoundIdx !== null && (
-                        <div style={{ fontSize:10, color:'#555', marginTop:1 }}>Last: game {p.lastRoundIdx + 1}</div>
-                      )}
+                      <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                        <div style={{ textAlign:'right' }}>
+                          <div style={{ fontSize:12, fontWeight:700, color: p.count === 0 ? '#a855f7' : '#A1A1A1' }}>
+                            {p.count === 0 ? 'Never recognised' : `${p.count}× recognised`}
+                          </div>
+                          {p.lastRoundIdx !== null && (
+                            <div style={{ fontSize:10, color:'#555', marginTop:1 }}>Last: game {p.lastRoundIdx + 1}</div>
+                          )}
+                        </div>
+                        {snoozed
+                          ? <button onClick={() => doUnsnooze('recognition', p.name)} style={{ background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:6, padding:'3px 8px', fontSize:11, color:'#F5C04A', cursor:'pointer', fontWeight:700 }}>↩</button>
+                          : <button onClick={() => setSnoozePickerOpen({ category:'recognition', name:p.name })} style={{ background:'none', border:'none', fontSize:14, cursor:'pointer', padding:'0 2px', lineHeight:1 }}>😴</button>
+                        }
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </>
@@ -13199,6 +13493,9 @@ function PreMatchBriefScreen({ opponent, ctxKey, onBack }) {
         </div>
 
       </div>
+
+      {/* Snooze picker overlay */}
+      {snoozePickerOpen && <SnoozePicker category={snoozePickerOpen.category} name={snoozePickerOpen.name} />}
     </div>
   );
 }
@@ -13379,9 +13676,11 @@ function PostMatchReviewScreen({ game, squad, opponent, config, onDone }) {
   const [outputs,       setOutputs]      = React.useState(null);
   const [aiReview,      setAiReview]     = React.useState('');
   const [listening,     setListening]    = React.useState(false);
+  const [transcribingExtra, setTranscribingExtra] = React.useState(false);
   const [copiedKey,     setCopiedKey]    = React.useState(null);
   const [showAllVoice,  setShowAllVoice] = React.useState(false);
   const recogRef = React.useRef(null);
+  const extraChunksRef = React.useRef([]);
 
   // Goal confirmation state
   const [showGoalConfirm,    setShowGoalConfirm]    = React.useState(false);
@@ -13410,16 +13709,8 @@ function PostMatchReviewScreen({ game, squad, opponent, config, onDone }) {
 
   // ── Voice dictation for extra notes ──────────────────────────────────────────
   function toggleVoice() {
-    if (listening) { recogRef.current && recogRef.current.stop(); setListening(false); return; }
-    if (!SpeechRec) return;
-    const r = new SpeechRec();
-    r.continuous = true; r.interimResults = false; r.lang = 'en-AU';
-    r.onresult = e => {
-      const t = Array.from(e.results).map(x=>x[0].transcript).join(' ');
-      setExtraNotes(prev => (prev ? prev + ' ' : '') + t);
-    };
-    r.onend = () => setListening(false);
-    recogRef.current = r; r.start(); setListening(true);
+    whisperToggle(listening, setListening, recogRef, extraChunksRef, setTranscribingExtra,
+      text => setExtraNotes(prev => (prev ? prev + ' ' : '') + text));
   }
 
   // ── Format match events ───────────────────────────────────────────────────────
@@ -13487,13 +13778,7 @@ Be specific and grounded. Do not invent observations not supported by the notes.
 
     let ai = '';
     try {
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json','anthropic-version':'2023-06-01' },
-        body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1500, messages:[{role:'user',content:buildAIPrompt()}] })
-      });
-      const data = await resp.json();
-      ai = data?.content?.[0]?.text || '';
+      ai = await openAIChat([{ role: 'user', content: buildAIPrompt() }], { model: 'gpt-4o', max_tokens: 1500 });
     } catch {}
 
     // Split AI response: review | PLAYER NOTES: | GOALS:
@@ -13872,15 +14157,13 @@ Be specific and grounded. Do not invent observations not supported by the notes.
         <div style={{background:'#111111',border:'1px solid #1E1E1E',borderRadius:14,padding:'14px 16px',marginBottom:12}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
             <div style={{fontSize:12,fontWeight:800,color:'#A1A1A1',textTransform:'uppercase',letterSpacing:0.8}}>Any final thoughts?</div>
-            {SpeechRec && (
-              <button onClick={toggleVoice}
+            <button onClick={toggleVoice} disabled={transcribingExtra}
                 style={{background:listening?'#ef444418':'#1A1A1A',border:listening?'1px solid #ef4444':'1px solid #2A2A2A',
-                  borderRadius:8,padding:'5px 10px',cursor:'pointer',display:'flex',alignItems:'center',gap:5,
-                  color:listening?'#ef4444':'#A1A1A1'}}>
+                  borderRadius:8,padding:'5px 10px',cursor:transcribingExtra?'default':'pointer',display:'flex',alignItems:'center',gap:5,
+                  color:listening?'#ef4444':transcribingExtra?'#F5C04A':'#A1A1A1'}}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
-                <span style={{fontSize:11,fontWeight:700}}>{listening?'Stop':'Dictate'}</span>
+                <span style={{fontSize:11,fontWeight:700}}>{transcribingExtra?'…':listening?'Stop':'Dictate'}</span>
               </button>
-            )}
           </div>
           <textarea value={extraNotes} onChange={e=>setExtraNotes(e.target.value)}
             placeholder="Anything not captured during the match — tactics, individual moments, things to remember…"
@@ -13889,6 +14172,7 @@ Be specific and grounded. Do not invent observations not supported by the notes.
               padding:'10px 12px',color:'#FFF',fontSize:13,outline:'none',resize:'vertical',fontFamily:'inherit',
               boxSizing:'border-box',lineHeight:1.5}}/>
           {listening && <div style={{fontSize:11,color:'#ef4444',marginTop:6,fontWeight:600}}>🎙 Recording…</div>}
+          {transcribingExtra && <div style={{fontSize:11,color:'#F5C04A',marginTop:6,fontWeight:600}}>✦ Transcribing…</div>}
         </div>
 
         {/* Training priorities */}
