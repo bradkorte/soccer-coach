@@ -13774,7 +13774,9 @@ Be specific and grounded. Do not invent observations not supported by the notes.
   // ── Generate ──────────────────────────────────────────────────────────────────
   async function handleGenerate() {
     setGenerating(true);
-    const localOut = generatePostMatchOutputs({ game, opponent, teamName, priorities, mostImproved });
+    let localOut;
+    try { localOut = generatePostMatchOutputs({ game, opponent, teamName, priorities, mostImproved }); }
+    catch { localOut = { parentSummary: '', trainingRec: '' }; }
 
     let ai = '';
     try {
@@ -13858,8 +13860,8 @@ Be specific and grounded. Do not invent observations not supported by the notes.
 
   // ── Save after coach confirms goals/score ─────────────────────────────────
   function confirmAndSave() {
-    if (!pendingAiData) return;
-    const { aiMatchReview, aiPlayerNotes, localOut } = pendingAiData;
+    // Fallback if pendingAiData was never set (e.g. error during generate)
+    const { aiMatchReview = '', aiPlayerNotes = '', localOut = generatePostMatchOutputs({ game, opponent, teamName, priorities, mostImproved }) } = pendingAiData || {};
 
     // Build clean goals array (strip source tag)
     const cleanGoals = confirmedGoals.map(({ source, ...rest }) => rest);
@@ -13938,7 +13940,7 @@ Be specific and grounded. Do not invent observations not supported by the notes.
     };
 
     return (
-      <div style={{minHeight:'100dvh', background:'#0D0D0D', display:'flex', flexDirection:'column', paddingBottom:100}}>
+      <div style={{minHeight:'100dvh', background:'#0D0D0D', display:'flex', flexDirection:'column', paddingBottom:160}}>
         <KhulaHeader showBack={false} title="Confirm Goals & Score" />
 
         <div style={{flex:1, overflowY:'auto', padding:'14px 16px'}}>
@@ -14045,10 +14047,14 @@ Be specific and grounded. Do not invent observations not supported by the notes.
         </div>
 
         {/* Sticky confirm button */}
-        <div style={{position:'fixed', bottom:0, left:0, right:0, padding:'14px 16px', background:'#0D0D0D', borderTop:'1px solid #1E1E1E'}}>
+        <div style={{position:'fixed', bottom:0, left:0, right:0, padding:'14px 16px', paddingBottom:'calc(env(safe-area-inset-bottom) + 14px)', background:'#0D0D0D', borderTop:'1px solid #1E1E1E', display:'flex', flexDirection:'column', gap:8}}>
           <button onClick={confirmAndSave}
             style={{width:'100%', padding:'16px', border:'none', borderRadius:14, fontSize:15, fontWeight:800, cursor:'pointer', background:'#22c55e', color:'#000'}}>
             Confirm & Save ✓
+          </button>
+          <button onClick={onDone}
+            style={{width:'100%', padding:'10px', border:'1px solid #2A2A2A', borderRadius:14, fontSize:13, fontWeight:600, cursor:'pointer', background:'transparent', color:'#555'}}>
+            Skip &amp; Finish
           </button>
         </div>
       </div>
