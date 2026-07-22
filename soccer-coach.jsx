@@ -13689,6 +13689,22 @@ function PostMatchReviewScreen({ game, squad, opponent, config, onDone }) {
   const [confirmedScoreThem, setConfirmedScoreThem]  = React.useState(0);
   const [showScorerPicker,   setShowScorerPicker]    = React.useState(false);
 
+  // Outputs editing state — must be at top level (can't call hooks inside conditionals)
+  const [editingKey, setEditingKey] = React.useState(null);
+  const [editTexts,  setEditTexts]  = React.useState({ parentSummary:'', aiMatchReview:'', trainingRec:'', playerNotes:'' });
+
+  // Sync edit texts when outputs arrive
+  React.useEffect(() => {
+    if (outputs) {
+      setEditTexts({
+        parentSummary: outputs.parentSummary || '',
+        aiMatchReview: outputs.aiMatchReview || '',
+        trainingRec:   outputs.trainingRec   || '',
+        playerNotes:   outputs.aiPlayerNotes || '',
+      });
+    }
+  }, [outputs]);
+
   const won  = (game.scoreUs || 0) > (game.scoreThem || 0);
   const drew = (game.scoreUs || 0) === (game.scoreThem || 0);
   const resultColor = won ? '#22c55e' : drew ? '#F5C04A' : '#ef4444';
@@ -14208,14 +14224,6 @@ Be specific and grounded. Do not invent observations not supported by the notes.
 
   // ── Outputs ───────────────────────────────────────────────────────────────────
   if (outputs) {
-    const [editingKey, setEditingKey] = React.useState(null);
-    const [editTexts,  setEditTexts]  = React.useState({
-      parentSummary: outputs.parentSummary || '',
-      aiMatchReview: outputs.aiMatchReview || '',
-      trainingRec:   outputs.trainingRec   || '',
-      playerNotes:   outputs.aiPlayerNotes || '',
-    });
-
     const OUT_CARDS = [
       { key:'parentSummary', title:'📱 Parent Summary',   subtitle:'WhatsApp-ready',      color:'#22c55e' },
       { key:'aiMatchReview', title:'✨ AI Match Review',  subtitle:'Full match summary',   color:'#a78bfa', alwaysShow: true },
