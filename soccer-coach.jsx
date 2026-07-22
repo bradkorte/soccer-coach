@@ -342,29 +342,61 @@ function saveGames(g)   { try{localStorage.setItem(GAMES_KEY,JSON.stringify(g));
 function loadSettings() { try{return {...{teamName:"",coachName:"",managerName:"",ageGroup:"",season:"",venue:"",formation:DEFAULT_FORMATION,halfMins:24,numPeriods:3,keepScreenOn:true},...(JSON.parse(localStorage.getItem(SETTINGS_KEY))||{})};}catch{return{teamName:"",coachName:"",managerName:"",keepScreenOn:true};} }
 function saveSettings(s){ try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(s));}catch{} }
 
-// ── OpenAI key storage ────────────────────────────────────────────────────────
-const OPENAI_KEY_STORAGE = 'soccerCoach_openaiKey';
-function loadOpenAIKey() { return localStorage.getItem(OPENAI_KEY_STORAGE) || ''; }
+// ── AI provider + key storage ─────────────────────────────────────────────────
+const OPENAI_KEY_STORAGE  = 'soccerCoach_openaiKey';
+const CLAUDE_KEY_STORAGE  = 'soccerCoach_claudeKey';
+const AI_PROVIDER_STORAGE = 'soccerCoach_aiProvider'; // 'openai' | 'claude'
+function loadOpenAIKey()  { return localStorage.getItem(OPENAI_KEY_STORAGE) || ''; }
 function saveOpenAIKey(k) { try { localStorage.setItem(OPENAI_KEY_STORAGE, k); } catch {} }
+function loadClaudeKey()  { return localStorage.getItem(CLAUDE_KEY_STORAGE) || ''; }
+function saveClaudeKey(k) { try { localStorage.setItem(CLAUDE_KEY_STORAGE, k); } catch {} }
+function loadAIProvider() { return localStorage.getItem(AI_PROVIDER_STORAGE) || 'openai'; }
+function saveAIProvider(p){ try { localStorage.setItem(AI_PROVIDER_STORAGE, p); } catch {} }
 
-// ── OpenAI API helpers ────────────────────────────────────────────────────────
-async function openAIChat(messages, { model = 'gpt-4o', max_tokens = 1000 } = {}) {
-  const key = loadOpenAIKey();
-  if (!key) throw new Error('No OpenAI API key — add it in Settings → API Keys.');
-  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-    body: JSON.stringify({ model, max_tokens, messages })
-  });
-  const data = await resp.json();
-  const text = data?.choices?.[0]?.message?.content;
-  if (!text) throw new Error(data?.error?.message || 'No response from OpenAI');
-  return text;
+// ── Unified AI chat — routes to Claude or OpenAI based on selected provider ──
+async function aiChat(messages, { model = null, max_tokens = 1000 } = {}) {
+  const provider = loadAIProvider();
+
+  if (provider === 'claude') {
+    const key = loadClaudeKey();
+    if (!key) throw new Error('No Claude API key — add it in App Settings → AI Settings.');
+    // Map OpenAI model names → Claude equivalents; 'mini' variants → Haiku
+    const claudeModel = (model === 'gpt-4o-mini') ? 'claude-haiku-4-5-20251001' : 'claude-sonnet-5';
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({ model: claudeModel, max_tokens, messages })
+    });
+    const data = await resp.json();
+    const text = data?.content?.[0]?.text;
+    if (!text) throw new Error(data?.error?.message || 'No response from Claude');
+    return text;
+  } else {
+    const key = loadOpenAIKey();
+    if (!key) throw new Error('No OpenAI API key — add it in App Settings → AI Settings.');
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({ model: model || 'gpt-4o', max_tokens, messages })
+    });
+    const data = await resp.json();
+    const text = data?.choices?.[0]?.message?.content;
+    if (!text) throw new Error(data?.error?.message || 'No response from OpenAI');
+    return text;
+  }
 }
+
+// Alias so existing callers still work unchanged
+const openAIChat = aiChat;
 
 async function whisperTranscribe(audioBlob, promptHint = '') {
   const key = loadOpenAIKey();
-  if (!key) throw new Error('No OpenAI API key — add it in Settings → API Keys.');
+  if (!key) throw new Error('No OpenAI API key — add it in App Settings → AI Settings.');
   const fd = new FormData();
   fd.append('file', audioBlob, 'audio.webm');
   fd.append('model', 'whisper-1');
@@ -393,7 +425,7 @@ function buildWhisperHint() {
 // Call with (isRecording, setIsRecording, mediaRecorderRef, chunksRef, setIsTranscribing, onTranscript)
 async function whisperToggle(isRec, setIsRec, mrRef, chunksRef, setTranscribing, onTranscript) {
   if (isRec) { mrRef.current && mrRef.current.stop(); return; }
-  if (!loadOpenAIKey()) { alert('Add your OpenAI API key in Settings → API Keys first.'); return; }
+  if (!loadOpenAIKey()) { alert('Add your OpenAI API key in App Settings → AI Settings (needed for voice transcription).'); return; }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     chunksRef.current = [];
@@ -2313,7 +2345,7 @@ function EditMatchModal({ fixture, onClose, onSaved }) {
       recRef.current && recRef.current.stop();
       return;
     }
-    if (!loadOpenAIKey()) { alert('Add your OpenAI API key in Settings → API Keys first.'); return; }
+    if (!loadOpenAIKey()) { alert('Add your OpenAI API key in App Settings → AI Settings (needed for voice transcription).'); return; }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       chunksRef.current = [];
@@ -3695,16 +3727,8 @@ function SettingsScreen({ settings, onSave, onBack, onViewImportExport }) {
   const [form, setForm] = useState({ ...settings, teamName: savedIsCustom ? '__custom__' : (settings.teamName || '') });
   const [customTeam, setCustomTeam] = useState(savedIsCustom ? settings.teamName : '');
   const [settingsTab, setSettingsTab] = useState('General');
-  const [openAIKey, setOpenAIKey] = useState(() => loadOpenAIKey());
-  const [keySaved, setKeySaved] = useState(false);
 
   function upd(key, val) { setForm(f=>({...f,[key]:val})); }
-
-  function saveKey() {
-    saveOpenAIKey(openAIKey.trim());
-    setKeySaved(true);
-    setTimeout(() => setKeySaved(false), 2000);
-  }
 
   function save() {
     const effectiveName = form.teamName === '__custom__' ? customTeam.trim() : form.teamName;
@@ -3718,7 +3742,7 @@ function SettingsScreen({ settings, onSave, onBack, onViewImportExport }) {
     <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, display:'flex', flexDirection:'column' }}>
       <KhulaHeader showBack={true} onBack={onBack} title="Settings" />
       <SectionTabs
-        tabs={['General','Formation','Defaults','API Keys']}
+        tabs={['General','Formation','Defaults']}
         activeTab={settingsTab}
         onTabChange={setSettingsTab}
       />
@@ -3784,38 +3808,6 @@ function SettingsScreen({ settings, onSave, onBack, onViewImportExport }) {
           <button style={{...S.btnGreen, width:'100%'}} onClick={save}>Save Settings</button>
         </>}
 
-        {/* ── API KEYS TAB ── */}
-        {settingsTab === 'API Keys' && <>
-          <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'16px' }}>
-            <div style={{ fontSize:13, fontWeight:700, color:'#FFF', marginBottom:4 }}>OpenAI API Key</div>
-            <div style={{ fontSize:11, color:'#666', marginBottom:12, lineHeight:1.5 }}>
-              Used for speech-to-text (Whisper) and AI report generation (GPT-4o). Your key is stored only in this browser — it never goes to GitHub or any server.
-            </div>
-            <input
-              type="password"
-              value={openAIKey}
-              onChange={e => setOpenAIKey(e.target.value)}
-              placeholder="sk-..."
-              style={{ ...S.inp, width:'100%', fontFamily:'monospace', letterSpacing:1 }}
-            />
-            <div style={{ fontSize:10, color:'#444', marginTop:6, marginBottom:14 }}>
-              Get your key at <span style={{ color:'#F5C04A' }}>platform.openai.com/api-keys</span>
-            </div>
-            <button onClick={saveKey} style={{ ...S.btnGreen, width:'100%' }}>
-              {keySaved ? '✓ Saved' : 'Save Key'}
-            </button>
-            {openAIKey && (
-              <button onClick={() => { setOpenAIKey(''); saveOpenAIKey(''); }} style={{ ...S.btnDark, width:'100%', marginTop:8, fontSize:13 }}>
-                Remove Key
-              </button>
-            )}
-          </div>
-          <div style={{ background:'#111', border:'1px solid #1E1E1E', borderRadius:14, padding:'14px 16px', marginTop:12 }}>
-            <div style={{ fontSize:11, color:'#666', lineHeight:1.6 }}>
-              <strong style={{ color:'#A1A1A1' }}>How it works:</strong> When you dictate, audio is recorded in the app and sent directly to OpenAI's Whisper API. When you generate a match report or AI analysis, the text prompt goes to GPT-4o. No data passes through any third-party server — it's your browser talking directly to OpenAI.
-            </div>
-          </div>
-        </>}
 
       </div>
     </div>
@@ -13827,32 +13819,27 @@ Be specific and grounded. Do not invent observations not supported by the notes.
     let aiMatchReview = '';
     let aiPlayerNotes = '';
 
-    const apiKey = loadOpenAIKey();
-    if (!apiKey) {
-      aiMatchReview = '⚠️ No OpenAI key set.\n\nGo to Settings → API Keys to add your key, then you can come back and edit this card with your own notes — or regenerate.\n\nTap Edit to write your match notes manually now.';
-    } else {
-      try {
-        const prompt = buildAIPrompt({ confirmedGoals: cleanGoals, confirmedScoreUs: finalUs, confirmedScoreThem: finalThem });
-        const ai = await openAIChat([{ role: 'user', content: prompt }], { model: 'gpt-4o', max_tokens: 1500 });
+    try {
+      const prompt = buildAIPrompt({ confirmedGoals: cleanGoals, confirmedScoreUs: finalUs, confirmedScoreThem: finalThem });
+      const ai = await aiChat([{ role: 'user', content: prompt }], { model: 'gpt-4o', max_tokens: 1500 });
 
-        const pnSplit = ai.indexOf('PLAYER NOTES:');
-        if (pnSplit !== -1) {
-          aiMatchReview = ai.slice(0, pnSplit).trim();
-          aiPlayerNotes = ai.slice(pnSplit + 'PLAYER NOTES:'.length).trim();
-        } else {
-          aiMatchReview = ai.trim();
-        }
-
-        // Save generated report back to game record
-        try {
-          const stored = JSON.parse(localStorage.getItem('soccerCoach_games') || '[]');
-          const updated = stored.map(g => g.id === game.id ? { ...g, report: aiMatchReview } : g);
-          localStorage.setItem('soccerCoach_games', JSON.stringify(updated));
-        } catch {}
-
-      } catch (e) {
-        aiMatchReview = `⚠️ Report generation failed: ${e.message}\n\nTap Edit to write your match notes manually.`;
+      const pnSplit = ai.indexOf('PLAYER NOTES:');
+      if (pnSplit !== -1) {
+        aiMatchReview = ai.slice(0, pnSplit).trim();
+        aiPlayerNotes = ai.slice(pnSplit + 'PLAYER NOTES:'.length).trim();
+      } else {
+        aiMatchReview = ai.trim();
       }
+
+      // Save generated report back to game record
+      try {
+        const stored = JSON.parse(localStorage.getItem('soccerCoach_games') || '[]');
+        const updated = stored.map(g => g.id === game.id ? { ...g, report: aiMatchReview } : g);
+        localStorage.setItem('soccerCoach_games', JSON.stringify(updated));
+      } catch {}
+
+    } catch (e) {
+      aiMatchReview = `⚠️ ${e.message}\n\nTap Edit to write your match notes manually.`;
     }
 
     // 5. Write AI player notes to squad coachNotes
@@ -14467,7 +14454,7 @@ function AccountScreen({ onBack, onSettings, onImportExport, onAppSettings }) {
         {[
           { label:'Profile and Team Settings', sub:'Coach info, team name, match config', action: onSettings,
             icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg> },
-          { label:'App Settings', sub:'Screen lock, display and app behaviour', action: onAppSettings,
+          { label:'App Settings', sub:'AI provider, API keys, screen lock and display', action: onAppSettings,
             icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg> },
           { label:'Data Management', sub:'Import fixtures, export & backup data', action: onImportExport,
             icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5C04A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> },
@@ -14494,22 +14481,151 @@ function AccountScreen({ onBack, onSettings, onImportExport, onAppSettings }) {
 function AppSettingsScreen({ onBack, settings, onSave }) {
   const [keepScreenOn, setKeepScreenOn] = React.useState(settings.keepScreenOn !== false);
 
-  function save(val) {
+  // AI Settings state
+  const [aiProvider,   setAiProviderState] = React.useState(() => loadAIProvider());
+  const [openAIKey,    setOpenAIKeyState]   = React.useState(() => loadOpenAIKey());
+  const [claudeKey,    setClaudeKeyState]   = React.useState(() => loadClaudeKey());
+  const [savedField,   setSavedField]       = React.useState(null); // tracks which field just saved
+
+  function saveScreenOn(val) {
     setKeepScreenOn(val);
     onSave({ ...settings, keepScreenOn: val });
   }
+
+  function switchProvider(p) {
+    setAiProviderState(p);
+    saveAIProvider(p);
+  }
+
+  function saveKey(field) {
+    if (field === 'openai') { saveOpenAIKey(openAIKey.trim()); }
+    else                    { saveClaudeKey(claudeKey.trim()); }
+    setSavedField(field);
+    setTimeout(() => setSavedField(null), 2000);
+  }
+
+  const Toggle = ({ on, onToggle }) => (
+    <div onClick={onToggle}
+      style={{ width:51, height:31, borderRadius:16, background: on ? '#22c55e' : '#333',
+        border: on ? '1px solid #16a34a' : '1px solid #444',
+        position:'relative', cursor:'pointer', flexShrink:0, transition:'background 0.2s' }}>
+      <div style={{ position:'absolute', top:3, left: on ? 23 : 3,
+        width:23, height:23, borderRadius:'50%', background:'#FFF',
+        boxShadow:'0 1px 4px rgba(0,0,0,0.4)', transition:'left 0.2s' }} />
+    </div>
+  );
+
+  const SectionLabel = ({ children }) => (
+    <div style={{ fontSize:11, fontWeight:700, color:'#666', textTransform:'uppercase', letterSpacing:1, paddingLeft:4, marginBottom:2 }}>{children}</div>
+  );
+
+  const KeyField = ({ label, hint, placeholder, value, onChange, field, onRemove }) => (
+    <div style={{ padding:'14px 16px', borderTop:'1px solid #1E1E1E' }}>
+      <div style={{ fontSize:12, fontWeight:700, color:'#A1A1A1', marginBottom:6 }}>{label}</div>
+      <input
+        type="password"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{ width:'100%', background:'#0D0D0D', border:'1px solid #2A2A2A', borderRadius:10,
+          padding:'10px 12px', color:'#FFF', fontSize:13, outline:'none', fontFamily:'monospace',
+          letterSpacing:1, boxSizing:'border-box' }}
+      />
+      {hint && <div style={{ fontSize:11, color:'#555', marginTop:5 }}>{hint}</div>}
+      <div style={{ display:'flex', gap:8, marginTop:10 }}>
+        <button onClick={() => saveKey(field)}
+          style={{ flex:1, padding:'10px', border:'none', borderRadius:10, fontSize:13, fontWeight:700,
+            cursor:'pointer', background: savedField === field ? '#166534' : '#22c55e', color:'#000', transition:'background 0.2s' }}>
+          {savedField === field ? '✓ Saved' : 'Save Key'}
+        </button>
+        {value && (
+          <button onClick={onRemove}
+            style={{ padding:'10px 14px', border:'1px solid #2A2A2A', borderRadius:10, fontSize:13,
+              fontWeight:600, cursor:'pointer', background:'transparent', color:'#666' }}>
+            Remove
+          </button>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div style={{ minHeight:'100vh', background:'#0D0D0D', paddingBottom:90, display:'flex', flexDirection:'column' }}>
       <KhulaHeader showBack={true} onBack={onBack} title="App Settings" />
       <div style={{ padding:'20px 20px 8px' }}>
         <div style={{ fontSize:28, fontWeight:900, color:'#FFFFFF', marginBottom:4 }}>App Settings</div>
-        <div style={{ fontSize:13, color:'#A1A1A1' }}>Display and app behaviour</div>
+        <div style={{ fontSize:13, color:'#A1A1A1' }}>Display, behaviour and AI configuration</div>
       </div>
-      <div style={{ padding:'12px 16px', display:'flex', flexDirection:'column', gap:12 }}>
+      <div style={{ padding:'12px 16px', display:'flex', flexDirection:'column', gap:16 }}>
 
-        {/* ── Screen Lock section ── */}
-        <div style={{ fontSize:11, fontWeight:700, color:'#666', textTransform:'uppercase', letterSpacing:1, paddingLeft:4, marginBottom:2 }}>Match Clock</div>
+        {/* ── AI Settings ── */}
+        <SectionLabel>AI Settings</SectionLabel>
+        <div style={{ background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:14, overflow:'hidden' }}>
+
+          {/* Provider toggle */}
+          <div style={{ padding:'16px' }}>
+            <div style={{ fontSize:13, fontWeight:700, color:'#FFF', marginBottom:4 }}>AI Provider</div>
+            <div style={{ fontSize:12, color:'#A1A1A1', marginBottom:12 }}>
+              Choose which AI powers match reports and analysis
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              {[
+                { id:'openai', label:'ChatGPT', desc:'GPT-4o', color:'#22c55e' },
+                { id:'claude', label:'Claude',  desc:'Sonnet', color:'#a78bfa' },
+              ].map(opt => {
+                const active = aiProvider === opt.id;
+                return (
+                  <button key={opt.id} onClick={() => switchProvider(opt.id)}
+                    style={{ flex:1, padding:'14px 10px', borderRadius:12, cursor:'pointer',
+                      background: active ? opt.color + '18' : '#111',
+                      border: `2px solid ${active ? opt.color : '#2A2A2A'}`,
+                      color: active ? opt.color : '#666',
+                      display:'flex', flexDirection:'column', alignItems:'center', gap:4, transition:'all 0.15s' }}>
+                    <span style={{ fontSize:22 }}>{opt.id === 'openai' ? '🤖' : '✦'}</span>
+                    <span style={{ fontSize:14, fontWeight:800 }}>{opt.label}</span>
+                    <span style={{ fontSize:10, fontWeight:500, opacity:0.7 }}>{opt.desc}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Claude key — shown when Claude is selected */}
+          {aiProvider === 'claude' && (
+            <KeyField
+              label="Claude API Key"
+              hint="Get your key at console.anthropic.com → API Keys"
+              placeholder="sk-ant-..."
+              value={claudeKey}
+              onChange={setClaudeKeyState}
+              field="claude"
+              onRemove={() => { setClaudeKeyState(''); saveClaudeKey(''); }}
+            />
+          )}
+
+          {/* OpenAI key — shown when OpenAI is selected OR always for Whisper */}
+          <KeyField
+            label={aiProvider === 'openai' ? 'OpenAI API Key' : 'OpenAI API Key (voice transcription)'}
+            hint={aiProvider === 'openai'
+              ? 'Used for AI reports (GPT-4o) and voice transcription (Whisper) · platform.openai.com/api-keys'
+              : 'Voice transcription always uses OpenAI Whisper, even when Claude handles reports · platform.openai.com/api-keys'}
+            placeholder="sk-..."
+            value={openAIKey}
+            onChange={setOpenAIKeyState}
+            field="openai"
+            onRemove={() => { setOpenAIKeyState(''); saveOpenAIKey(''); }}
+          />
+
+          {/* Privacy note */}
+          <div style={{ padding:'10px 16px 14px', borderTop:'1px solid #1E1E1E' }}>
+            <div style={{ fontSize:11, color:'#444', lineHeight:1.6 }}>
+              🔒 Keys are stored only in this browser's local storage — never sent to any third-party server or included in code.
+            </div>
+          </div>
+        </div>
+
+        {/* ── Match Clock section ── */}
+        <SectionLabel>Match Clock</SectionLabel>
         <div style={{ background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:14, overflow:'hidden' }}>
           <div style={{ padding:'16px', display:'flex', alignItems:'center', gap:14 }}>
             <div style={{ width:44, height:44, borderRadius:12, background:'#F5C04A15', border:'1px solid #F5C04A30', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
@@ -14521,15 +14637,7 @@ function AppSettingsScreen({ onBack, settings, onSave }) {
               <div style={{ fontSize:15, fontWeight:700, color:'#FFFFFF', marginBottom:2 }}>Keep Screen On</div>
               <div style={{ fontSize:12, color:'#A1A1A1' }}>Prevent the screen from locking during a live match</div>
             </div>
-            {/* Toggle */}
-            <div onClick={() => save(!keepScreenOn)}
-              style={{ width:51, height:31, borderRadius:16, background: keepScreenOn ? '#22c55e' : '#333',
-                border: keepScreenOn ? '1px solid #16a34a' : '1px solid #444',
-                position:'relative', cursor:'pointer', flexShrink:0, transition:'background 0.2s' }}>
-              <div style={{ position:'absolute', top:3, left: keepScreenOn ? 23 : 3,
-                width:23, height:23, borderRadius:'50%', background:'#FFF',
-                boxShadow:'0 1px 4px rgba(0,0,0,0.4)', transition:'left 0.2s' }} />
-            </div>
+            <Toggle on={keepScreenOn} onToggle={() => saveScreenOn(!keepScreenOn)} />
           </div>
           {!keepScreenOn && (
             <div style={{ padding:'0 16px 14px 74px', fontSize:12, color:'#F5C04A', lineHeight:1.4 }}>
