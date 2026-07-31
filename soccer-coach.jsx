@@ -4253,6 +4253,12 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout, onM
   const [noteText, setNoteText]   = useState('');
   const [fixtureDetailGame, setFixtureDetailGame] = useState(null);
   const [scoutSearch, setScoutSearch] = useState('');
+  // Hoisted from the 'goalies'/'awards' sub-screens below — hooks must always run,
+  // regardless of which subScreen is active, or React throws error #310.
+  const [goaliesSnoozeOpen, setGoaliesSnoozeOpen] = useState(null);
+  const [goaliesSnoozeVer, setGoaliesSnoozeVer] = useState(0);
+  const [awardsSnoozeOpen, setAwardsSnoozeOpen] = useState(null);
+  const [awardsSnoozeVer, setAwardsSnoozeVer] = useState(0);
 
   const allTeams = [...new Set(FIXTURES.flatMap(f => [f.home, f.away]))].sort();
   function selectTeam(name) { setSelected(name); setNoteText(teamNotes[name] || ''); }
@@ -4367,8 +4373,6 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout, onM
   if (subScreen === 'goalies') {
     const gkStatsRaw = computeGoalkeeperStats(games).sort((a,b) => b.totalHalves - a.totalHalves);
     const gkStatsList = applySnoozeSplit(gkStatsRaw, 'gk');
-    const [goaliesSnoozeOpen, setGoaliesSnoozeOpen] = React.useState(null);
-    const [goaliesSnoozeVer, setGoaliesSnoozeVer] = React.useState(0);
     function doGoaliesSnooze(name, weeks) { snoozePlayer('gk', name, weeks); setGoaliesSnoozeOpen(null); setGoaliesSnoozeVer(v=>v+1); }
     function doGoaliesUnsnooze(name) { unsnoozePlayer('gk', name); setGoaliesSnoozeVer(v=>v+1); }
     const matchRows = [...games].sort((a,b) => (a.date||0) - (b.date||0)).map((g, idx) => {
@@ -4454,8 +4458,6 @@ function SeasonHubScreen({ games, onBack, onOpenGame, onDeleteGame, onScout, onM
     });
     const squadNames = squad.filter(p => !p.injured && !p.archived).map(p => p.name);
     const zeroWin = squadNames.filter(n => !counts[n]);
-    const [awardsSnoozeOpen, setAwardsSnoozeOpen] = React.useState(null);
-    const [awardsSnoozeVer, setAwardsSnoozeVer] = React.useState(0);
     function doAwardsSnooze(name, weeks) { snoozePlayer('recognition', name, weeks); setAwardsSnoozeOpen(null); setAwardsSnoozeVer(v=>v+1); }
     function doAwardsUnsnooze(name) { unsnoozePlayer('recognition', name); setAwardsSnoozeVer(v=>v+1); }
     // Build fairness list: squad sorted by fewest total recognitions, with snooze split
