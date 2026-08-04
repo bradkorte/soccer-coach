@@ -348,7 +348,7 @@ function loadConfig()   { try{ const s=loadSettings(); const base={halfMins:s.ha
 function saveConfig(c)  { try{localStorage.setItem(CONFIG_KEY,JSON.stringify(c));}catch{} }
 function loadGames()    { try{return JSON.parse(localStorage.getItem(GAMES_KEY))||[];}catch{return[];} }
 function saveGames(g)   { try{localStorage.setItem(GAMES_KEY,JSON.stringify(g));}catch{} }
-function loadSettings() { try{return {...{teamName:"",coachName:"",managerName:"",ageGroup:"",season:"",venue:"",formation:DEFAULT_FORMATION,halfMins:24,numPeriods:3,keepScreenOn:true},...(JSON.parse(localStorage.getItem(SETTINGS_KEY))||{})};}catch{return{teamName:"",coachName:"",managerName:"",keepScreenOn:true};} }
+function loadSettings() { try{return {...{teamName:"",coachName:"",managerName:"",ageGroup:"",season:"",venue:"",formation:DEFAULT_FORMATION,halfMins:24,numPeriods:3,keepScreenOn:true,voiceMethod:"native"},...(JSON.parse(localStorage.getItem(SETTINGS_KEY))||{})};}catch{return{teamName:"",coachName:"",managerName:"",keepScreenOn:true,voiceMethod:"native"};} }
 function saveSettings(s){ try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(s));}catch{} }
 
 // ── AI provider + key storage ─────────────────────────────────────────────────
@@ -466,6 +466,39 @@ async function whisperToggle(isRec, setIsRec, mrRef, chunksRef, setTranscribing,
     };
     mr.start(); mrRef.current = mr; setIsRec(true);
   } catch (e) { alert('Microphone access denied: ' + e.message); }
+}
+
+// Shared voice dictation entry point — used by every "Dictate" button in the app.
+// Dispatches to native browser speech recognition or OpenAI Whisper based on the
+// user's choice in App Settings → AI Settings (defaults to native browser).
+// Same call signature as whisperToggle, so any call site can use either interchangeably.
+function voiceToggle(isRec, setIsRec, recRef, chunksRef, setTranscribing, onTranscript) {
+  const method = (loadSettings().voiceMethod) || 'native';
+  if (method === 'whisper') {
+    whisperToggle(isRec, setIsRec, recRef, chunksRef, setTranscribing, onTranscript);
+    return;
+  }
+  // Native browser speech recognition — no API key, no network call, works offline.
+  if (isRec) {
+    if (recRef.current) { try { recRef.current.stop(); } catch(e){} recRef.current = null; }
+    setIsRec(false);
+    return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert('Native voice recognition is not supported in this browser. Switch to OpenAI Whisper in App Settings → AI Settings.'); return; }
+  const r = new SR();
+  r.continuous = true; r.interimResults = false;
+  r.onresult = (e) => {
+    for (let i=e.resultIndex; i<e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        const text = e.results[i][0].transcript.trim();
+        if (text) onTranscript(text);
+      }
+    }
+  };
+  r.onend = () => setIsRec(false);
+  r.onerror = () => setIsRec(false);
+  r.start(); recRef.current = r; setIsRec(true);
 }
 
 const FX_SCORES_KEY   = "soccerCoach_fixtureScores";
@@ -2976,7 +3009,7 @@ function OpponentStatsScreen({ opponent, onBack, onChangeOpponent, embedded }) {
     }
     if (isScoutRec) scoutRecogRef.current && scoutRecogRef.current.stop();
     setScoutRecField(fieldKey);
-    whisperToggle(false, setIsScoutRec, scoutRecogRef, scoutChunksRef, setScoutTranscribing,
+    voiceToggle(false, setIsScoutRec, scoutRecogRef, scoutChunksRef, setScoutTranscribing,
       text => setDraft(dd => ({ ...dd, [fieldKey]: (dd[fieldKey] ? dd[fieldKey] + ' ' : '') + text })));
   }
 
@@ -5424,7 +5457,7 @@ function GameDetailScreen({ game, onBack, onUpdateGame }) {
   function toggleRecogNoteDictate(name) {
     const isRec = recogDictatingFor === name;
     if (!isRec && recogDictatingFor) return; // one dictation at a time
-    whisperToggle(isRec, (v) => setRecogDictatingFor(v ? name : null), recogNoteRecRef, recogNoteChunksRef, setRecogNoteTranscribing, (text) => {
+    voiceToggle(isRec, (v) => setRecogDictatingFor(v ? name : null), recogNoteRecRef, recogNoteChunksRef, setRecogNoteTranscribing, (text) => {
       if (text) setRecognitions(prev => prev.map(r => r.playerName === name ? { ...r, note: (r.note ? r.note + ' ' : '') + text } : r));
     });
   }
@@ -5433,7 +5466,7 @@ function GameDetailScreen({ game, onBack, onUpdateGame }) {
     if (onUpdateGame) onUpdateGame({ ...safeGame, voiceNotes: text });
   }
   function toggleVoiceNotesDictate() {
-    whisperToggle(voiceNotesListening, setVoiceNotesListening, voiceNotesRecRef, voiceNotesChunksRef, setVoiceNotesTranscribing, (text) => {
+    voiceToggle(voiceNotesListening, setVoiceNotesListening, voiceNotesRecRef, voiceNotesChunksRef, setVoiceNotesTranscribing, (text) => {
       if (text) setEditedVoiceNotes(t => t + (t ? '\n' : '') + text);
     });
   }
@@ -7105,6 +7138,32 @@ function PickerScreen({ onNext, onBack, onSave, onManageSquad, onViewOpponent, o
   const [saveConfirm,     setSaveConfirm]     = useState(false);
   const [printModalOpen,  setPrintModalOpen]  = useState(false);
   const [printContent,    setPrintContent]    = useState({ styleContent: '', bodyContent: '' });
+  const printContentRef = useRef(null);
+
+  // Auto-shrink the print preview so it always fits on a single A4 landscape page,
+  // regardless of how many periods or players are on it. Only ever scales DOWN.
+  React.useEffect(() => {
+    if (!printModalOpen) return;
+    function fitToPage() {
+      const el = printContentRef.current;
+      if (!el) return;
+      el.style.transform = 'none';
+      // A4 landscape minus 10mm margins each side, at 96dpi (1mm ≈ 3.7795px)
+      const targetW = 277 * 3.7795275591;
+      const targetH = 190 * 3.7795275591;
+      const actualW = el.scrollWidth;
+      const actualH = el.scrollHeight;
+      const scale = Math.min(1, targetW / actualW, targetH / actualH);
+      if (scale < 1) {
+        el.style.transformOrigin = 'top left';
+        el.style.transform = `scale(${scale})`;
+      }
+    }
+    const t = setTimeout(fitToPage, 50); // let layout settle first
+    window.addEventListener('resize', fitToPage);
+    window.addEventListener('beforeprint', fitToPage);
+    return () => { clearTimeout(t); window.removeEventListener('resize', fitToPage); window.removeEventListener('beforeprint', fitToPage); };
+  }, [printModalOpen, printContent]);
   const [analysisSubTab,  setAnalysisSubTab]  = useState('minutes'); // 'minutes' | 'positions'
   const [selectedPosView, setSelectedPosView] = useState(0); // index into allPeriodViews
   const [periodMenu,      setPeriodMenu]      = useState(null); // {th, tp} | null
@@ -9530,7 +9589,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       <div style={{ padding:'8px 12px', paddingBottom:'calc(68px + max(env(safe-area-inset-bottom), 0px))', background:'#111111', borderTop:'1px solid #1A1A1A', flexShrink:0 }}>
         {/* Action buttons row */}
         {(() => {
-          const hasPrev = activePeriod > 0 || (activeHalf === 2 && h1Periods.length > 0);
+          const hasPrev = activePeriod > 0 || (activeHalf === 1 && h1Periods.length > 0);
           const btnBase = { flex:1, padding:'9px 4px', border:'1px solid #2A2A2A', borderRadius:10, background:'#1A1A1A', color:'#CCC', fontSize:11, fontWeight:700, cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:3, lineHeight:1 };
           return (
             <div style={{ display:'flex', gap:6, marginBottom:8 }}>
@@ -9598,7 +9657,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         </div>
         {/* Lineup preview */}
         <div style={{ flex: 1, overflow: 'auto', padding: 12 }}>
-          <div id="__kp_content__"
+          <div id="__kp_content__" ref={printContentRef}
             style={{ background: '#fff', borderRadius: 8, padding: 12 }}
             dangerouslySetInnerHTML={{ __html: printContent.bodyContent }}
           />
@@ -9689,7 +9748,7 @@ function EventsPage({ halfElapsed, goals, matchEvents, setMatchEvents, opponentN
   function stopRec(ref, setter) { try { ref.current && ref.current.stop(); } catch(e){} setter(false); }
 
   function toggleVoice() {
-    whisperToggle(listening, setListening, recogRef, noteChunksRef, setTranscribingNote,
+    voiceToggle(listening, setListening, recogRef, noteChunksRef, setTranscribingNote,
       text => setNoteText(p => (p ? p + ' ' : '') + text));
   }
 
@@ -11963,7 +12022,7 @@ function QuickPlayScreen({ opponent, linkedFixKey, fixIsHome, settings, onBack, 
   const notesChunksRef = React.useRef([]);
 
   function toggleVoice() {
-    whisperToggle(listening, setListening, recogRef, notesChunksRef, setTranscribingNotes,
+    voiceToggle(listening, setListening, recogRef, notesChunksRef, setTranscribingNotes,
       text => setNotes(prev => (prev ? prev + ' ' : '') + text));
   }
 
@@ -12403,7 +12462,7 @@ function LiveMatchV2Screen({ half1, half2, config, squad, opponent, linkedFixKey
   // ── Voice recording (toggle) ────────────────────────────────────────────────
   function toggleRecording() {
     if (!isRecording) voiceRecStartMinRef.current = Math.floor(elapsed/60);
-    whisperToggle(isRecording, setIsRecording, recogRef, voiceChunksRef, setTranscribingVoice, (text) => {
+    voiceToggle(isRecording, setIsRecording, recogRef, voiceChunksRef, setTranscribingVoice, (text) => {
       if (text) setVoiceTranscript(t => t+(t?'\n':'')+`[${voiceRecStartMinRef.current}'] ${text}`);
     });
   }
@@ -13303,7 +13362,7 @@ function PreMatchBriefScreen({ opponent, ctxKey, onBack }) {
   function togglePostRecogDictate(name) {
     const isRec = postRecogDictatingFor === name;
     if (!isRec && postRecogDictatingFor) return;
-    whisperToggle(isRec, (v) => setPostRecogDictatingFor(v ? name : null), postRecogNoteRecRef, postRecogNoteChunksRef, setPostRecogNoteTranscribing, (text) => {
+    voiceToggle(isRec, (v) => setPostRecogDictatingFor(v ? name : null), postRecogNoteRecRef, postRecogNoteChunksRef, setPostRecogNoteTranscribing, (text) => {
       if (text) setPostRecogs(prev => prev.map(r => r.playerName === name ? { ...r, note: (r.note ? r.note + ' ' : '') + text } : r));
     });
   }
@@ -13904,7 +13963,7 @@ function PostMatchReviewScreen({ game, squad, opponent, config, onDone }) {
 
   // ── Voice dictation for extra notes ──────────────────────────────────────────
   function toggleVoice() {
-    whisperToggle(listening, setListening, recogRef, extraChunksRef, setTranscribingExtra,
+    voiceToggle(listening, setListening, recogRef, extraChunksRef, setTranscribingExtra,
       text => setExtraNotes(prev => (prev ? prev + ' ' : '') + text));
   }
 
@@ -14670,6 +14729,7 @@ function AccountScreen({ onBack, onSettings, onImportExport, onAppSettings }) {
 // ════════════════════════════════════════════════════════════════════════════════
 function AppSettingsScreen({ onBack, settings, onSave }) {
   const [keepScreenOn, setKeepScreenOn] = React.useState(settings.keepScreenOn !== false);
+  const [voiceMethod, setVoiceMethod] = React.useState(settings.voiceMethod || 'native');
 
   // AI Settings state
   const [aiProvider,   setAiProviderState] = React.useState(() => loadAIProvider());
@@ -14680,6 +14740,11 @@ function AppSettingsScreen({ onBack, settings, onSave }) {
   function saveScreenOn(val) {
     setKeepScreenOn(val);
     onSave({ ...settings, keepScreenOn: val });
+  }
+
+  function saveVoiceMethod(val) {
+    setVoiceMethod(val);
+    onSave({ ...settings, voiceMethod: val });
   }
 
   function switchProvider(p) {
@@ -14810,6 +14875,37 @@ function AppSettingsScreen({ onBack, settings, onSave }) {
           <div style={{ padding:'10px 16px 14px', borderTop:'1px solid #1E1E1E' }}>
             <div style={{ fontSize:11, color:'#444', lineHeight:1.6 }}>
               🔒 Keys are stored only in this browser's local storage — never sent to any third-party server or included in code.
+            </div>
+          </div>
+        </div>
+
+        {/* ── Voice Transcription section ── */}
+        <SectionLabel>Voice Transcription</SectionLabel>
+        <div style={{ background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:14, overflow:'hidden' }}>
+          <div style={{ padding:'16px' }}>
+            <div style={{ fontSize:13, fontWeight:700, color:'#FFF', marginBottom:4 }}>Dictation Method</div>
+            <div style={{ fontSize:12, color:'#A1A1A1', marginBottom:12 }}>
+              Used by every "Dictate" button — voice notes, recognition notes, quick notes and more
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              {[
+                { id:'native',  label:'Native Browser', desc:'Free · offline · no API key', color:'#22c55e' },
+                { id:'whisper', label:'OpenAI Whisper',  desc:'Needs API key · online',       color:'#a78bfa' },
+              ].map(opt => {
+                const active = voiceMethod === opt.id;
+                return (
+                  <button key={opt.id} onClick={() => saveVoiceMethod(opt.id)}
+                    style={{ flex:1, padding:'14px 10px', borderRadius:12, cursor:'pointer',
+                      background: active ? opt.color + '18' : '#111',
+                      border: `2px solid ${active ? opt.color : '#2A2A2A'}`,
+                      color: active ? opt.color : '#666',
+                      display:'flex', flexDirection:'column', alignItems:'center', gap:4, transition:'all 0.15s' }}>
+                    <span style={{ fontSize:22 }}>{opt.id === 'native' ? '📱' : '☁️'}</span>
+                    <span style={{ fontSize:13, fontWeight:800, textAlign:'center' }}>{opt.label}</span>
+                    <span style={{ fontSize:9, fontWeight:500, opacity:0.7, textAlign:'center' }}>{opt.desc}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
