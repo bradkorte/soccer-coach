@@ -13544,15 +13544,23 @@ function PreMatchBriefScreen({ opponent, ctxKey, onBack }) {
   const activeSquad = React.useMemo(() => squad.filter(p => !p.archived), [squad]);
 
   // ── Find most recent completed game vs this opponent ──────────────────────
+  // Matches by linkedFixtureKey first (exact fixture — round + opponent), so
+  // playing the same opponent twice in a season never confuses which game's
+  // GK/recognition data this screen is editing. Falls back to "most recent
+  // game vs this opponent" only for older records without a linkedFixtureKey.
   const completedGame = React.useMemo(() => {
     if (!opponent) return null;
+    if (ctxKey) {
+      const exact = games.find(g => g.linkedFixtureKey === ctxKey);
+      if (exact) return exact;
+    }
     const matches = games.filter(g =>
       g.opponent?.toLowerCase() === opponent.toLowerCase() &&
       g.scoreUs !== undefined && g.scoreThem !== undefined
     );
     if (!matches.length) return null;
     return matches.sort((a, b) => (b.date || 0) - (a.date || 0))[0];
-  }, [games, opponent]);
+  }, [games, opponent, ctxKey]);
   const isPostMatch = !!completedGame;
 
   // ── Post-match editable state ─────────────────────────────────────────────
@@ -13663,6 +13671,136 @@ function PreMatchBriefScreen({ opponent, ctxKey, onBack }) {
   );
   const selectStyle = { background:'#0D0D0D', border:'1px solid #2A2A2A', borderRadius:8, color:'#FFF', fontSize:13, padding:'8px 10px', width:'100%', appearance:'none' };
 
+  // ── Print: GK/Recognition recommendations (page 1) + full season log (page 2) ──
+  const [printModalOpen, setPrintModalOpen] = React.useState(false);
+  const [printContent, setPrintContent] = React.useState({ styleContent:'', bodyContent:'' });
+  const printContentRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!printModalOpen) return;
+    function fitToPage() {
+      const el = printContentRef.current;
+      if (!el) return;
+      el.style.transform = 'none';
+      const targetW = 277 * 3.7795275591, targetH = 190 * 3.7795275591;
+      const scale = Math.min(1, targetW / el.scrollWidth, targetH / el.scrollHeight);
+      if (scale < 1) { el.style.transformOrigin = 'top left'; el.style.transform = `scale(${scale})`; }
+    }
+    const t = setTimeout(fitToPage, 50);
+    window.addEventListener('resize', fitToPage);
+    window.addEventListener('beforeprint', fitToPage);
+    return () => { clearTimeout(t); window.removeEventListener('resize', fitToPage); window.removeEventListener('beforeprint', fitToPage); };
+  }, [printModalOpen, printContent]);
+
+  function buildAndShowPrint() {
+    const teamName = localStorage.getItem('soccerCoach_fixtureTeam') || loadSettings().teamName || 'Us';
+    const teamLogo = null;
+    const today = new Date().toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' });
+
+    // Page 1 lists — same fairness-sorted data shown on screen, skip snoozed players for print
+    const gkRows = gkListRaw.filter(r => !r._snoozedUntil);
+    const recRows = recListRaw.filter(r => !r._snoozedUntil);
+
+    const gkRowsHtml = gkRows.map((r, i) => `
+      <div class="rec-row">
+        <span class="rec-rank">${i+1}</span>
+        <span class="rec-name">${r.name}</span>
+        <span class="rec-count">${r.count} half${r.count===1?'':'s'}</span>
+      </div>`).join('');
+    const recRowsHtml = recRows.map((r, i) => `
+      <div class="rec-row">
+        <span class="rec-rank">${i+1}</span>
+        <span class="rec-name">${r.name}</span>
+        <span class="rec-count">${r.count}×</span>
+      </div>`).join('');
+
+    // Page 2 — full season log, every game, in round order. Each row's Round label is
+    // the disambiguator when the same opponent is played more than once in a season.
+    const sortedGames = [...games].filter(g => g.scoreUs !== undefined && g.scoreThem !== undefined)
+      .sort((a, b) => (a.date||0) - (b.date||0));
+    const logRowsHtml = sortedGames.map(g => {
+      const gk = resolveHalfGoalkeepers(g);
+      const recs = getGameRecognitions(g);
+      const recCells = [0,1,2].map(i => `<td>${recs[i] ? recs[i].playerName : ''}</td>`).join('');
+      const overflow = recs.length > 3 ? `<span class="log-more">+${recs.length-3}</span>` : '';
+      return `<tr>
+        <td class="log-round">${g.khula_round || '—'}</td>
+        <td>${g.opponent || '—'}</td>
+        <td>${gk.h1 || '—'}</td>
+        <td>${gk.h2 || '—'}</td>
+        ${recCells}
+        <td>${overflow}</td>
+      </tr>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Match Brief — ${teamName} vs ${opponent||'Opponent'}</title>
+<style>
+@page { size: A4 landscape; margin: 10mm; }
+@media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fff; color: #111; }
+.sh-hdr { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1B5E20; padding-bottom: 6px; margin-bottom: 14px; }
+.club-badge { width: 26px; height: 26px; background: #1B5E20; border-radius: 5px; display: flex; align-items: center; justify-content: center; color: #F5C04A; font-size: 13px; flex-shrink: 0; }
+.sh-title { font-size: 15px; font-weight: 700; color: #1B5E20; line-height: 1.2; }
+.sh-sub { font-size: 9px; color: #666; }
+.sh-meta { font-size: 9px; color: #777; text-align: right; }
+.page2 { page-break-before: always; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.col-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1B5E20; border-bottom: 1.5px solid #C8E6C9; padding-bottom: 5px; margin-bottom: 8px; }
+.rec-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 0.5px solid #eee; }
+.rec-rank { width: 20px; height: 20px; border-radius: 50%; background: #E8F5E9; color: #1B5E20; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.rec-name { flex: 1; font-size: 13px; font-weight: 600; }
+.rec-count { font-size: 11px; color: #888; }
+.log-title { font-size: 13px; font-weight: 700; color: #1B5E20; margin-bottom: 10px; }
+table.log { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+table.log th { text-align: left; font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.5px; color: #888; padding: 5px 8px; border-bottom: 1.5px solid #C8E6C9; }
+table.log td { padding: 5px 8px; border-bottom: 0.5px solid #eee; }
+.log-round { font-weight: 700; color: #1B5E20; white-space: nowrap; }
+.log-more { font-size: 9px; color: #aaa; }
+</style>
+</head>
+<body>
+<div class="sh-hdr">
+  <div style="display:flex;align-items:center;gap:8px">
+    ${teamLogo ? `<img src="${teamLogo}" style="width:30px;height:30px;object-fit:contain" />` : `<div class="club-badge">&#9917;</div>`}
+    <div>
+      <div class="sh-title">${teamName} — Match Brief</div>
+      <div class="sh-sub">vs ${opponent||'Opponent'} · ${today}</div>
+    </div>
+  </div>
+  <div class="sh-meta">Recognition &amp; goalkeeper rotation recommendations</div>
+</div>
+<div class="cols">
+  <div>
+    <div class="col-title">🧤 Goalkeeper — Recommended Order</div>
+    ${gkRowsHtml || '<div style="font-size:12px;color:#999">No data yet</div>'}
+  </div>
+  <div>
+    <div class="col-title">⭐ Player Recognition — Recommended Order</div>
+    ${recRowsHtml || '<div style="font-size:12px;color:#999">No data yet</div>'}
+  </div>
+</div>
+<div class="page2">
+  <div class="log-title">Season Log — Goalkeepers &amp; Player Recognition</div>
+  <table class="log">
+    <thead><tr><th>Round</th><th>Opponent</th><th>GK H1</th><th>GK H2</th><th colspan="4">Recognition</th></tr></thead>
+    <tbody>${logRowsHtml}</tbody>
+  </table>
+</div>
+</body>
+</html>`;
+
+    const parsed = new DOMParser().parseFromString(html, 'text/html');
+    const styleContent = parsed.querySelector('style')?.innerHTML || '';
+    const bodyContent = parsed.body.innerHTML;
+    setPrintContent({ styleContent, bodyContent });
+    setPrintModalOpen(true);
+  }
+
   // Inline snooze picker overlay
   function SnoozePicker({ category, name }) {
     return (
@@ -13697,10 +13835,14 @@ function PreMatchBriefScreen({ opponent, ctxKey, onBack }) {
     <div style={{ display:'flex', flexDirection:'column', minHeight:'100vh', background:'#0D0D0D' }}>
       <KhulaHeader />
       {/* Page title */}
-      <div style={{ padding:'16px 16px 10px', flexShrink:0 }}>
+      <div style={{ padding:'16px 16px 10px', flexShrink:0, position:'relative' }}>
         <button onClick={onBack} style={{ background:'none', border:'none', color:'#666', fontSize:12, cursor:'pointer', padding:'0 0 8px', display:'flex', alignItems:'center', gap:5 }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
           Match Day
+        </button>
+        <button onClick={buildAndShowPrint}
+          style={{ position:'absolute', top:16, right:16, background:'#1A1A1A', border:'1px solid #2A2A2A', borderRadius:10, padding:'8px 12px', color:'#F5C04A', fontSize:12, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:6 }}>
+          🖨 Print
         </button>
         <div style={{ fontSize:24, fontWeight:800, color:'#FFF', lineHeight:1.1 }}>Match Brief</div>
         <div style={{ fontSize:13, color:'#666', marginTop:4 }}>
@@ -13958,6 +14100,49 @@ function PreMatchBriefScreen({ opponent, ctxKey, onBack }) {
 
       {/* Snooze picker overlay */}
       {snoozePickerOpen && <SnoozePicker category={snoozePickerOpen.category} name={snoozePickerOpen.name} />}
+
+      {/* ── PRINT PREVIEW MODAL ── */}
+      {printModalOpen && <div style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        zIndex: 9999, background: 'rgba(0,0,0,0.96)',
+        display: 'flex', flexDirection: 'column',
+      }}>
+        <style dangerouslySetInnerHTML={{__html: printContent.styleContent + `
+          @media print {
+            body * { visibility: hidden !important; }
+            #__brief_content__, #__brief_content__ * { visibility: visible !important; }
+            #__brief_content__ {
+              position: fixed !important; top: 0 !important; left: 0 !important;
+              width: 100% !important; height: auto !important;
+              overflow: visible !important; background: white !important;
+              border-radius: 0 !important; padding: 12px !important; margin: 0 !important;
+            }
+          }
+        `}} />
+        <div style={{
+          background: '#1a1a1a',
+          paddingTop: 'max(env(safe-area-inset-top), 12px)',
+          paddingBottom: '12px', paddingLeft: '16px', paddingRight: '16px',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          flexShrink: 0, borderBottom: '1px solid #2a2a2a',
+        }}>
+          <button onClick={() => setPrintModalOpen(false)} style={{
+            background: '#2a2a2a', color: '#fff', border: 'none',
+            borderRadius: 8, padding: '8px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 600,
+          }}>✕ Close</button>
+          <span style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>Print Preview</span>
+          <button onClick={() => window.print()} style={{
+            background: '#F5C04A', color: '#000', border: 'none',
+            borderRadius: 8, padding: '8px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 700,
+          }}>🖨 Print</button>
+        </div>
+        <div style={{ flex: 1, overflow: 'auto', padding: 12 }}>
+          <div id="__brief_content__" ref={printContentRef}
+            style={{ background: '#fff', borderRadius: 8, padding: 12 }}
+            dangerouslySetInnerHTML={{ __html: printContent.bodyContent }}
+          />
+        </div>
+      </div>}
     </div>
   );
 }
