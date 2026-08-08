@@ -1840,10 +1840,25 @@ function resolveHalfGoalkeepers(game) {
     names.forEach(n => { counts[n] = (counts[n] || 0) + 1; });
     return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
   }
+  // Legacy flat "gk" field — some older games only recorded first names as a single
+  // string like "Sienna" (same keeper both halves) or "Sienna / Simone" (H1 / H2 split
+  // by first name). Resolve against the squad to get full names for display consistency.
+  function legacyGk(half) {
+    if (!game.gk) return null;
+    const parts = String(game.gk).split('/').map(s => s.trim()).filter(Boolean);
+    const raw = parts.length >= 2 ? (half === 1 ? parts[0] : parts[1]) : parts[0];
+    if (!raw) return null;
+    try {
+      const squad = JSON.parse(localStorage.getItem('soccerCoach_squad') || '[]');
+      const match = squad.find(p => p.name === raw || p.firstName === raw || p.name?.split(' ')[0] === raw);
+      return match ? match.name : raw;
+    } catch { return raw; }
+  }
   // Explicit fields take priority — they are the authoritative post-match record.
-  // Fall back to halves slot data only when no explicit assignment exists.
-  const h1 = (game.h1Goalkeeper !== undefined) ? (game.h1Goalkeeper ?? null) : modeGk(game.halves?.[0]);
-  const h2 = (game.h2Goalkeeper !== undefined) ? (game.h2Goalkeeper ?? null) : modeGk(game.halves?.[1]);
+  // Fall back to halves slot data, then the legacy flat "gk" field, when no explicit
+  // assignment exists.
+  const h1 = (game.h1Goalkeeper !== undefined) ? (game.h1Goalkeeper ?? null) : (modeGk(game.halves?.[0]) || legacyGk(1));
+  const h2 = (game.h2Goalkeeper !== undefined) ? (game.h2Goalkeeper ?? null) : (modeGk(game.halves?.[1]) || legacyGk(2));
   return { h1, h2 };
 }
 
